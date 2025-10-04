@@ -1,8 +1,4 @@
-# 👋 Fed-HeLLo: Efficient Federated Foundation Model Fine-Tuning with Heterogeneous LoRA Allocation
-
-**Official Code for the paper accepted to *IEEE Transactions on Neural Networks and Learning Systems (TNNLS)***
-
----
+# 👋 Federated Learning Resource-Aware Heterogeneous LoRA Allocation
 
 ## 🧪 Getting Started
 
@@ -46,12 +42,10 @@ bash run-cifar100.sh
 ├── main.py         # Entry point for training
 └── test.py         # Evaluation and testing routines
 ```
-
 ---
+## References
 
-## 📄 Citation
-
-If you find this work useful for your research, please cite our paper:
+Thi is a fork from the official code for the paper accepted to IEEE Transactions on Neural Networks and Learning Systems (TNNLS)
 
 ```bibtext
 @article{zhang2025fed,
@@ -61,6 +55,11 @@ If you find this work useful for your research, please cite our paper:
   year={2025}
 }
 ```
+---
+
+## 📄 Citation
+
+If you find this work useful for your research, please cite our paper: TODO
 
 ---
 
