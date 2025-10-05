@@ -139,7 +139,7 @@ def ffm_fedavg_depthffm(args):
         args.logger.info('Round: ' + str(t) + '/' + str(args.round), main_process_only=True)
         ## learning rate decaying
         if t+1 % args.lr_step_size == 0: # shakespear: 50, femnist: x, other: 1
-            args.local_lr = args.local_lr * args.decay_weight
+            args.local_lr = float(args.local_lr) * float(args.decay_weight)
 
         ############################################################# FedAvg ##########################################
         ## user selection
