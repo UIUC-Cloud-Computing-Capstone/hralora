@@ -22,4 +22,4 @@ data/dataset/ledgar/*
 log/*
 *.db
 pretrained_model/*
-
+.idea/*

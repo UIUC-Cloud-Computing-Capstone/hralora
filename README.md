@@ -10,9 +10,17 @@ Then update `prefix: /home/yourhomepath/anaconda3/envs/env.fl` in the `environme
 
 Then activate the environment using the provided file:
 
+Default:
+
 ```bash
 conda env create --name env.fl --file=environment.yml
 conda activate env.fl
+```
+
+Mac:
+```bash
+conda env create --name env.fl --file=environment-macos.yml
+conda activate env.fl && export KMP_DUPLICATE_LIB_OK=TRUE
 ```
 
 ### 🚀 Running the Code
