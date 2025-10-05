@@ -27,15 +27,9 @@ conda activate env.fl && export KMP_DUPLICATE_LIB_OK=TRUE
 
 First, set up the HuggingFace Accelerate configuration:
 
-Default:
 
 ```bash
 cp accelerate_default_config.yaml ~/.cache/huggingface/accelerate/default_config.yaml
-```
-
-Mac: 
-```
-cp accelerate_macos_config.yaml ~/.cache/huggingface/accelerate/default_config.yaml
 ```
 
 Next, launch the training script for the CIFAR-100 dataset:
