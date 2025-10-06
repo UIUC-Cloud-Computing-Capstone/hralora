@@ -1,30 +1,23 @@
 import copy
-import numpy as np
-import time, math
+import time
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-
 from utils.data_pre_process import load_partition, DatasetSplit
 from utils.model_utils import model_setup
-from utils.log_utils import set_log_path
 from test import test, test_vit, test_ledgar
 
 from ..solver.local_solver import LocalUpdate
-from ..solver.global_aggregator import average, average_lora, average_lora_depthfl, weighted_average_lora_depthfl
-import gc
+from ..solver.global_aggregator import average_lora_depthfl, weighted_average_lora_depthfl
 from fractions import Fraction
 import re
-import matplotlib.pyplot as plt
 import numpy as np
-from collections import Counter
 from transformers.tokenization_utils_base import PreTrainedTokenizerBase, PaddingStrategy
 from typing import Optional, Union
 from dataclasses import dataclass
 from utils.fim_calculator import FIMCalculator
-import torch.distributed as dist
 import threading
-import random
+
 
 gpu_lock = threading.Lock()
 
@@ -82,17 +75,13 @@ def ffm_fedavg_depthffm_fim(args):
     args.logger.info('length of dataset:{}'.format(len(dataset_train) + len(dataset_test)), main_process_only=True)
     args.logger.info('num. of training data:{}'.format(len(dataset_train)), main_process_only=True)
     args.logger.info('num. of testing data:{}'.format(len(dataset_test)), main_process_only=True)
-    # print('num. of validation data:{}'.format(len(dataset_val)))
-    # print('num. of public data:{}'.format(len(dataset_public)))
     args.logger.info('num. of users:{}'.format(len(dict_users)), main_process_only=True)
     sample_per_users = int(sum([ len(dict_users[i]) for i in range(len(dict_users))])/len(dict_users))
     args.logger.info('average num. of samples per user:{}'.format(sample_per_users), main_process_only=True)
-
     args.logger.info("{:<50}".format("-" * 15 + " log path " + "-" * 50)[0:60], main_process_only=True)
     if args.accelerator.is_local_main_process:
         writer = SummaryWriter(args.log_path)
     args.logger.info(args.log_path, main_process_only=True)
-    
     args.logger.info("{:<50}".format("-" * 15 + " model setup " + "-" * 50)[0:60], main_process_only=True)
     args, net_glob, global_model, args.dim = model_setup(args)
     # memory calculation for ViT
@@ -123,15 +112,7 @@ def ffm_fedavg_depthffm_fim(args):
     
     # heterogenity
     group_num = len(args.heterogeneous_group)
-    group_cnt = []
-    for g in range(group_num):
-        if g == (group_num - 1):
-            remind_cnt = args.num_users
-            for c in group_cnt:
-                remind_cnt -= c
-            group_cnt.append(remind_cnt)
-        else:    
-            group_cnt.append(int(args.num_users * float(Fraction(args.heterogeneous_group[g]))))
+    group_cnt = get_group_cnt(args, group_num)
 
     args.user_groupid_list = []
     for id, c in enumerate(group_cnt):
@@ -152,16 +133,7 @@ def ffm_fedavg_depthffm_fim(args):
             gpu_lock.release()
             # select those with lowest FIM layers to freeze
             layers_rank, cluster_labels = calc.bottom_k_layers(fim, k=args.lora_layer)
-            observed_probability = []
-            for label in cluster_labels:
-                if label == 0:
-                    observed_probability.append('1/27')
-                elif label == 1:
-                    observed_probability.append('2/27')
-                elif label == 2:
-                    observed_probability.append('1/9')
-            observed_probability = np.array([float(Fraction(x)) for x in observed_probability])
-            observed_probability /= sum(observed_probability)
+            observed_probability = get_observed_prob(cluster_labels)
             args.block_ids_list = []
             for id in args.user_groupid_list:
                 layer_list = np.random.choice(range(args.lora_layer),
@@ -341,3 +313,31 @@ def ffm_fedavg_depthffm_fim(args):
         args.accelerator.wait_for_everyone()
 
     return (best_test_acc, best_test_f1, best_test_macro_f1, best_test_micro_f1), metric_keys
+
+
+def get_observed_prob(cluster_labels):
+    observed_probability = []
+    for label in cluster_labels:
+        # TODO Liam: replace hardcoded values
+        if label == 0:
+            observed_probability.append('1/27')
+        elif label == 1:
+            observed_probability.append('2/27')
+        elif label == 2:
+            observed_probability.append('1/9')
+    observed_probability = np.array([float(Fraction(x)) for x in observed_probability])
+    observed_probability /= sum(observed_probability)
+    return observed_probability
+
+
+def get_group_cnt(args, group_num):
+    group_cnt = []
+    for g in range(group_num):
+        if g == (group_num - 1):
+            remind_cnt = args.num_users
+            for c in group_cnt:
+                remind_cnt -= c
+            group_cnt.append(remind_cnt)
+        else:
+            group_cnt.append(int(args.num_users * float(Fraction(args.heterogeneous_group[g]))))
+    return group_cnt

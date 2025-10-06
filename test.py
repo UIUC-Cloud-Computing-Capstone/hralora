@@ -75,6 +75,10 @@ def test_vit(model, dataset, args, t):
             predictions=predictions,
             references=references,
         )
+        # TODO Liam: for dev, remove later
+        # testing 2 samples and then break
+        #if step >= 2:
+        #   break
 
     eval_metric = metric.compute()
     cur_acc = eval_metric['accuracy']
