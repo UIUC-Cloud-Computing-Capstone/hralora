@@ -411,7 +411,7 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--server_port", type=int, default=8080, help="Server port")
     parser.add_argument("--client_id", type=int, default=0, help="Client ID")
     parser.add_argument("--config_name", type=str, 
-                       default="experiments/cifar100_vit_lora/depthffm_fim/image_cifar100_vit_fedavg_depthffm_fim-6_9_12-bone_noniid-pat_10_dir-noprior-s50-e50.yaml",
+                       default="experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml",
                        help="Configuration file")
     parser.add_argument("--seed", type=int, default=1, help="Random seed")
     parser.add_argument("--gpu", type=int, default=-1, help="GPU ID (-1 for CPU)")

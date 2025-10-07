@@ -23,17 +23,29 @@ pip install flwr[simulation] accelerate torch torchvision transformers
 
 **Terminal 1 - Start Server**:
 ```bash
-python flower_server_minimal.py --server_address 0.0.0.0 --server_port 8080 --config_name experiments/cifar100_vit_lora/depthffm_fim/image_cifar100_vit_fedavg_depthffm_fim-6_9_12-bone_noniid-pat_10_dir-noprior-s50-e50.yaml
+python flower_server_minimal.py --server_address 0.0.0.0 --server_port 8080 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml
 ```
 
 **Terminal 2 - Start Client**:
 ```bash
-python flower_client_simple.py --server_address localhost --server_port 8080 --client_id 0 --config_name experiments/cifar100_vit_lora/depthffm_fim/image_cifar100_vit_fedavg_depthffm_fim-6_9_12-bone_noniid-pat_10_dir-noprior-s50-e50.yaml
+python flower_client_simple.py --server_address localhost --server_port 8080 --client_id 0 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml
 ```
 
 ### Multiple Clients
 
 Start additional clients with different `--client_id` values (1, 2, 3, etc.) in separate terminals.
+
+### Using Different Configurations
+
+You can use different configuration files by specifying the `--config_name` parameter:
+
+```bash
+# Use the default Flower configuration
+python flower_server_minimal.py --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml
+
+# Use other available configurations
+python flower_server_minimal.py --config_name experiments/cifar100_vit_lora/depthffm_fim/image_cifar100_vit_fedavg_depthffm_fim-6_9_12-bone_noniid-pat_10_dir-noprior-s50-e50.yaml
+```
 
 ### Multi-Machine Setup
 
@@ -46,6 +58,13 @@ Replace `localhost` with the server's IP address on client machines.
 - `--server_port`: Server port (default: 8080)
 - `--client_id`: Unique client identifier
 - `--config_name`: Configuration file path
+
+**Flower-Specific Configuration:**
+The implementation uses a dedicated Flower configuration file:
+- `experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml`
+- Optimized for federated learning with 500 rounds, 10 selected users
+- Configured for CIFAR-100 with ViT and LoRA fine-tuning
+- Non-IID data distribution with pathological partitioning
 
 **CPU Optimization:**
 ```bash
@@ -76,7 +95,7 @@ export TORCH_NUM_THREADS=8      # PyTorch threads
 **Debug Mode:**
 ```bash
 export FLWR_LOG_LEVEL=DEBUG
-python flower_server_minimal.py --config_name your_config.yaml
+python flower_server_minimal.py --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml
 ```
 
 ## 📚 Resources

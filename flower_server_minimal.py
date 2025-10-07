@@ -177,7 +177,7 @@ def parse_server_arguments() -> argparse.Namespace:
     parser.add_argument("--server_address", type=str, default="0.0.0.0", help="Server address")
     parser.add_argument("--server_port", type=int, default=8080, help="Server port")
     parser.add_argument("--config_name", type=str, 
-                       default="experiments/cifar100_vit_lora/depthffm_fim/image_cifar100_vit_fedavg_depthffm_fim-6_9_12-bone_noniid-pat_10_dir-noprior-s50-e50.yaml",
+                       default="experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml",
                        help="Configuration file")
     parser.add_argument("--num_rounds", type=int, default=10, help="Number of rounds")
     parser.add_argument("--log_level", type=str, default="INFO", 
