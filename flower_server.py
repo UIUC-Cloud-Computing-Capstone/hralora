@@ -1,6 +1,12 @@
 """
-Minimal Flower Server - Ultra-simple version that just works
-Refactored for improved code quality, error handling, and maintainability.
+Flower Server Implementation
+
+A comprehensive Flower server implementation for federated learning.
+Provides robust error handling, configuration management, and support for
+various federated learning strategies including FedAvg.
+
+Author: Team1-FL-RHLA
+Version: 1.0.0
 """
 import flwr as fl
 import numpy as np
@@ -102,17 +108,17 @@ def create_fedavg_strategy(num_rounds: int,
     )
 
 
-def start_minimal_flower_server(server_address: str = "0.0.0.0", 
-                               server_port: int = 8080, 
-                               num_rounds: int = 10,
-                               log_level: str = "INFO",
-                               fraction_fit: float = 1.0,
-                               fraction_evaluate: float = 0.0,
-                               min_fit_clients: int = 1,
-                               min_evaluate_clients: int = 0,
-                               min_available_clients: int = 1) -> None:
+def start_flower_server(server_address: str = "0.0.0.0", 
+                       server_port: int = 8080, 
+                       num_rounds: int = 10,
+                       log_level: str = "INFO",
+                       fraction_fit: float = 1.0,
+                       fraction_evaluate: float = 0.0,
+                       min_fit_clients: int = 1,
+                       min_evaluate_clients: int = 0,
+                       min_available_clients: int = 1) -> None:
     """
-    Start a minimal Flower server that just works.
+    Start a Flower server for federated learning.
     
     Args:
         server_address: Server address to bind to
@@ -131,7 +137,7 @@ def start_minimal_flower_server(server_address: str = "0.0.0.0",
         
         # Setup multiprocessing for optimal CPU utilization
         num_cores = setup_multiprocessing()
-        logging.info(f"Minimal server initialized with {num_cores} CPU cores")
+        logging.info(f"Flower server initialized with {num_cores} CPU cores")
         
         # Validate parameters
         if num_rounds <= 0:
@@ -151,7 +157,7 @@ def start_minimal_flower_server(server_address: str = "0.0.0.0",
         )
         
         # Start server
-        logging.info(f"Starting minimal Flower server on {server_address}:{server_port}")
+        logging.info(f"Starting Flower server on {server_address}:{server_port}")
         logging.info(f"Configuration: {num_rounds} rounds, fraction_fit={fraction_fit}, "
                     f"fraction_evaluate={fraction_evaluate}, min_fit_clients={min_fit_clients}")
         
@@ -173,7 +179,7 @@ def parse_server_arguments() -> argparse.Namespace:
     Returns:
         Parsed arguments namespace
     """
-    parser = argparse.ArgumentParser(description="Minimal Flower Server")
+    parser = argparse.ArgumentParser(description="Flower Server for Federated Learning")
     parser.add_argument("--server_address", type=str, default="0.0.0.0", help="Server address")
     parser.add_argument("--server_port", type=int, default=8080, help="Server port")
     parser.add_argument("--config_name", type=str, 
@@ -269,7 +275,7 @@ def main() -> None:
         num_rounds = load_configuration_with_fallback(args.config_name, args.num_rounds)
         
         # Start server
-        start_minimal_flower_server(
+        start_flower_server(
             server_address=args.server_address,
             server_port=args.server_port,
             num_rounds=num_rounds,

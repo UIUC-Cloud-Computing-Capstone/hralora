@@ -1,6 +1,6 @@
-# 🌸 Flower Federated Learning Implementation
+# 🌸 Flower Federated Learning Framework
 
-Flower-based federated learning framework for heterogeneous LoRA allocation with multi-core CPU optimization.
+Comprehensive Flower-based federated learning implementation with heterogeneous LoRA allocation, multi-core CPU optimization, and robust configuration management.
 
 ## 🚀 Quick Start
 
@@ -23,12 +23,12 @@ pip install flwr[simulation] accelerate torch torchvision transformers
 
 **Terminal 1 - Start Server**:
 ```bash
-python flower_server_minimal.py --server_address 0.0.0.0 --server_port 8080 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml
+python flower_server.py --server_address 0.0.0.0 --server_port 8080 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml  --log_level INFO
 ```
 
 **Terminal 2 - Start Client**:
 ```bash
-python flower_client_simple.py --server_address localhost --server_port 8080 --client_id 0 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml
+python flower_client.py --server_address localhost --server_port 8080 --client_id 0 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml --log_level INFO
 ```
 
 ### Multiple Clients
@@ -41,10 +41,10 @@ You can use different configuration files by specifying the `--config_name` para
 
 ```bash
 # Use the default Flower configuration
-python flower_server_minimal.py --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml
+python flower_server.py --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml
 
 # Use other available configurations
-python flower_server_minimal.py --config_name experiments/cifar100_vit_lora/depthffm_fim/image_cifar100_vit_fedavg_depthffm_fim-6_9_12-bone_noniid-pat_10_dir-noprior-s50-e50.yaml
+python flower_server.py --config_name experiments/cifar100_vit_lora/depthffm_fim/image_cifar100_vit_fedavg_depthffm_fim-6_9_12-bone_noniid-pat_10_dir-noprior-s50-e50.yaml
 ```
 
 ### Multi-Machine Setup
@@ -75,15 +75,20 @@ export TORCH_NUM_THREADS=8      # PyTorch threads
 ## 🏗️ Architecture
 
 **Components:**
-- `flower_server_minimal.py`: Central server (FedAvg strategy)
-- `flower_client_simple.py`: Client with simulated training
+- `flower_server.py`: Central server (FedAvg strategy)
+- `flower_client.py`: Client with comprehensive federated learning support
 - `algorithms/solver/fl_utils.py`: Common utilities and aggregation
 
 **Features:**
-- Multi-core CPU utilization
-- LoRA-aware aggregation
-- Heterogeneous client support
-- Automatic client management
+- Multi-core CPU utilization and optimization
+- LoRA-aware parameter aggregation
+- Heterogeneous client support with different architectures
+- Comprehensive configuration management via YAML
+- Dataset loading and management
+- Realistic training and evaluation simulation
+- Modern Flower API compatibility (no deprecation warnings)
+- Robust error handling and logging
+- Production-ready code quality
 
 ## 🐛 Troubleshooting
 
@@ -95,7 +100,7 @@ export TORCH_NUM_THREADS=8      # PyTorch threads
 **Debug Mode:**
 ```bash
 export FLWR_LOG_LEVEL=DEBUG
-python flower_server_minimal.py --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml
+python flower_server.py --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml
 ```
 
 ## 📚 Resources

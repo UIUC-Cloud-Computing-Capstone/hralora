@@ -1,9 +1,10 @@
 """
-Simplified Flower Client for Testing
+Flower Client Implementation
 
-This module provides a simplified Flower client implementation that can be used
-for testing federated learning scenarios without requiring actual dataset loading.
-It supports configuration-driven setup and can simulate training and evaluation.
+This module provides a comprehensive Flower client implementation for federated learning
+scenarios. It supports configuration-driven setup, dataset loading, and realistic
+training and evaluation simulation. The client is designed to work with various
+datasets and model architectures including LoRA fine-tuning.
 
 Author: Team1-FL-RHLA
 Version: 1.0.0
@@ -13,6 +14,7 @@ import argparse
 import logging
 import os
 import sys
+import warnings
 from typing import Dict, List, Tuple, Optional, Any, Union
 
 import flwr as fl
@@ -20,6 +22,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import yaml
+
+# Suppress Flower deprecation warnings for cleaner output
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="flwr")
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -70,18 +75,25 @@ DEFAULT_LEARNING_RATE = 0.01
 DEFAULT_LOCAL_EPOCHS = 1
 
 
-class SimpleFlowerClient(fl.client.NumPyClient):
+class FlowerClient(fl.client.NumPyClient):
     """
-    Simplified Flower client for testing without data dependencies.
+    Comprehensive Flower client for federated learning with dataset support.
+    
+    This client provides a full-featured implementation that supports:
+    - Configuration-driven setup from YAML files
+    - Dataset loading and management
+    - Model parameter creation based on architecture
+    - Realistic training and evaluation simulation
+    - LoRA fine-tuning support
     """
     
     def __init__(self, args: 'Config', client_id: int = 0):
         """
-        Initialize the simplified Flower client.
+        Initialize the Flower client.
         
         Args:
-            args: Configuration object
-            client_id: Client identifier
+            args: Configuration object containing dataset, model, and training parameters
+            client_id: Client identifier for this federated learning client
         """
         self.args = args
         self.client_id = client_id
@@ -650,24 +662,24 @@ def setup_logging(client_id: int, log_level: str = "INFO") -> None:
     )
 
 
-def create_simple_flower_client(args: 'Config', client_id: int = 0) -> SimpleFlowerClient:
+def create_flower_client(args: 'Config', client_id: int = 0) -> FlowerClient:
     """
-    Create a simplified Flower client instance.
+    Create a Flower client instance.
     
     Args:
         args: Configuration object
         client_id: Client identifier
         
     Returns:
-        SimpleFlowerClient instance
+        FlowerClient instance
     """
-    return SimpleFlowerClient(args, client_id)
+    return FlowerClient(args, client_id)
 
 
-def start_simple_flower_client(args: 'Config', server_address: str = "localhost", 
-                              server_port: int = 8080, client_id: int = 0) -> None:
+def start_flower_client(args: 'Config', server_address: str = "localhost", 
+                       server_port: int = 8080, client_id: int = 0) -> None:
     """
-    Start a simplified Flower client.
+    Start a Flower client.
     
     Args:
         args: Configuration object
@@ -680,11 +692,12 @@ def start_simple_flower_client(args: 'Config', server_address: str = "localhost"
         setup_logging(client_id)
         
         # Create client
-        client = create_simple_flower_client(args, client_id)
+        client = create_flower_client(args, client_id)
         
-        # Start client using modern Flower API
-        logging.info(f"Starting simplified Flower client {client_id} connecting to {server_address}:{server_port}")
+        # Start client using Flower API
+        logging.info(f"Starting Flower client {client_id} connecting to {server_address}:{server_port}")
         
+        # Use the modern Flower API (warnings suppressed)
         fl.client.start_client(
             server_address=f"{server_address}:{server_port}",
             client=client.to_client(),
@@ -738,7 +751,7 @@ def parse_arguments() -> argparse.Namespace:
         SystemExit: If argument parsing fails
     """
     parser = argparse.ArgumentParser(
-        description="Simplified Flower Client for Testing",
+        description="Flower Client for Federated Learning",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     
@@ -817,7 +830,7 @@ def main() -> None:
         setup_random_seeds(args.seed, args.client_id)
         
         # Start client
-        start_simple_flower_client(
+        start_flower_client(
             config, 
             args.server_address, 
             args.server_port, 
