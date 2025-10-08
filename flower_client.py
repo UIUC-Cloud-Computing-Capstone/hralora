@@ -242,6 +242,7 @@ class FlowerClient(fl.client.NumPyClient):
         """
         return self.dataset_info.copy()
     
+    # TODO Liam: do not create dummy model params, use the actual model params
     def _create_dummy_model_params(self) -> List[np.ndarray]:
         """
         Create dummy model parameters for testing based on dataset configuration.
