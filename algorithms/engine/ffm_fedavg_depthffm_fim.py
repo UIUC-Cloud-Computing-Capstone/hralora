@@ -8,6 +8,12 @@ from utils.model_utils import model_setup
 from test import test, test_vit, test_ledgar
 from ..solver.local_solver import LocalUpdate
 from ..solver.global_aggregator import average_lora_depthfl, weighted_average_lora_depthfl
+from ..solver.shared_utils import (
+    load_data, get_data_loader_list, get_dataset_fim, vit_collate_fn, test_collate_fn,
+    get_group_cnt, user_groupid_list, update_block_ids_list, update_block_ids_list_with_observed_probability,
+    get_observed_prob, get_observed_probability, get_model_update, get_norm_updates,
+    get_train_loss, get_norm, update_delta_norms
+)
 from fractions import Fraction
 import re
 import numpy as np
@@ -198,134 +204,17 @@ def get_global_model(args, global_model, local_updates, num_samples):
         global_model = average_lora_depthfl(args, global_model, local_updates)
     return global_model
 
-def get_train_loss(local_losses):
-    if len(local_losses) > 0:
-        train_loss = sum(local_losses) / len(local_losses)
-    else:
-        train_loss = 100
-    return train_loss
 
-def get_norm(delta_norms):
-    if len(delta_norms) > 0:
-        norm = torch.median(torch.stack(delta_norms)).cpu()
-    else:
-        norm = 100
-    return norm
 
-def update_delta_norms(delta_norms, norm_updates):
-    if len(norm_updates) > 0:
-        delta_norm = torch.norm(torch.cat(norm_updates))
-    else:
-        delta_norm = None
-            # delta_norm = torch.norm(torch.cat([torch.flatten(model_update[k])for k in model_update.keys()]))
-    if delta_norm:
-        delta_norms.append(delta_norm)
 
-def get_norm_updates(model_update):
-    norm_updates = []
-    for k in model_update.keys():
-        norm_updates.append(torch.flatten(model_update[k]))
-    return norm_updates
 
-def get_model_update(args, global_model, local_model, no_weight_lora):
-    model_update = {}
-    if args.peft == 'lora':
-        for k in global_model.keys():
-            if 'lora' in k: # no classifier
-                if int(re.findall(r"\d+", k)[0]) not in no_weight_lora:
-                    model_update[k] = local_model[k].detach().cpu() - global_model[k].detach().cpu() 
-    else:
-        model_update = {k: local_model[k].detach().cpu() - global_model[k].detach().cpu() for k in global_model.keys()}
-    return model_update
 
-def update_block_ids_list(args):
-    args.block_ids_list = []
-    for id in args.user_groupid_list:
-        layer_list = np.random.choice(range(args.lora_layer),
-                                                    p=[float(Fraction(x)) for x in args.layer_prob],
-                                                    size=getattr(args, 'heterogeneous_group'+str(id)+'_lora'),
-                                                    replace=False)
-        args.block_ids_list.append(sorted(layer_list))
 
-def update_block_ids_list_with_observed_probability(args, observed_probability):
-    args.block_ids_list = []
-    for id in args.user_groupid_list:
-        layer_list = np.random.choice(range(args.lora_layer),
-                                            p=observed_probability,
-                                            size=getattr(args, 'heterogeneous_group'+str(id)+'_lora'),
-                                            replace=False)
-        args.block_ids_list.append(sorted(layer_list))
 
-def get_observed_prob(cluster_labels):
-    observed_probability = get_observed_probability(cluster_labels)
-    observed_probability = np.array([float(Fraction(x)) for x in observed_probability])
-    observed_probability /= sum(observed_probability)
-    return observed_probability
 
-def get_observed_probability(cluster_labels):
-    observed_probability = []
-    for label in cluster_labels:
-        if label == 0:
-            observed_probability.append('1/27')
-        elif label == 1:
-            observed_probability.append('2/27')
-        elif label == 2:
-            observed_probability.append('1/9')
-    return observed_probability
 
-def user_groupid_list(args, group_cnt):
-    args.user_groupid_list = []
-    for id, c in enumerate(group_cnt):
-        args.user_groupid_list += [id] * c
 
-def get_group_cnt(args):
-    group_num = len(args.heterogeneous_group)
-    group_cnt = []
-    for g in range(group_num):
-        if g == (group_num - 1):
-            remind_cnt = args.num_users
-            for c in group_cnt:
-                remind_cnt -= c
-            group_cnt.append(remind_cnt)
-        else:    
-            group_cnt.append(int(args.num_users * float(Fraction(args.heterogeneous_group[g]))))
-    return group_cnt
 
-def get_dataset_fim(args, dataset_fim):
-    if 'vit' in args.model:
-        dataset_fim = DataLoader(dataset_fim, collate_fn=test_collate_fn, batch_size=args.batch_size)
-    elif 'ledgar' in args.dataset:
-        dataset_fim = DataLoader(dataset_fim, shuffle=True, collate_fn=args.data_collator, batch_size=args.batch_size)
-    return dataset_fim
 
-def get_data_loader_list(args, dataset_train, dict_users):
-    data_loader_list = []
-    for i in range(args.num_users):
-        dataset = DatasetSplit(dataset_train, dict_users[i], args)
-        if 'vit' in args.model:
-            ldr_train = DataLoader(dataset, shuffle=True, collate_fn=vit_collate_fn, batch_size=args.batch_size)
-        elif 'ledgar' in args.dataset:
-            ldr_train = DataLoader(dataset, shuffle=True, collate_fn=args.data_collator, batch_size=args.batch_size)
-        data_loader_list.append(ldr_train)
-    return data_loader_list
 
-def load_data(args):
-    args.logger.info("{:<50}".format("-" * 15 + " data setup " + "-" * 50)[0:60], main_process_only=True)
-    args, dataset_train, dataset_test, dataset_val, dataset_public, dict_users, dataset_fim = load_partition(args)
-    args.logger.info('length of dataset:{}'.format(len(dataset_train) + len(dataset_test)), main_process_only=True)
-    args.logger.info('num. of training data:{}'.format(len(dataset_train)), main_process_only=True)
-    args.logger.info('num. of testing data:{}'.format(len(dataset_test)), main_process_only=True)
-    return args,dataset_train,dataset_test,dict_users,dataset_fim
 
-def vit_collate_fn(examples):
-    pixel_values = torch.stack([example[2] for example in examples])
-    labels = torch.tensor([example[1] for example in examples])
-    return {"pixel_values": pixel_values, "labels": labels}
-
-def test_collate_fn(examples):
-    pixel_values = torch.stack([example["pixel_values"] for example in examples])
-    if 'label' in examples[0]:
-        labels = torch.tensor([example["label"] for example in examples])
-    else:
-        labels = torch.tensor([example["fine_label"] for example in examples])
-    return {"pixel_values": pixel_values, "labels": labels}
