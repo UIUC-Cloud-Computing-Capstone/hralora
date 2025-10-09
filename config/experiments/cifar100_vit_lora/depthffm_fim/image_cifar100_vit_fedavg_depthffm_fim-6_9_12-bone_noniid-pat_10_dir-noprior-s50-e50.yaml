@@ -48,7 +48,8 @@ iid: 0 # whether i.i.d or not
 #####################################
 ########## non iid type #############
 #####################################
-noniid_type: pathological # pathological, dirichlet(#Samples)
+# Liam: paper uses dirichlet
+noniid_type: dirichlet # pathological, dirichlet(#Samples)
 ########## pathological ########
 pat_num_cls: 10 # 3 for cifar10
 ########## dirichlet ###########
