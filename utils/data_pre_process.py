@@ -75,13 +75,13 @@ def load_partition(args):
             )
 
 
-            proxy_transforms = Compose(
-                [
-                    Resize((image_processor.size["height"], image_processor.size["width"])),
-                    ToTensor(),
-                    normalize,
-                ]
-            )
+            # proxy_transforms = Compose(
+            #     [
+            #         Resize((image_processor.size["height"], image_processor.size["width"])),
+            #         ToTensor(),
+            #         normalize,
+            #     ]
+            # )
         else:
             train_transforms = Compose(
                 [
@@ -113,10 +113,10 @@ def load_partition(args):
             example_batch["pixel_values"] = [val_transforms(image.convert("RGB")) for image in example_batch["img"]]
             return example_batch
         
-        def preprocess_proxy(example_batch):
-            """Apply val_transforms across a batch."""
-            example_batch["pixel_values"] = [proxy_transforms(image.convert("RGB")) for image in example_batch["img"]]
-            return example_batch
+        # def preprocess_proxy(example_batch):
+        #     """Apply val_transforms across a batch."""
+        #     example_batch["pixel_values"] = [proxy_transforms(image.convert("RGB")) for image in example_batch["img"]]
+        #     return example_batch
         
         if 'depthffm_fim' in args.model_heterogeneity:
             if args.model_heterogeneity == 'depthffm_fim' or args.model_heterogeneity == 'depthffm_fim_extradata' or args.model_heterogeneity == 'depthffm_fim_extradata-ft':
