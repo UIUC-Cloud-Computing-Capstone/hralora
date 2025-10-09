@@ -4,7 +4,6 @@ from torch.utils.data import DataLoader
 import copy
 from tqdm import tqdm
 import evaluate
-from datasets import load_metric
 from sklearn.metrics import f1_score
 import numpy as np
 
@@ -168,13 +167,3 @@ def test(net_g, dataset, args):
     # print(correct, len(datatest))
     accuracy = 100.00 * correct.item() / len(dataset)
     return accuracy, test_loss
-
-def extract_results(tokenized_data, args):
-    target = tokenized_data['labels'].clone()
-    target[target==-100] = 0
-    untokenized_target = args.tokenizer.batch_decode(target)
-    target_list = []
-    for item in untokenized_target:
-        item = item.replace('<unk>', '').replace('<pad>', '')
-        target_list.append(item)
-    return target_list
