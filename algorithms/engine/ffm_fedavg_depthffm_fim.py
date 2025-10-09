@@ -32,23 +32,7 @@ def test_collate_fn(examples):
 
 def ffm_fedavg_depthffm_fim(args):
     ################################### hyperparameter setup ########################################
-    args, dataset_train, dataset_test, dict_users, dataset_fim = load_data(args)
-    
-    args.logger.info('num. of users:{}'.format(len(dict_users)), main_process_only=True)
-    sample_per_users = int(sum([ len(dict_users[i]) for i in range(len(dict_users))])/len(dict_users))
-    args.logger.info('average num. of samples per user:{}'.format(sample_per_users), main_process_only=True)
-
-    args.logger.info("{:<50}".format("-" * 15 + " log path " + "-" * 50)[0:60], main_process_only=True)
-    if args.accelerator.is_local_main_process:
-        writer = SummaryWriter(args.log_path)
-    args.logger.info(args.log_path, main_process_only=True)
-    
-    args.logger.info("{:<50}".format("-" * 15 + " model setup " + "-" * 50)[0:60], main_process_only=True)
-    args, net_glob, global_model, args.dim = model_setup(args)
-    # memory calculation for ViT
-    # print(model_memory_usage_ViT(net_glob))
-    
-    args.logger.info('model dim: '+str(args.dim), main_process_only=True)
+    args, dataset_train, dataset_test, dict_users, dataset_fim, writer, net_glob, global_model = set_up_hyperparameters(args)
 
     ###################################### model initialization ###########################
     #t1 = time.time()
@@ -71,19 +55,7 @@ def ffm_fedavg_depthffm_fim(args):
 
     for t in range(args.round):
         # block ids for each clients
-        if t > args.fim_prior_epoch-1 and t % args.fim_every_iter == 0:
-            gpu_lock.acquire()
-            calc = FIMCalculator(args, copy.deepcopy(net_glob), dataset_fim)
-            fim = calc.compute_fim(empirical=True, verbose=True, every_n=None)
-            gpu_lock.release()
-            # select those with lowest FIM layers to freeze
-            cluster_labels = calc.bottom_k_layers(fim, k=args.lora_layer)
-            observed_probability = get_observed_prob(cluster_labels)
-            update_block_ids_list_with_observed_probability(args, observed_probability)
-        else:
-            if hasattr(args, 'heterogeneous_group0_lora'):
-                if isinstance(getattr(args, 'heterogeneous_group0_lora'), int):
-                    update_block_ids_list(args)
+        update_block_ids_for_each_client(args, dataset_fim, net_glob, t)
 
         args.logger.info('Round: ' + str(t) + '/' + str(args.round), main_process_only=True)
         ## learning rate decaying
@@ -97,28 +69,7 @@ def ffm_fedavg_depthffm_fim(args):
         ## copy global model
         net_glob.train()
         ## local training
-        local_solver = LocalUpdate(args=args)
-        local_losses, local_updates, delta_norms, num_samples = [], [], [], [], []
-        for num_index, i in enumerate(selected_idxs):
-            if args.peft == 'lora':
-                local_model, local_loss, no_weight_lora =  local_solver.lora_tuning(model=copy.deepcopy(net_glob),
-                                                                                    ldr_train=data_loader_list[i],
-                                                                                    args=args,
-                                                                                    client_index=num_index,
-                                                                                    client_real_id=i,
-                                                                                    round=t,
-                                                                                    hete_group_id=args.user_groupid_list[i])
-            
-            if local_loss:
-                local_losses.append(local_loss)
-            # compute model update
-            model_update = get_model_update(args, global_model, local_model, no_weight_lora)
-            # compute model update norm
-            norm_updates = get_norm_updates(model_update)
-            update_delta_norms(delta_norms, norm_updates)
-
-            local_updates.append(model_update)
-            num_samples.append(len(data_loader_list[i]))
+        local_losses, local_updates, delta_norms, num_samples = local_training(args, net_glob, global_model, data_loader_list, t, selected_idxs)
 
         if len(local_updates) == 0:
             args.logger.info('The number of trainable client is 0, skip the round for average')
@@ -141,6 +92,69 @@ def ffm_fedavg_depthffm_fim(args):
         args.accelerator.wait_for_everyone()
 
     return (best_test_acc, best_test_f1, best_test_macro_f1, best_test_micro_f1), metric_keys
+
+def set_up_hyperparameters(args):
+    args, dataset_train, dataset_test, dict_users, dataset_fim = load_data(args)
+    
+    args.logger.info('num. of users:{}'.format(len(dict_users)), main_process_only=True)
+    sample_per_users = int(sum([ len(dict_users[i]) for i in range(len(dict_users))])/len(dict_users))
+    args.logger.info('average num. of samples per user:{}'.format(sample_per_users), main_process_only=True)
+
+    args.logger.info("{:<50}".format("-" * 15 + " log path " + "-" * 50)[0:60], main_process_only=True)
+    if args.accelerator.is_local_main_process:
+        writer = SummaryWriter(args.log_path)
+    args.logger.info(args.log_path, main_process_only=True)
+    
+    args.logger.info("{:<50}".format("-" * 15 + " model setup " + "-" * 50)[0:60], main_process_only=True)
+    args, net_glob, global_model, args.dim = model_setup(args)
+    # memory calculation for ViT
+    # print(model_memory_usage_ViT(net_glob))
+    
+    args.logger.info('model dim: '+str(args.dim), main_process_only=True)
+    return args,dataset_train,dataset_test,dict_users,dataset_fim,writer,net_glob,global_model
+
+def update_block_ids_for_each_client(args, dataset_fim, net_glob, t):
+    if t > args.fim_prior_epoch-1 and t % args.fim_every_iter == 0:
+        gpu_lock.acquire()
+        calc = FIMCalculator(args, copy.deepcopy(net_glob), dataset_fim)
+        fim = calc.compute_fim(empirical=True, verbose=True, every_n=None)
+        gpu_lock.release()
+            # select those with lowest FIM layers to freeze
+        cluster_labels = calc.bottom_k_layers(fim, k=args.lora_layer)
+        observed_probability = get_observed_prob(cluster_labels)
+        update_block_ids_list_with_observed_probability(args, observed_probability)
+    else:
+        if hasattr(args, 'heterogeneous_group0_lora'):
+            if isinstance(getattr(args, 'heterogeneous_group0_lora'), int):
+                update_block_ids_list(args)
+
+def local_training(args, net_glob, global_model, data_loader_list, t, selected_idxs):
+    local_solver = LocalUpdate(args=args)
+    local_losses, local_updates, delta_norms, num_samples = [], [], [], [], []
+    for num_index, i in enumerate(selected_idxs):
+        train_each_client(args, net_glob, global_model, data_loader_list, t, local_solver, local_losses, local_updates, delta_norms, num_samples, num_index, i)
+    return local_losses,local_updates,delta_norms,num_samples
+
+def train_each_client(args, net_glob, global_model, data_loader_list, t, local_solver, local_losses, local_updates, delta_norms, num_samples, num_index, i):
+    if args.peft == 'lora':
+        local_model, local_loss, no_weight_lora =  local_solver.lora_tuning(model=copy.deepcopy(net_glob),
+                                                                                    ldr_train=data_loader_list[i],
+                                                                                    args=args,
+                                                                                    client_index=num_index,
+                                                                                    client_real_id=i,
+                                                                                    round=t,
+                                                                                    hete_group_id=args.user_groupid_list[i])
+            
+    if local_loss:
+        local_losses.append(local_loss)
+            # compute model update
+    model_update = get_model_update(args, global_model, local_model, no_weight_lora)
+            # compute model update norm
+    norm_updates = get_norm_updates(model_update)
+    update_delta_norms(delta_norms, norm_updates)
+
+    local_updates.append(model_update)
+    num_samples.append(len(data_loader_list[i]))
 
 def test_global_model_on_server_side(args, dataset_test, writer, net_glob, global_model, best_test_acc, best_test_micro_f1, metric_keys, t, norm, train_loss):
     net_glob.load_state_dict(global_model)
