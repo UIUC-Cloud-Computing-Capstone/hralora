@@ -50,7 +50,7 @@ iid: 0 # whether i.i.d or not
 #####################################
 noniid_type: pathological # pathological, dirichlet(#Samples)
 ########## pathological ########
-pat_num_cls: 10 # 3 for cifar10
+pat_num_cls: 20 # 3 for cifar10
 ########## dirichlet ###########
 # dir_cls_alpha: 0.3 # 1.0 0.3
 ################################
