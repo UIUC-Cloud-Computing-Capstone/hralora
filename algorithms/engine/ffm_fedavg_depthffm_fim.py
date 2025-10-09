@@ -32,13 +32,8 @@ def test_collate_fn(examples):
 
 def ffm_fedavg_depthffm_fim(args):
     ################################### hyperparameter setup ########################################
-    args.logger.info("{:<50}".format("-" * 15 + " data setup " + "-" * 50)[0:60], main_process_only=True)
-    args, dataset_train, dataset_test, dataset_val, dataset_public, dict_users, dataset_fim = load_partition(args)
-    args.logger.info('length of dataset:{}'.format(len(dataset_train) + len(dataset_test)), main_process_only=True)
-    args.logger.info('num. of training data:{}'.format(len(dataset_train)), main_process_only=True)
-    args.logger.info('num. of testing data:{}'.format(len(dataset_test)), main_process_only=True)
-    # print('num. of validation data:{}'.format(len(dataset_val)))
-    # print('num. of public data:{}'.format(len(dataset_public)))
+    args, dataset_train, dataset_test, dict_users, dataset_fim = load_data(args)
+    
     args.logger.info('num. of users:{}'.format(len(dict_users)), main_process_only=True)
     sample_per_users = int(sum([ len(dict_users[i]) for i in range(len(dict_users))])/len(dict_users))
     args.logger.info('average num. of samples per user:{}'.format(sample_per_users), main_process_only=True)
@@ -59,34 +54,14 @@ def ffm_fedavg_depthffm_fim(args):
     #t1 = time.time()
     args.logger.info("{:<50}".format("-" * 15 + " training... " + "-" * 50)[0:60], main_process_only=True)
     # initialize data loader for training and/or public dataset
-    data_loader_list = []
-    for i in range(args.num_users):
-        dataset = DatasetSplit(dataset_train, dict_users[i], args)
-        if 'vit' in args.model:
-            ldr_train = DataLoader(dataset, shuffle=True, collate_fn=vit_collate_fn, batch_size=args.batch_size)
-        elif 'ledgar' in args.dataset:
-            ldr_train = DataLoader(dataset, shuffle=True, collate_fn=args.data_collator, batch_size=args.batch_size)
-        data_loader_list.append(ldr_train)
-    if 'vit' in args.model:
-        dataset_fim = DataLoader(dataset_fim, collate_fn=test_collate_fn, batch_size=args.batch_size)
-    elif 'ledgar' in args.dataset:
-        dataset_fim = DataLoader(dataset_fim, shuffle=True, collate_fn=args.data_collator, batch_size=args.batch_size)
+    data_loader_list = get_data_loader_list(args, dataset_train, dict_users)
+    dataset_fim = get_dataset_fim(args, dataset_fim)
     
     # heterogenity
     group_num = len(args.heterogeneous_group)
-    group_cnt = []
-    for g in range(group_num):
-        if g == (group_num - 1):
-            remind_cnt = args.num_users
-            for c in group_cnt:
-                remind_cnt -= c
-            group_cnt.append(remind_cnt)
-        else:    
-            group_cnt.append(int(args.num_users * float(Fraction(args.heterogeneous_group[g]))))
+    group_cnt = get_group_cnt(args, group_num)
 
-    args.user_groupid_list = []
-    for id, c in enumerate(group_cnt):
-        args.user_groupid_list += [id] * c
+    user_groupid_list(args, group_cnt)
 
     best_test_acc = 0.0
     best_test_f1 = 0.0
@@ -102,34 +77,13 @@ def ffm_fedavg_depthffm_fim(args):
             fim = calc.compute_fim(empirical=True, verbose=True, every_n=None)
             gpu_lock.release()
             # select those with lowest FIM layers to freeze
-            layers_rank, cluster_labels = calc.bottom_k_layers(fim, k=args.lora_layer)
-            observed_probability = []
-            for label in cluster_labels:
-                if label == 0:
-                    observed_probability.append('1/27')
-                elif label == 1:
-                    observed_probability.append('2/27')
-                elif label == 2:
-                    observed_probability.append('1/9')
-            observed_probability = np.array([float(Fraction(x)) for x in observed_probability])
-            observed_probability /= sum(observed_probability)
-            args.block_ids_list = []
-            for id in args.user_groupid_list:
-                layer_list = np.random.choice(range(args.lora_layer),
-                                            p=observed_probability,
-                                            size=getattr(args, 'heterogeneous_group'+str(id)+'_lora'),
-                                            replace=False)
-                args.block_ids_list.append(sorted(layer_list))
+            cluster_labels = calc.bottom_k_layers(fim, k=args.lora_layer)
+            observed_probability = get_observed_prob(cluster_labels)
+            update_block_ids_list_with_observed_probability(args, observed_probability)
         else:
             if hasattr(args, 'heterogeneous_group0_lora'):
                 if isinstance(getattr(args, 'heterogeneous_group0_lora'), int):
-                    args.block_ids_list = []
-                    for id in args.user_groupid_list:
-                        layer_list = np.random.choice(range(args.lora_layer),
-                                                    p=[float(Fraction(x)) for x in args.layer_prob],
-                                                    size=getattr(args, 'heterogeneous_group'+str(id)+'_lora'),
-                                                    replace=False)
-                        args.block_ids_list.append(sorted(layer_list))
+                    update_block_ids_list(args)
 
         args.logger.info('Round: ' + str(t) + '/' + str(args.round), main_process_only=True)
         ## learning rate decaying
@@ -144,7 +98,7 @@ def ffm_fedavg_depthffm_fim(args):
         net_glob.train()
         ## local training
         local_solver = LocalUpdate(args=args)
-        local_models, local_losses, local_updates, delta_norms, num_samples = [], [], [], [], []
+        local_losses, local_updates, delta_norms, num_samples = [], [], [], [], []
         for num_index, i in enumerate(selected_idxs):
             if args.peft == 'lora':
                 local_model, local_loss, no_weight_lora =  local_solver.lora_tuning(model=copy.deepcopy(net_glob),
@@ -158,25 +112,10 @@ def ffm_fedavg_depthffm_fim(args):
             if local_loss:
                 local_losses.append(local_loss)
             # compute model update
-            model_update = {}
-            if args.peft == 'lora':
-                for k in global_model.keys():
-                    if 'lora' in k: # no classifier
-                        if int(re.findall(r"\d+", k)[0]) not in no_weight_lora:
-                            model_update[k] = local_model[k].detach().cpu() - global_model[k].detach().cpu() 
-            else:
-                model_update = {k: local_model[k].detach().cpu() - global_model[k].detach().cpu() for k in global_model.keys()}
+            model_update = get_model_update(args, global_model, local_model, no_weight_lora)
             # compute model update norm
-            norm_updates = []
-            for k in model_update.keys():
-                norm_updates.append(torch.flatten(model_update[k]))
-            if len(norm_updates) > 0:
-                delta_norm = torch.norm(torch.cat(norm_updates))
-            else:
-                delta_norm = None
-            # delta_norm = torch.norm(torch.cat([torch.flatten(model_update[k])for k in model_update.keys()]))
-            if delta_norm:
-                delta_norms.append(delta_norm)
+            norm_updates = get_norm_updates(model_update)
+            update_delta_norms(delta_norms, norm_updates)
 
             local_updates.append(model_update)
             num_samples.append(len(data_loader_list[i]))
@@ -187,63 +126,185 @@ def ffm_fedavg_depthffm_fim(args):
         # metrics
         # train_loss.append(sum(local_losses) / args.num_selected_users)
         # median_model_norm.append(torch.median(torch.stack(delta_norms)).cpu())
-        if len(delta_norms) > 0:
-            norm = torch.median(torch.stack(delta_norms)).cpu()
-        else:
-            norm = 100
-        if len(local_losses) > 0:
-            train_loss = sum(local_losses) / len(local_losses)
-        else:
-            train_loss = 100
+        norm = get_norm(delta_norms)
+        train_loss = get_train_loss(local_losses)
+        
         if args.accelerator.is_local_main_process:
             writer.add_scalar('norm', norm, t)
             writer.add_scalar('train_loss', train_loss, t)
 
-        if hasattr(args, 'aggregation'):
-            if args.aggregation ==  'weighted_average':
-                global_model = weighted_average_lora_depthfl(args, global_model, local_updates, num_samples)
-        else:
-            global_model = average_lora_depthfl(args, global_model, local_updates)
+        global_model = get_global_model(args, global_model, local_updates, num_samples)
 
         # test global model on server side   
-        net_glob.load_state_dict(global_model)
-        net_glob.eval()
-        if 'vit' in args.model:
-            test_acc, test_loss = test_vit(copy.deepcopy(net_glob), dataset_test, args, t)
-            # metrics
-            if args.accelerator.is_local_main_process:
-                writer.add_scalar('test_acc', test_acc, t)
-                if test_acc > best_test_acc:
-                    best_test_acc = test_acc
-                    metric_keys['Accuracy'] = 1
-            args.logger.info('t {:3d}: train_loss = {:.3f}, norm = {:.3f}, test_acc = {:.3f}'.
-                format(t, train_loss, norm, test_acc), main_process_only=True)
-        elif 'bert' in args.model:
-            if 'ledgar' in args.dataset:
-                test_macro_f1, test_micro_f1, test_loss = test_ledgar(copy.deepcopy(net_glob), dataset_test, args, t)
-                # metrics
-                if args.accelerator.is_local_main_process:
-                    writer.add_scalar('test_macro_f1', test_macro_f1, t)
-                    writer.add_scalar('test_micro_f1', test_micro_f1, t)
-                    if test_micro_f1 > best_test_micro_f1:
-                        best_test_micro_f1 = test_micro_f1
-                        best_test_macro_f1 = test_macro_f1
-                        metric_keys['Macro_F1'] = 1
-                        metric_keys['Micro_F1'] = 1
-
-                args.logger.info('t {:3d}: train_loss = {:.3f}, norm = {:.3f}, test_macro_f1 = {:.3f}, test_micro_f1 = {:.3f}'.
-                    format(t, train_loss, norm, test_macro_f1, test_micro_f1), main_process_only=True)
-        else:
-            test_acc, test_loss = test(copy.deepcopy(net_glob), dataset_test, args)
-            # metrics
-            if args.accelerator.is_local_main_process:
-                writer.add_scalar('test_acc', test_acc, t)
-                if test_acc > best_test_acc:
-                    best_test_acc = test_acc
-                    metric_keys['Accuracy'] = 1
-            args.logger.info('t {:3d}: train_loss = {:.3f}, norm = {:.3f}, test_acc = {:.3f}'.
-                format(t, train_loss, norm, test_acc), main_process_only=True)
+        best_test_acc, best_test_macro_f1, best_test_micro_f1 = test_global_model_on_server_side(args, dataset_test, writer, net_glob, global_model, best_test_acc, best_test_micro_f1, metric_keys, t, norm, train_loss)
 
         args.accelerator.wait_for_everyone()
 
     return (best_test_acc, best_test_f1, best_test_macro_f1, best_test_micro_f1), metric_keys
+
+def test_global_model_on_server_side(args, dataset_test, writer, net_glob, global_model, best_test_acc, best_test_micro_f1, metric_keys, t, norm, train_loss):
+    net_glob.load_state_dict(global_model)
+    net_glob.eval()
+    if 'vit' in args.model:
+        test_acc, test_loss = test_vit(copy.deepcopy(net_glob), dataset_test, args, t)
+            # metrics
+        if args.accelerator.is_local_main_process:
+            writer.add_scalar('test_acc', test_acc, t)
+            if test_acc > best_test_acc:
+                best_test_acc = test_acc
+                metric_keys['Accuracy'] = 1
+        args.logger.info('t {:3d}: train_loss = {:.3f}, norm = {:.3f}, test_acc = {:.3f}'.
+                format(t, train_loss, norm, test_acc), main_process_only=True)
+    elif 'bert' in args.model:
+        if 'ledgar' in args.dataset:
+            test_macro_f1, test_micro_f1, test_loss = test_ledgar(copy.deepcopy(net_glob), dataset_test, args, t)
+                # metrics
+            if args.accelerator.is_local_main_process:
+                writer.add_scalar('test_macro_f1', test_macro_f1, t)
+                writer.add_scalar('test_micro_f1', test_micro_f1, t)
+                if test_micro_f1 > best_test_micro_f1:
+                    best_test_micro_f1 = test_micro_f1
+                    best_test_macro_f1 = test_macro_f1
+                    metric_keys['Macro_F1'] = 1
+                    metric_keys['Micro_F1'] = 1
+
+            args.logger.info('t {:3d}: train_loss = {:.3f}, norm = {:.3f}, test_macro_f1 = {:.3f}, test_micro_f1 = {:.3f}'.
+                    format(t, train_loss, norm, test_macro_f1, test_micro_f1), main_process_only=True)
+    else:
+        test_acc, test_loss = test(copy.deepcopy(net_glob), dataset_test, args)
+            # metrics
+        if args.accelerator.is_local_main_process:
+            writer.add_scalar('test_acc', test_acc, t)
+            if test_acc > best_test_acc:
+                best_test_acc = test_acc
+                metric_keys['Accuracy'] = 1
+        args.logger.info('t {:3d}: train_loss = {:.3f}, norm = {:.3f}, test_acc = {:.3f}'.
+                format(t, train_loss, norm, test_acc), main_process_only=True)
+            
+    return best_test_acc,best_test_macro_f1,best_test_micro_f1
+
+def get_global_model(args, global_model, local_updates, num_samples):
+    if hasattr(args, 'aggregation'):
+        if args.aggregation ==  'weighted_average':
+            global_model = weighted_average_lora_depthfl(args, global_model, local_updates, num_samples)
+    else:
+        global_model = average_lora_depthfl(args, global_model, local_updates)
+    return global_model
+
+def get_train_loss(local_losses):
+    if len(local_losses) > 0:
+        train_loss = sum(local_losses) / len(local_losses)
+    else:
+        train_loss = 100
+    return train_loss
+
+def get_norm(delta_norms):
+    if len(delta_norms) > 0:
+        norm = torch.median(torch.stack(delta_norms)).cpu()
+    else:
+        norm = 100
+    return norm
+
+def update_delta_norms(delta_norms, norm_updates):
+    if len(norm_updates) > 0:
+        delta_norm = torch.norm(torch.cat(norm_updates))
+    else:
+        delta_norm = None
+            # delta_norm = torch.norm(torch.cat([torch.flatten(model_update[k])for k in model_update.keys()]))
+    if delta_norm:
+        delta_norms.append(delta_norm)
+
+def get_norm_updates(model_update):
+    norm_updates = []
+    for k in model_update.keys():
+        norm_updates.append(torch.flatten(model_update[k]))
+    return norm_updates
+
+def get_model_update(args, global_model, local_model, no_weight_lora):
+    model_update = {}
+    if args.peft == 'lora':
+        for k in global_model.keys():
+            if 'lora' in k: # no classifier
+                if int(re.findall(r"\d+", k)[0]) not in no_weight_lora:
+                    model_update[k] = local_model[k].detach().cpu() - global_model[k].detach().cpu() 
+    else:
+        model_update = {k: local_model[k].detach().cpu() - global_model[k].detach().cpu() for k in global_model.keys()}
+    return model_update
+
+def update_block_ids_list(args):
+    args.block_ids_list = []
+    for id in args.user_groupid_list:
+        layer_list = np.random.choice(range(args.lora_layer),
+                                                    p=[float(Fraction(x)) for x in args.layer_prob],
+                                                    size=getattr(args, 'heterogeneous_group'+str(id)+'_lora'),
+                                                    replace=False)
+        args.block_ids_list.append(sorted(layer_list))
+
+def update_block_ids_list_with_observed_probability(args, observed_probability):
+    args.block_ids_list = []
+    for id in args.user_groupid_list:
+        layer_list = np.random.choice(range(args.lora_layer),
+                                            p=observed_probability,
+                                            size=getattr(args, 'heterogeneous_group'+str(id)+'_lora'),
+                                            replace=False)
+        args.block_ids_list.append(sorted(layer_list))
+
+def get_observed_prob(cluster_labels):
+    observed_probability = get_observed_probability(cluster_labels)
+    observed_probability = np.array([float(Fraction(x)) for x in observed_probability])
+    observed_probability /= sum(observed_probability)
+    return observed_probability
+
+def get_observed_probability(cluster_labels):
+    observed_probability = []
+    for label in cluster_labels:
+        if label == 0:
+            observed_probability.append('1/27')
+        elif label == 1:
+            observed_probability.append('2/27')
+        elif label == 2:
+            observed_probability.append('1/9')
+    return observed_probability
+
+def user_groupid_list(args, group_cnt):
+    args.user_groupid_list = []
+    for id, c in enumerate(group_cnt):
+        args.user_groupid_list += [id] * c
+
+def get_group_cnt(args, group_num):
+    group_cnt = []
+    for g in range(group_num):
+        if g == (group_num - 1):
+            remind_cnt = args.num_users
+            for c in group_cnt:
+                remind_cnt -= c
+            group_cnt.append(remind_cnt)
+        else:    
+            group_cnt.append(int(args.num_users * float(Fraction(args.heterogeneous_group[g]))))
+    return group_cnt
+
+def get_dataset_fim(args, dataset_fim):
+    if 'vit' in args.model:
+        dataset_fim = DataLoader(dataset_fim, collate_fn=test_collate_fn, batch_size=args.batch_size)
+    elif 'ledgar' in args.dataset:
+        dataset_fim = DataLoader(dataset_fim, shuffle=True, collate_fn=args.data_collator, batch_size=args.batch_size)
+    return dataset_fim
+
+def get_data_loader_list(args, dataset_train, dict_users):
+    data_loader_list = []
+    for i in range(args.num_users):
+        dataset = DatasetSplit(dataset_train, dict_users[i], args)
+        if 'vit' in args.model:
+            ldr_train = DataLoader(dataset, shuffle=True, collate_fn=vit_collate_fn, batch_size=args.batch_size)
+        elif 'ledgar' in args.dataset:
+            ldr_train = DataLoader(dataset, shuffle=True, collate_fn=args.data_collator, batch_size=args.batch_size)
+        data_loader_list.append(ldr_train)
+    return data_loader_list
+
+def load_data(args):
+    args.logger.info("{:<50}".format("-" * 15 + " data setup " + "-" * 50)[0:60], main_process_only=True)
+    args, dataset_train, dataset_test, dataset_val, dataset_public, dict_users, dataset_fim = load_partition(args)
+    args.logger.info('length of dataset:{}'.format(len(dataset_train) + len(dataset_test)), main_process_only=True)
+    args.logger.info('num. of training data:{}'.format(len(dataset_train)), main_process_only=True)
+    args.logger.info('num. of testing data:{}'.format(len(dataset_test)), main_process_only=True)
+    return args,dataset_train,dataset_test,dict_users,dataset_fim
