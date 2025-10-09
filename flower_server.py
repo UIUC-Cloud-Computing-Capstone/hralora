@@ -136,7 +136,8 @@ def create_fedavg_strategy(num_rounds: int,
                           fraction_evaluate: float = 0.0,
                           min_fit_clients: int = 1,
                           min_evaluate_clients: int = 0,
-                          min_available_clients: int = 1) -> fl.server.strategy.FedAvg:
+                          min_available_clients: int = 1,
+                          config: Optional[ServerConfig] = None) -> fl.server.strategy.FedAvg:
     """
     Create a FedAvg strategy with specified parameters and round information.
     
@@ -154,10 +155,14 @@ def create_fedavg_strategy(num_rounds: int,
     
     def fit_config_fn(server_round: int):
         """Configuration function for fit that includes round information."""
+        # Use configuration values if available, otherwise use defaults
+        local_epochs = config.get('tau', 3) if config else 3
+        learning_rate = config.get('local_lr', 0.01) if config else 0.01
+        
         return {
             "server_round": server_round,
-            "local_epochs": 3,  # From your YAML config tau: 3
-            "learning_rate": 0.01,  # From your YAML config local_lr: 0.01
+            "local_epochs": local_epochs,
+            "learning_rate": learning_rate,
         }
     
     def evaluate_config_fn(server_round: int):
@@ -185,7 +190,8 @@ def start_flower_server(server_address: str = "0.0.0.0",
                        fraction_evaluate: float = 0.0,
                        min_fit_clients: int = 1,
                        min_evaluate_clients: int = 0,
-                       min_available_clients: int = 1) -> None:
+                       min_available_clients: int = 1,
+                       config_name: str = None) -> None:
     """
     Start a Flower server for federated learning.
     
@@ -215,6 +221,16 @@ def start_flower_server(server_address: str = "0.0.0.0",
         if server_port <= 0 or server_port > 65535:
             raise ValueError(f"Invalid port number: {server_port}")
         
+        # Load configuration if provided
+        server_config = None
+        if config_name:
+            try:
+                config_path = os.path.join('config/', config_name)
+                server_config = load_server_configuration(config_path)
+                logging.info(f"Loaded server configuration from: {config_path}")
+            except Exception as e:
+                logging.warning(f"Could not load server configuration: {e}, using defaults")
+        
         # Create strategy with custom parameters
         strategy = create_fedavg_strategy(
             num_rounds=num_rounds,
@@ -222,7 +238,8 @@ def start_flower_server(server_address: str = "0.0.0.0",
             fraction_evaluate=fraction_evaluate,
             min_fit_clients=min_fit_clients,
             min_evaluate_clients=min_evaluate_clients,
-            min_available_clients=min_available_clients
+            min_available_clients=min_available_clients,
+            config=server_config
         )
         
         # Start server
@@ -353,7 +370,8 @@ def main() -> None:
             fraction_evaluate=args.fraction_evaluate,
             min_fit_clients=args.min_fit_clients,
             min_evaluate_clients=args.min_evaluate_clients,
-            min_available_clients=args.min_available_clients
+            min_available_clients=args.min_available_clients,
+            config_name=args.config_name
         )
         
     except KeyboardInterrupt:
