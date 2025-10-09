@@ -48,11 +48,11 @@ iid: 0 # whether i.i.d or not
 #####################################
 ########## non iid type #############
 #####################################
-noniid_type: pathological # pathological, dirichlet(#Samples)
+noniid_type: dirichlet # pathological, dirichlet(#Samples)
 ########## pathological ########
 pat_num_cls: 20 # 3 for cifar10
 ########## dirichlet ###########
-# dir_cls_alpha: 0.3 # 1.0 0.3
+dir_cls_alpha: 0.3 # 1.0 0.3
 ################################
 ##### Parition Distribution ####
 ################################
