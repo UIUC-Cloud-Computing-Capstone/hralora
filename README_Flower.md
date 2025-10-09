@@ -14,7 +14,16 @@ conda activate env.fl
 pip install flwr[simulation] accelerate torch torchvision transformers
 ```
 
-### 🎯 Automated Setup (Recommended)
+### 🔧 Manual Setup (Recommended for development)
+```bash
+# Terminal 1 - Server
+python flower_server.py --server_address 0.0.0.0 --server_port 8080 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml --log_level INFO
+
+# Terminal 2 - Client
+python flower_client.py --server_address localhost --server_port 8080 --client_id 0 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml --log_level INFO
+```
+
+### 🎯 Automated Setup (for experiment)
 
 **Quick Testing:**
 ```bash
@@ -34,15 +43,6 @@ pip install flwr[simulation] accelerate torch torchvision transformers
 - ✅ Individual log files per client
 - ✅ Real-time monitoring
 - ✅ Graceful shutdown with Ctrl+C
-
-### 🔧 Manual Setup
-```bash
-# Terminal 1 - Server
-python flower_server.py --server_address 0.0.0.0 --server_port 8080 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml --log_level INFO
-
-# Terminal 2 - Client
-python flower_client.py --server_address localhost --server_port 8080 --client_id 0 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml --log_level INFO
-```
 
 ## 📊 CPU Utilization
 
