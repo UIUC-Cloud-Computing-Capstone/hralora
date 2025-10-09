@@ -11,7 +11,7 @@ DEFAULT_NUM_CLIENTS=8
 DEFAULT_NUM_ROUNDS=10
 DEFAULT_LOG_LEVEL="INFO"
 DEFAULT_SERVER_PORT=8080
-DEFAULT_CONFIG_NAME="experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml"
+DEFAULT_CONFIG_NAME="experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_depthffm_fim-6_9_12-bone_noniid-pat_20_dir-noprior-s50-e50.yaml"
 
 # Parse command line arguments
 NUM_CLIENTS=${1:-$DEFAULT_NUM_CLIENTS}

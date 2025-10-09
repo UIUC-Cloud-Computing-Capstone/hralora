@@ -121,18 +121,18 @@ class MockArgs:
         self.num_users = config_dict.get('num_users', 100)
         self.num_selected_users = config_dict.get('num_selected_users', 1)
 
-        # Non-IID configuration
-        self.iid = False
-        self.noniid = True
-        self.noniid_type = DEFAULT_NONIID_TYPE
-        self.pat_num_cls = DEFAULT_PAT_NUM_CLS
-        self.partition_mode = DEFAULT_PARTITION_MODE
-        self.dir_cls_alpha = DEFAULT_DIR_ALPHA
-        self.dir_par_beta = DEFAULT_DIR_BETA
+        # Non-IID configuration - use values from config or defaults
+        self.iid = config_dict.get('iid', 0) == 1  # Convert to boolean
+        self.noniid = not self.iid
+        self.noniid_type = config_dict.get('noniid_type', DEFAULT_NONIID_TYPE)
+        self.pat_num_cls = config_dict.get('pat_num_cls', DEFAULT_PAT_NUM_CLS)
+        self.partition_mode = config_dict.get('partition_mode', DEFAULT_PARTITION_MODE)
+        self.dir_cls_alpha = config_dict.get('dir_cls_alpha', DEFAULT_DIR_ALPHA)
+        self.dir_par_beta = config_dict.get('dir_par_beta', DEFAULT_DIR_BETA)
 
         # Model heterogeneity
-        self.model_heterogeneity = 'depthffm_fim'
-        self.freeze_datasplit = True
+        self.model_heterogeneity = config_dict.get('model_heterogeneity', 'depthffm_fim')
+        self.freeze_datasplit = config_dict.get('freeze_datasplit', True)
 
         # Device configuration
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -140,6 +140,12 @@ class MockArgs:
         # Logger
         self.logger = self._create_simple_logger()
         self.client_id = client_id
+        
+        # Additional attributes that might be needed
+        self.num_classes = config_dict.get('num_classes', 100)
+        self.labels = None  # Will be set by load_partition
+        self.label2id = None  # Will be set by load_partition
+        self.id2label = None  # Will be set by load_partition
 
     def _create_simple_logger(self):
         """Create a simple logger for compatibility."""
@@ -159,6 +165,7 @@ class SimpleClientDataset:
         return len(self.indices)
 
     def __getitem__(self, idx):
+        # TODO Liam: remove this dummy data
         """Return dummy data for fallback."""
         return (torch.randn(*DEFAULT_IMAGE_SIZE), torch.randint(0, DEFAULT_NUM_CLASSES, (1,)).item())
 
@@ -255,11 +262,17 @@ class FlowerClient(fl.client.NumPyClient):
         self.dataset_info = self._load_dataset_config()
 
         # Initialize dataset attributes (will be populated if actual data is loaded)
-        self.dataset_train = None
-        self.dataset_test = None
-        self.dict_users = None
-        self.dataset_fim = None
-        self.args_loaded = None
+        # Only set to None if not already loaded
+        if not hasattr(self, 'dataset_train'):
+            self.dataset_train = None
+        if not hasattr(self, 'dataset_test'):
+            self.dataset_test = None
+        if not hasattr(self, 'dict_users'):
+            self.dict_users = None
+        if not hasattr(self, 'dataset_fim'):
+            self.dataset_fim = None
+        if not hasattr(self, 'args_loaded'):
+            self.args_loaded = None
         
         # Create actual model parameters
         self.model_params = self._create_model_params()
@@ -334,22 +347,21 @@ class FlowerClient(fl.client.NumPyClient):
             dataset_info['data_type'] = 'image'
 
         # Load actual dataset if available
-        dataset_info['data_loaded'] = self._load_dataset(dataset_name)
         
-        # If data was loaded successfully, update dataset_info with actual data
+        dataset_info['data_loaded'] = self._load_dataset(dataset_name)
+        logging.info(f"Dataset loading result: {dataset_info['data_loaded']}")
+            
+            # If data was loaded successfully, update dataset_info with actual data
         if dataset_info['data_loaded'] and hasattr(self, 'dataset_train'):
-            dataset_info.update({
-                'train_samples': len(self.dataset_train) if self.dataset_train else 0,
-                'test_samples': len(self.dataset_test) if self.dataset_test else 0,
-                'num_users': len(self.dict_users) if self.dict_users else 0,
-                'client_data_indices': self.dict_users.get(self.client_id, set()) if self.dict_users else set(),
-                'labels': self.args_loaded.labels if hasattr(self.args_loaded, 'labels') else [],
-                'label2id': self.args_loaded.label2id if hasattr(self.args_loaded, 'label2id') else {},
-                'id2label': self.args_loaded.id2label if hasattr(self.args_loaded, 'id2label') else {},
-                'noniid_type': getattr(self.args_loaded, 'noniid_type', 'pathological'),
-                'pat_num_cls': getattr(self.args_loaded, 'pat_num_cls', 10),
-                'partition_mode': getattr(self.args_loaded, 'partition_mode', 'dir')
-            })
+                dataset_info.update({
+                    'train_samples': len(self.dataset_train) if self.dataset_train else 0,
+                    'test_samples': len(self.dataset_test) if self.dataset_test else 0,
+                    'num_users': len(self.dict_users) if self.dict_users else 0,
+                    'client_data_indices': getattr(self, 'dataset_info', {}).get('client_data_indices', set()),
+                    'noniid_type': getattr(self.args_loaded, 'noniid_type', 'dirichlet') if hasattr(self, 'args_loaded') else 'dirichlet'
+                })
+        
+        
 
         logging.info(f"Dataset configuration loaded: {dataset_name} "
                      f"({dataset_info['num_classes']} classes, {dataset_info['data_type']} data)")
@@ -396,10 +408,21 @@ class FlowerClient(fl.client.NumPyClient):
         print('dataset_train length: ', len(dataset_train))
         print('dataset_test length: ', len(dataset_test))
         print('dict_users length: ', len(dict_users))
-        print('dataset_fim length: ', len(dataset_fim))
+        print('dataset_fim length: ', len(dataset_fim) if dataset_fim else 0)
         print('args_loaded: ', args_loaded)
 
+        # Validate that we have the required data
+        if dataset_train is None or len(dataset_train) == 0:
+            logging.error("Failed to load training dataset")
+            return None
+                
+        if dict_users is None or len(dict_users) == 0:
+            logging.error("Failed to load user data partition")
+            return None
+
         return (args_loaded, dataset_train, dataset_test, dict_users, dataset_fim)
+            
+    
 
     
     def _store_dataset_data(self, dataset_data: Tuple) -> None:
@@ -411,6 +434,14 @@ class FlowerClient(fl.client.NumPyClient):
         self.dict_users = dict_users
         self.dataset_fim = dataset_fim
         self.args_loaded = args_loaded
+        
+        # Store client data indices for later use
+        if dict_users and self.client_id in dict_users:
+            self.client_data_indices = dict_users[self.client_id]
+            logging.info(f"Client {self.client_id} assigned {len(dict_users[self.client_id])} data samples")
+        else:
+            logging.warning(f"Client {self.client_id} not found in user data partition")
+            self.client_data_indices = set()
     
     def _log_dataset_statistics(self, dataset_name: str, dataset_data: Tuple) -> None:
         """Log comprehensive dataset statistics."""
@@ -460,61 +491,58 @@ class FlowerClient(fl.client.NumPyClient):
         Raises:
             ValueError: If model configuration is invalid
         """
-        try:
-            # Get dataset and model information
-            num_classes = self.dataset_info.get('num_classes', 100)
-            model_name = self.dataset_info.get('model_name', 'google/vit-base-patch16-224-in21k')
+        
+        # Get dataset and model information
+        num_classes = self.dataset_info.get('num_classes', 100)
+        model_name = self.dataset_info.get('model_name', 'google/vit-base-patch16-224-in21k')
             
-            # Validate inputs
-            if num_classes <= 0:
-                raise ValueError(f"Invalid number of classes: {num_classes}")
+        # Validate inputs
+        if num_classes <= 0:
+            raise ValueError(f"Invalid number of classes: {num_classes}")
             
-            # Create label mappings for the model
-            label2id = {f"class_{i}": i for i in range(num_classes)}
-            id2label = {i: f"class_{i}" for i in range(num_classes)}
+        # Create label mappings for the model
+        label2id = {f"class_{i}": i for i in range(num_classes)}
+        id2label = {i: f"class_{i}" for i in range(num_classes)}
             
-            # Create the actual model using AutoModelForImageClassification
-            if 'vit' in model_name.lower():
-                model = AutoModelForImageClassification.from_pretrained(
-                    model_name,
-                    label2id=label2id,
-                    id2label=id2label,
-                    ignore_mismatched_sizes=True,
-                    num_labels=num_classes
-                )
-            else:
-                # Fallback for other model types
-                model = AutoModelForImageClassification.from_pretrained(
-                    model_name,
-                    num_labels=num_classes,
-                    ignore_mismatched_sizes=True
-                )
+        # Create the actual model using AutoModelForImageClassification
+        if 'vit' in model_name.lower():
+            model = AutoModelForImageClassification.from_pretrained(
+                model_name,
+                label2id=label2id,
+                id2label=id2label,
+                ignore_mismatched_sizes=True,
+                num_labels=num_classes
+            )
+        else:
+            # Fallback for other model types
+            model = AutoModelForImageClassification.from_pretrained(
+                model_name,
+                num_labels=num_classes,
+                ignore_mismatched_sizes=True
+            )
             
-            # Apply LoRA if specified
-            if self.args.get('peft') == 'lora':
-                lora_config = LoraConfig(
-                    r=16,
-                    lora_alpha=16,
-                    target_modules=["query", "value"],
-                    lora_dropout=0.1,
-                    bias="none",
-                    modules_to_save=["classifier"] if 'vit' in model_name.lower() else None,
-                )
-                model = get_peft_model(model, lora_config)
+        # Apply LoRA if specified
+        if self.args.get('peft') == 'lora':
+            lora_config = LoraConfig(
+                r=16,
+                lora_alpha=16,
+                target_modules=["query", "value"],
+                lora_dropout=0.1,
+                bias="none",
+                modules_to_save=["classifier"] if 'vit' in model_name.lower() else None,
+            )
+            model = get_peft_model(model, lora_config)
             
-            # Convert model parameters to numpy arrays
-            params = []
-            for param in model.parameters():
-                params.append(param.detach().cpu().numpy())
+        # Convert model parameters to numpy arrays
+        params = []
+        for param in model.parameters():
+            params.append(param.detach().cpu().numpy())
             
-            logging.info(f"Created {len(params)} actual model parameters for {num_classes} classes "
+        logging.info(f"Created {len(params)} actual model parameters for {num_classes} classes "
                         f"(model={model_name}, peft={self.args.get('peft', 'none')})")
-            return params
+        return params
             
-        except Exception as e:
-            logging.error(f"Failed to create model parameters: {e}")
-            # Return minimal parameters as fallback
-            return [np.random.randn(100, 100).astype(np.float32)]
+
     
     
     def _train_with_actual_data(self, local_epochs: int, learning_rate: float, server_round: int) -> float:
@@ -547,7 +575,11 @@ class FlowerClient(fl.client.NumPyClient):
     
     def _get_client_data_indices(self) -> List[int]:
         """Get and validate client data indices."""
-        client_indices = self.dataset_info.get('client_data_indices', set())
+        if hasattr(self, 'client_data_indices'):
+            client_indices = self.client_data_indices
+        else:
+            client_indices = self.dataset_info.get('client_data_indices', set())
+        
         if not client_indices:
             raise ValueError(f"Client {self.client_id} has no data indices")
         return list(client_indices)
@@ -557,13 +589,32 @@ class FlowerClient(fl.client.NumPyClient):
         from torch.utils.data import DataLoader
         batch_size = self.dataset_info.get('batch_size', DEFAULT_BATCH_SIZE)
         
+        # Use the appropriate collate function based on the dataset type
+        if hasattr(self.args_loaded, 'dataset') and self.args_loaded.dataset == 'cifar100':
+            # For CIFAR-100, use the vit_collate_fn that handles the dataset format
+            collate_fn = self._get_vit_collate_fn()
+        else:
+            collate_fn = None  # Use default collate
+        
         return DataLoader(
             client_dataset,
             batch_size=batch_size,
             shuffle=True,
             drop_last=True,
-            num_workers=DEFAULT_NUM_WORKERS
+            num_workers=DEFAULT_NUM_WORKERS,
+            collate_fn=collate_fn
         )
+    
+    def _get_vit_collate_fn(self):
+        """Get the appropriate collate function for ViT models with CIFAR-100."""
+        def vit_collate_fn(examples):
+            """Collate function for ViT models that handles the CIFAR-100 dataset format."""
+            # The DatasetSplit returns (image, label, pixel_values) for CIFAR-100
+            pixel_values = torch.stack([example[2] for example in examples])
+            labels = torch.tensor([example[1] for example in examples])
+            return {"pixel_values": pixel_values, "labels": labels}
+        
+        return vit_collate_fn
     
     def _perform_training_epochs(self, dataloader: 'DataLoader', local_epochs: int, 
                                 learning_rate: float, server_round: int) -> float:
@@ -584,10 +635,10 @@ class FlowerClient(fl.client.NumPyClient):
 
         for batch_idx, batch in enumerate(dataloader):
             # Extract batch data
-            pixel_values, label = self._extract_batch_data(batch)
+            pixel_values, labels = self._extract_batch_data(batch)
             
             # Compute loss and update parameters
-            batch_loss = self._compute_batch_loss(pixel_values, label, server_round, batch_idx)
+            batch_loss = self._compute_batch_loss(pixel_values, labels, server_round, batch_idx)
             epoch_loss += batch_loss
             num_batches += 1
             self._update_parameters(learning_rate)
@@ -607,13 +658,17 @@ class FlowerClient(fl.client.NumPyClient):
     
     def _extract_batch_data(self, batch) -> Tuple:
         """Extract pixel_values and labels from batch."""
-        if len(batch) == 3:  # DatasetSplit returns (image, label, pixel_values)
+        if isinstance(batch, dict):  # New format with collate function
+            pixel_values = batch["pixel_values"]
+            labels = batch["labels"]
+        elif len(batch) == 3:  # DatasetSplit returns (image, label, pixel_values)
             image, label, pixel_values = batch
+            labels = label
         elif len(batch) == 2:  # Standard format
-            pixel_values, label = batch
+            pixel_values, labels = batch
         else:
-            raise ValueError(f"Invalid batch length: {len(batch)}")
-        return pixel_values, label
+            raise ValueError(f"Invalid batch format: {type(batch)}")
+        return pixel_values, labels
 
     def _create_client_dataset(self, client_indices: List[int]):
         """
@@ -739,8 +794,10 @@ class FlowerClient(fl.client.NumPyClient):
 
         # Simple linear transformation (simulating model forward pass)
         # This is a placeholder - in reality you'd use the actual model
-        hidden_size = pixel_values.shape[1] if len(pixel_values.shape) > 1 else 768
-        linear = torch.nn.Linear(hidden_size, num_classes).to(pixel_values.device)
+        # For CIFAR-100 with ViT, pixel_values has shape (batch_size, 3, 224, 224)
+        # We need to flatten it to (batch_size, 3*224*224) = (batch_size, 150528)
+        flattened_size = pixel_values.view(batch_size, -1).shape[1]
+        linear = torch.nn.Linear(flattened_size, num_classes).to(pixel_values.device)
 
         # Forward pass
         logits = linear(pixel_values.view(batch_size, -1))
@@ -1133,16 +1190,26 @@ class FlowerClient(fl.client.NumPyClient):
                      f"(epochs={local_epochs}, lr={learning_rate:.4f})")
 
         # Train using actual dataset if available, otherwise simulate
-        if self.dataset_info.get('data_loaded', False) and self.dataset_train is not None:
+        data_loaded = self.dataset_info.get('data_loaded', False)
+        dataset_train_available = self.dataset_train is not None
+        
+        logging.info(f"Client {self.client_id} data status: data_loaded={data_loaded}, dataset_train_available={dataset_train_available}")
+        
+        if data_loaded and dataset_train_available:
             # Use actual dataset for training
             total_loss = self._train_with_actual_data(local_epochs, learning_rate, server_round)
-            num_examples = len(self.dataset_info.get('client_data_indices', set()))
+            if hasattr(self, 'client_data_indices'):
+                num_examples = len(self.client_data_indices)
+            else:
+                num_examples = len(self.dataset_info.get('client_data_indices', set()))
             logging.info(f"Client {self.client_id} trained with actual non-IID dataset: {num_examples} samples")
         else:
-            # Simulate training
-            total_loss = self._simulate_training(local_epochs, learning_rate, server_round)
-            num_examples = np.random.randint(100, 1000)
-            logging.info(f"Client {self.client_id} trained with simulated data: {num_examples} samples")
+            logging.error(f"Client {self.client_id} cannot train: data_loaded={data_loaded}, dataset_train_available={dataset_train_available}")
+            raise ValueError("No actual dataset found for training")
+            # # Simulate training
+            # total_loss = self._simulate_training(local_epochs, learning_rate, server_round)
+            # num_examples = np.random.randint(100, 1000)
+            # logging.info(f"Client {self.client_id} trained with simulated data: {num_examples} samples")
 
         avg_loss = total_loss / local_epochs
 

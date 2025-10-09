@@ -17,10 +17,11 @@ pip install flwr[simulation] accelerate torch torchvision transformers
 ### 🔧 Manual Setup (Recommended for development)
 ```bash
 # Terminal 1 - Server
-python flower_server.py --server_address 0.0.0.0 --server_port 8080 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml --log_level INFO
+python flower_server.py --server_address 0.0.0.0 --server_port 8080 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_depthffm_fim-6_9_12-bone_noniid-pat_20_dir-noprior-s50-e50.yaml --log_level INFO
 
 # Terminal 2 - Client
-python flower_client.py --server_address localhost --server_port 8080 --client_id 0 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml --log_level INFO
+
+python flower_client.py --server_address localhost --server_port 8080 --client_id 0 --config_name experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_depthffm_fim-6_9_12-bone_noniid-pat_20_dir-noprior-s50-e50.yaml --log_level INFO
 ```
 
 ### 🎯 Automated Setup (for experiment)
@@ -69,7 +70,7 @@ System (8 cores)
 - `--config_name`: YAML config file
 
 **Default Config:**
-`experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml`
+`experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_depthffm_fim-6_9_12-bone_noniid-pat_20_dir-noprior-s50-e50.yaml`
 
 ## 🏗️ Architecture
 
@@ -112,7 +113,7 @@ export FLWR_LOG_LEVEL=DEBUG
 **Required Files:**
 - `flower_server.py`
 - `flower_client.py`
-- `config/experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml`
+- `experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_depthffm_fim-6_9_12-bone_noniid-pat_20_dir-noprior-s50-e50.yaml`
 
 ## 📊 Example Output
 
