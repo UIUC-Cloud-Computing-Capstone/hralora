@@ -1,9 +1,6 @@
 import torch
-import random
 import numpy as np
-import copy
 from utils.model_utils import model_clip
-from collections import defaultdict
 
 def average(args, global_model, local_updates):
     '''

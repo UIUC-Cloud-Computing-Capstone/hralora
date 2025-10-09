@@ -4,10 +4,8 @@ import copy
 
 import numpy as np
 from tqdm import tqdm
-import gc
 from accelerate import Accelerator
 from accelerate import DistributedDataParallelKwargs
-import time
 
 def get_parameter_names(model, forbidden_layer_types):
     """
