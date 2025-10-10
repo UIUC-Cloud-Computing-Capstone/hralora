@@ -560,6 +560,7 @@ class FlowerClient(fl.client.NumPyClient):
         # Update args with model dimension
         self.args.dim = model_dim
         
+        # TODO Liam: extract constant
         logging.info(f"Created model using shared model_setup: {model_dim} dimensions "
                     f"(model={self.args.get('model', 'unknown')}, peft={self.args.get('peft', 'none')})")
         return model
