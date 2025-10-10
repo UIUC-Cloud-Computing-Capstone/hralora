@@ -422,7 +422,7 @@ class FlowerClient(fl.client.NumPyClient):
             dataset_info.update({
                 'train_samples': len(self.dataset_train) if self.dataset_train else 0,
                 'test_samples': len(self.dataset_test) if self.dataset_test else 0,
-                'num_users': len(self.dict_users) if self.dict_users else 0,
+                'num_users': len(self.client_data_partition) if self.client_data_partition else 0,
                 'client_data_indices': getattr(self, 'dataset_info', {}).get('client_data_indices', set()),
                 'noniid_type': getattr(self.args_loaded, 'noniid_type', 'dirichlet') if hasattr(self, 'args_loaded') else 'dirichlet'
             })
@@ -461,13 +461,13 @@ class FlowerClient(fl.client.NumPyClient):
         logging.info(f"Non-IID configuration: {dataset_args.noniid_type}, {dataset_args.pat_num_cls} classes per client")
 
         # Use shared load_data function for consistency
-        args_loaded, dataset_train, dataset_test, dict_users, dataset_fim = load_data(dataset_args)
+        args_loaded, dataset_train, dataset_test, client_data_partition, dataset_fim = load_data(dataset_args)
 
         # Debug prints
         # TODO Liam: log instead of print
         print('dataset_train length: ', len(dataset_train))
         print('dataset_test length: ', len(dataset_test))
-        print('dict_users length: ', len(dict_users))
+        print('client_data_partition length: ', len(client_data_partition))
         print('dataset_fim length: ', len(dataset_fim) if dataset_fim else 0)
         print('args_loaded: ', args_loaded)
 
@@ -475,54 +475,53 @@ class FlowerClient(fl.client.NumPyClient):
         if not dataset_train:
             raise ValueError("Failed to load training dataset")
             
-        if not dict_users:
+        if not client_data_partition:
             raise ValueError("Failed to load user data partition")
 
         # TODO Liam: other edge cases
 
-        return (args_loaded, dataset_train, dataset_test, dict_users, dataset_fim)
+        return (args_loaded, dataset_train, dataset_test, client_data_partition, dataset_fim)
             
     
 
     
     def _store_dataset_data(self, dataset_data: Tuple) -> None:
         """Store loaded dataset data in instance variables."""
-        args_loaded, dataset_train, dataset_test, dict_users, dataset_fim = dataset_data
+        args_loaded, dataset_train, dataset_test, client_data_partition, dataset_fim = dataset_data
         
         self.dataset_train = dataset_train
         self.dataset_test = dataset_test
-        # TODO Liam: rename dict_users into something more descriptive
-        self.dict_users = dict_users
+        self.client_data_partition = client_data_partition
         self.dataset_fim = dataset_fim
         self.args_loaded = args_loaded
         
         # Store client data indices for later use
-        if dict_users and self.client_id in dict_users:
-            self.client_data_indices = dict_users[self.client_id]
-            logging.info(f"Client {self.client_id} assigned {len(dict_users[self.client_id])} data samples")
+        if client_data_partition and self.client_id in client_data_partition:
+            self.client_data_indices = client_data_partition[self.client_id]
+            logging.info(f"Client {self.client_id} assigned {len(client_data_partition[self.client_id])} data samples")
         else:
             logging.warning(f"Client {self.client_id} not found in user data partition")
             self.client_data_indices = set()
     
     def _log_dataset_statistics(self, dataset_name: str, dataset_data: Tuple) -> None:
         """Log comprehensive dataset statistics."""
-        args_loaded, dataset_train, dataset_test, dict_users, dataset_fim = dataset_data
+        args_loaded, dataset_train, dataset_test, client_data_partition, dataset_fim = dataset_data
         
         logging.info(LOG_DATASET_LOADED.format(dataset_name=dataset_name))
         logging.info(f"Train samples: {len(dataset_train) if dataset_train else 0}")
         logging.info(f"Test samples: {len(dataset_test) if dataset_test else 0}")
-        logging.info(f"Total clients: {len(dict_users) if dict_users else 0}")
-        logging.info(f"Client {self.client_id} has {len(dict_users.get(self.client_id, set())) if dict_users else 0} data samples")
+        logging.info(f"Total clients: {len(client_data_partition) if client_data_partition else 0}")
+        logging.info(f"Client {self.client_id} has {len(client_data_partition.get(self.client_id, set())) if client_data_partition else 0} data samples")
 
         # Log non-IID distribution information
-        self._log_client_class_distribution(dict_users, args_loaded)
+        self._log_client_class_distribution(client_data_partition, args_loaded)
     
-    def _log_client_class_distribution(self, dict_users: Dict, args_loaded) -> None:
+    def _log_client_class_distribution(self, client_data_partition: Dict, args_loaded) -> None:
         """Log client-specific class distribution information."""
-        if not dict_users or self.client_id not in dict_users:
+        if not client_data_partition or self.client_id not in client_data_partition:
             return
             
-        client_indices = list(dict_users[self.client_id])
+        client_indices = list(client_data_partition[self.client_id])
         if not hasattr(args_loaded, '_tr_labels') or args_loaded._tr_labels is None:
             return
             
