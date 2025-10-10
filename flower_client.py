@@ -748,7 +748,6 @@ class FlowerClient(fl.client.NumPyClient):
             params.append(param.detach().cpu().numpy())
         return params
     
-    # TODO Liam: why is this needed?
     def _numpy_params_to_model(self, params: List[np.ndarray]) -> None:
         """Set model parameters from numpy arrays."""
         param_idx = 0
