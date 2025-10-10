@@ -823,7 +823,7 @@ class FlowerClient(fl.client.NumPyClient):
         """Initialize heterogeneous group configuration if needed."""
         # Only initialize if we have heterogeneous group configuration
         if hasattr(self.args, 'heterogeneous_group'):
-            from algorithms.solver.shared_utils import get_group_cnt, user_groupid_list, update_block_ids_list
+            from algorithms.solver.shared_utils import get_group_cnt, update_user_groupid_list, update_block_ids_list
             
             # Initialize user group ID list if not present
             if not hasattr(self.args, 'user_groupid_list'):
@@ -831,7 +831,7 @@ class FlowerClient(fl.client.NumPyClient):
                 group_cnt = get_group_cnt(self.args)
                 
                 # Create user group ID list
-                user_groupid_list(self.args, group_cnt)
+                update_user_groupid_list(self.args, group_cnt)
                 
                 logging.info(f"Initialized heterogeneous groups: {group_cnt}")
             

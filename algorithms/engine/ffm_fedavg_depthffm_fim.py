@@ -10,7 +10,7 @@ from ..solver.local_solver import LocalUpdate
 from ..solver.global_aggregator import average_lora_depthfl, weighted_average_lora_depthfl
 from ..solver.shared_utils import (
     load_data, get_data_loader_list, get_dataset_fim, vit_collate_fn, test_collate_fn,
-    get_group_cnt, user_groupid_list, update_block_ids_list, update_block_ids_list_with_observed_probability,
+    get_group_cnt, update_user_groupid_list, update_block_ids_list, update_block_ids_list_with_observed_probability,
     get_observed_prob, get_observed_probability, get_model_update, get_norm_updates,
     get_train_loss, get_norm, update_delta_norms
 )
@@ -37,7 +37,7 @@ def ffm_fedavg_depthffm_fim(args):
     # heterogenity
     group_cnt = get_group_cnt(args)
 
-    user_groupid_list(args, group_cnt)
+    update_user_groupid_list(args, group_cnt)
 
     best_test_acc, best_test_f1, best_test_micro_f1, metric_keys = init_metrics()
 
