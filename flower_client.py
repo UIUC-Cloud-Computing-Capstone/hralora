@@ -407,6 +407,7 @@ class FlowerClient(fl.client.NumPyClient):
     
     def _apply_dataset_specific_config(self, dataset_info: Dict[str, Any], dataset_name: str) -> None:
         """Apply dataset-specific configuration."""
+        # TODO Liam: extract constant
         if dataset_name in DATASET_CONFIGS:
             config = DATASET_CONFIGS[dataset_name]
             dataset_info['num_classes'] = config['num_classes']
