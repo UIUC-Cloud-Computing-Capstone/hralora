@@ -892,6 +892,7 @@ class FlowerClient(fl.client.NumPyClient):
             raise ValueError(ERROR_NO_DATA_INDICES.format(client_id=self.client_id))
         return list(client_indices)
     
+    # TODO Liam: refactor this
     def _create_training_dataloader(self, client_dataset):
         """Create DataLoader for training using shared utilities."""
         collate_fn = self._get_collate_function()
@@ -905,7 +906,8 @@ class FlowerClient(fl.client.NumPyClient):
             return vit_collate_fn
         elif self._is_ledgar_dataset():
             return getattr(self.args_loaded, 'data_collator', None)
-        return None  # Use default collate
+        else:
+            raise ValueError(f"Invalid dataset: {self.args_loaded.dataset}")
     
     def _is_cifar100_dataset(self) -> bool:
         """Check if the dataset is CIFAR-100."""
