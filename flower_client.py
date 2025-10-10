@@ -555,7 +555,7 @@ class FlowerClient(fl.client.NumPyClient):
         self._ensure_model_setup_attributes()
         
         # Use shared model_setup function for consistency with original implementation
-        args_with_model, model, global_model, model_dim = model_setup(self.args)
+        _, model, _, model_dim = model_setup(self.args)
         
         # Update args with model dimension
         self.args.dim = model_dim
