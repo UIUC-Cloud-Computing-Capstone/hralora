@@ -464,6 +464,7 @@ class FlowerClient(fl.client.NumPyClient):
         args_loaded, dataset_train, dataset_test, dict_users, dataset_fim = load_data(dataset_args)
 
         # Debug prints
+        # TODO Liam: log instead of print
         print('dataset_train length: ', len(dataset_train))
         print('dataset_test length: ', len(dataset_test))
         print('dict_users length: ', len(dict_users))
