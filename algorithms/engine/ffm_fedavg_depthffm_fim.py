@@ -138,13 +138,12 @@ def train_each_client(args, net_glob, global_model, data_loader_list, t, local_s
             
     if local_loss:
         local_losses.append(local_loss)
-            # compute model update
+            
     model_update = get_model_update(args, global_model, local_model, no_weight_lora)
-            # compute model update norm
     norm_updates = get_norm_updates(model_update)
     update_delta_norms(delta_norms, norm_updates)
-
     local_updates.append(model_update)
+
     num_samples.append(len(data_loader_list[i]))
 
 def test_global_model_on_server_side(args, dataset_test, writer, net_glob, global_model, best_test_acc, best_test_micro_f1, metric_keys, t, norm, train_loss):

@@ -352,7 +352,7 @@ class FlowerClient(fl.client.NumPyClient):
         logging.info(LOG_CLIENT_INITIALIZED.format(client_id=client_id, num_cores=num_cores))
         
         # Initialize loss function based on data type (will be created when needed)
-        self._loss_func = None
+        #self._loss_func = None
         
         # Initialize training history
         self.training_history = {
@@ -382,21 +382,21 @@ class FlowerClient(fl.client.NumPyClient):
             if not hasattr(self.args, param): 
                 logging.warning(f"Missing configuration parameter: {param}, using default")
     
-    def _get_loss_function(self) -> nn.Module:
-        """Get appropriate loss function based on data type."""
-        # Create loss function on demand to avoid storing as instance variable
-        if self._loss_func is None:
-            data_type = getattr(self.args, CONFIG_KEY_DATA_TYPE, DEFAULT_IMAGE_DATA_TYPE)
+    # def _get_loss_function(self) -> nn.Module:
+    #     """Get appropriate loss function based on data type."""
+    #     # Create loss function on demand to avoid storing as instance variable
+    #     if self._loss_func is None:
+    #         data_type = getattr(self.args, CONFIG_KEY_DATA_TYPE, DEFAULT_IMAGE_DATA_TYPE)
             
-            loss_functions = {
-                DEFAULT_IMAGE_DATA_TYPE: nn.CrossEntropyLoss(),
-                DEFAULT_TEXT_DATA_TYPE: nn.CrossEntropyLoss(),
-                DEFAULT_SENTIMENT_DATA_TYPE: nn.NLLLoss()
-            }
+    #         loss_functions = {
+    #             DEFAULT_IMAGE_DATA_TYPE: nn.CrossEntropyLoss(),
+    #             DEFAULT_TEXT_DATA_TYPE: nn.CrossEntropyLoss(),
+    #             DEFAULT_SENTIMENT_DATA_TYPE: nn.NLLLoss()
+    #         }
             
-            self._loss_func = loss_functions.get(data_type, nn.CrossEntropyLoss())
+    #         self._loss_func = loss_functions.get(data_type, nn.CrossEntropyLoss())
         
-        return self._loss_func
+    #     return self._loss_func
     
     def _load_and_store_dataset(self) -> None:
         """Load and store dataset data using the data_loading module."""
@@ -548,41 +548,9 @@ class FlowerClient(fl.client.NumPyClient):
                 logging.error(msg)
         return SimpleLogger()
     
-    def _model_to_numpy_params(self) -> List[np.ndarray]:
-        """Convert model parameters to numpy arrays."""
-        params = []
-        for param in self.model.parameters():
-            params.append(param.detach().cpu().numpy())
-        return params
-    
-    def _numpy_params_to_model(self, params: List[np.ndarray]) -> None:
-        """Set model parameters from numpy arrays."""
-        param_idx = 0
-        for param in self.model.parameters():
-            if param_idx < len(params):
-                param.data = torch.from_numpy(params[param_idx]).to(param.device)
-                param_idx += 1
+
             
 
-    
-    
-    def _train_with_actual_data(self, local_epochs: int, learning_rate: float, server_round: int) -> float:
-        """
-        Train using actual dataset data with real batch iteration and non-IID distribution.
-        
-        Args:
-            local_epochs: Number of local training epochs
-            learning_rate: Learning rate for training
-            server_round: Current server round
-            
-        Returns:
-            Total training loss
-        """
-        # Check if we should use LocalUpdate for heterogeneous training
-        if self._should_use_local_update():
-            return self._train_with_local_update(local_epochs, learning_rate, server_round)
-        else:
-            return self._train_with_standard_approach(local_epochs, learning_rate, server_round)
     
     # TODO Liam: refactor this
     def _should_use_local_update(self) -> bool:
@@ -783,11 +751,6 @@ class FlowerClient(fl.client.NumPyClient):
         return client_dataset
 
 
-
-
-
-    
-    
     def _evaluate_with_actual_data(self, server_round: int) -> Tuple[float, float]:
         """
         Evaluate using actual dataset data with real batch iteration.
@@ -886,33 +849,8 @@ class FlowerClient(fl.client.NumPyClient):
 
 
 
-
-
-    def get_parameters(self, config: Dict[str, Any]) -> List[np.ndarray]:
-        """
-        Get current model parameters.
-        
-        Args:
-            config: Configuration dictionary
-            
-        Returns:
-            List of model parameters as numpy arrays
-        """
-        return self._model_to_numpy_params()
     
-    def set_parameters(self, parameters: List[np.ndarray]) -> None:
-        """
-        Set model parameters from server.
-        
-        Args:
-            parameters: List of model parameters from server
-        """
-        if not parameters:
-            logging.warning("Received empty parameters from server")
-            return
-            
-        self._numpy_params_to_model(parameters)
-        logging.debug(f"Updated model parameters with {len(parameters)} parameter arrays")
+
     
     def fit(self, parameters: List[np.ndarray], config: Dict[str, Any]) -> Tuple[List[np.ndarray], int, Dict[str, Any]]:
         """
@@ -943,6 +881,48 @@ class FlowerClient(fl.client.NumPyClient):
         
         metrics = self._create_training_metrics(avg_loss, local_epochs, learning_rate)
         return self.get_parameters(config), int(num_examples), metrics
+    
+    def set_parameters(self, parameters: List[np.ndarray]) -> None:
+        """
+        Set model parameters from server.
+        
+        Args:
+            parameters: List of model parameters from server
+        """
+        if not parameters:
+            logging.warning("Received empty parameters from server")
+            return
+            
+        self._numpy_params_to_model(parameters)
+        logging.debug(f"Updated model parameters with {len(parameters)} parameter arrays")
+
+
+    def get_parameters(self, config: Dict[str, Any]) -> List[np.ndarray]:
+        """
+        Get current model parameters.
+        
+        Args:
+            config: Configuration dictionary
+            
+        Returns:
+            List of model parameters as numpy arrays
+        """
+        return self._model_to_numpy_params()
+    
+    def _model_to_numpy_params(self) -> List[np.ndarray]:
+        """Convert model parameters to numpy arrays."""
+        params = []
+        for param in self.model.parameters():
+            params.append(param.detach().cpu().numpy())
+        return params
+    
+    def _numpy_params_to_model(self, params: List[np.ndarray]) -> None:
+        """Set model parameters from numpy arrays."""
+        param_idx = 0
+        for param in self.model.parameters():
+            if param_idx < len(params):
+                param.data = torch.from_numpy(params[param_idx]).to(param.device)
+                param_idx += 1
     
     def _extract_training_config(self, config: Dict[str, Any]) -> Tuple[int, int, float]:
         """Extract and validate training configuration."""
@@ -982,6 +962,24 @@ class FlowerClient(fl.client.NumPyClient):
         logging.info(f"Client {self.client_id} trained with actual non-IID dataset: {num_examples} samples")
         return total_loss, num_examples
     
+    def _train_with_actual_data(self, local_epochs: int, learning_rate: float, server_round: int) -> float:
+        """
+        Train using actual dataset data with real batch iteration and non-IID distribution.
+        
+        Args:
+            local_epochs: Number of local training epochs
+            learning_rate: Learning rate for training
+            server_round: Current server round
+            
+        Returns:
+            Total training loss
+        """
+        # Check if we should use LocalUpdate for heterogeneous training
+        if self._should_use_local_update():
+            return self._train_with_local_update(local_epochs, learning_rate, server_round)
+        else:
+            return self._train_with_standard_approach(local_epochs, learning_rate, server_round)
+
     def _get_num_examples(self) -> int:
         """Get number of training examples for this client."""
         if hasattr(self, 'client_data_indices'):
