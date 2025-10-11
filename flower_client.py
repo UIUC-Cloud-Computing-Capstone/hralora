@@ -450,6 +450,30 @@ class FlowerClient(fl.client.NumPyClient):
         """
         return self.dataset_info.copy()
     
+    # TODO Liam: refactor this
+    def _initialize_heterogeneous_config(self) -> None:
+        """Initialize heterogeneous group configuration if needed."""
+        # Only initialize if we have heterogeneous group configuration
+        if hasattr(self.args, CONFIG_KEY_HETEROGENEOUS_GROUP):
+            from algorithms.solver.shared_utils import get_group_cnt, update_user_groupid_list, update_block_ids_list
+            
+            # Initialize user group ID list if not present
+            if not hasattr(self.args, CONFIG_KEY_USER_GROUPID_LIST):
+                # Calculate group counts
+                group_cnt = get_group_cnt(self.args)
+                
+                # Create user group ID list
+                update_user_groupid_list(self.args, group_cnt)
+                
+                logging.info(f"Initialized heterogeneous groups: {group_cnt}")
+            
+            # Initialize block IDs list if not present
+            if not hasattr(self.args, CONFIG_KEY_BLOCK_IDS_LIST):
+                update_block_ids_list(self.args)
+                logging.info(f"Initialized block IDs list: {len(self.args.block_ids_list)} clients")
+            
+            logging.info(f"Client {self.client_id} assigned to group {self._get_client_group_id()}")
+    
     def _create_actual_model(self):
         """
         Create actual model using shared model_setup function.
@@ -618,9 +642,17 @@ class FlowerClient(fl.client.NumPyClient):
         else:
             logging.warning(f"Client {self.client_id} LocalUpdate training returned no loss")
             return 0.0
-
-
     
+    def _get_client_data_indices(self) -> List[int]:
+        """Get and validate client data indices."""
+        client_data_indices = getattr(self, 'client_data_indices', None)
+        return get_client_data_indices(client_data_indices, self.dataset_info, self.client_id)
+    
+    # TODO Liam: refactor this
+    def _create_training_dataloader(self, client_dataset):
+        """Create DataLoader for training using shared utilities."""
+        return create_training_dataloader(client_dataset, self.args_loaded, self.args)
+
     def _get_client_group_id(self) -> int:
         """Get the heterogeneous group ID for this client."""
         if hasattr(self.args, CONFIG_KEY_USER_GROUPID_LIST) and self.client_id < len(self.args.user_groupid_list):
@@ -628,30 +660,6 @@ class FlowerClient(fl.client.NumPyClient):
         return DEFAULT_GROUP_ID  # Default to group 0
         
 
-    
-    # TODO Liam: refactor this
-    def _initialize_heterogeneous_config(self) -> None:
-        """Initialize heterogeneous group configuration if needed."""
-        # Only initialize if we have heterogeneous group configuration
-        if hasattr(self.args, CONFIG_KEY_HETEROGENEOUS_GROUP):
-            from algorithms.solver.shared_utils import get_group_cnt, update_user_groupid_list, update_block_ids_list
-            
-            # Initialize user group ID list if not present
-            if not hasattr(self.args, CONFIG_KEY_USER_GROUPID_LIST):
-                # Calculate group counts
-                group_cnt = get_group_cnt(self.args)
-                
-                # Create user group ID list
-                update_user_groupid_list(self.args, group_cnt)
-                
-                logging.info(f"Initialized heterogeneous groups: {group_cnt}")
-            
-            # Initialize block IDs list if not present
-            if not hasattr(self.args, CONFIG_KEY_BLOCK_IDS_LIST):
-                update_block_ids_list(self.args)
-                logging.info(f"Initialized block IDs list: {len(self.args.block_ids_list)} clients")
-            
-            logging.info(f"Client {self.client_id} assigned to group {self._get_client_group_id()}")
     
     def _create_optimizer(self, learning_rate: float) -> torch.optim.Optimizer:
         """Create optimizer for training."""
@@ -678,15 +686,7 @@ class FlowerClient(fl.client.NumPyClient):
         logging.info(f"Client {self.client_id} trained on {len(client_indices_list)} actual samples, "
                      f"avg_loss={avg_total_loss:.4f}")
     
-    def _get_client_data_indices(self) -> List[int]:
-        """Get and validate client data indices."""
-        client_data_indices = getattr(self, 'client_data_indices', None)
-        return get_client_data_indices(client_data_indices, self.dataset_info, self.client_id)
-    
-    # TODO Liam: refactor this
-    def _create_training_dataloader(self, client_dataset):
-        """Create DataLoader for training using shared utilities."""
-        return create_training_dataloader(client_dataset, self.args_loaded, self.args)
+
     
     
     
