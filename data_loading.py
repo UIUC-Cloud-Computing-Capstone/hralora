@@ -386,14 +386,7 @@ def update_dataset_info_with_loaded_data(dataset_info: Dict[str, Any], args, cli
             CONFIG_KEY_NONIID_TYPE: getattr(args, CONFIG_KEY_NONIID_TYPE, DEFAULT_DIRICHLET_TYPE)
         })
     else:
-        # Fallback to placeholder values
-        dataset_info.update({
-            CONFIG_KEY_TRAIN_SAMPLES: 0,
-            CONFIG_KEY_TEST_SAMPLES: 0,
-            CONFIG_KEY_NUM_USERS: 0,
-            CONFIG_KEY_CLIENT_DATA_INDICES: set(),
-            CONFIG_KEY_NONIID_TYPE: getattr(args, CONFIG_KEY_NONIID_TYPE, DEFAULT_DIRICHLET_TYPE)
-        })
+        raise ValueError("Dataset data not found")
 
 
 # =============================================================================
