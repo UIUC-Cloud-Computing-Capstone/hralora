@@ -42,6 +42,12 @@ from algorithms.solver.shared_utils import (
 )
 from algorithms.solver.local_solver import LocalUpdate
 from utils.model_utils import model_setup
+from data_loading import (
+    DatasetArgs, load_dataset_config, load_dataset, store_dataset_data,
+    get_client_data_indices, create_training_dataloader, create_client_dataset,
+    get_evaluation_dataset, create_evaluation_dataloader, extract_batch_data,
+    extract_evaluation_batch_data, compute_batch_evaluation_metrics
+)
 
 # Constants
 DATASET_LOADING_AVAILABLE = True
@@ -252,65 +258,6 @@ DEFAULT_DROP_LAST_EVAL = False
 # HELPER CLASSES
 # =============================================================================
 
-class DatasetArgs:
-    """
-    Arguments class for dataset loading compatibility.
-    
-    This class provides a bridge between the configuration dictionary and the 
-    dataset loading functions, ensuring compatibility with the existing data 
-    preprocessing pipeline.
-    
-    Example:
-        config_dict = {CONFIG_KEY_DATASET: DEFAULT_DATASET, CONFIG_KEY_BATCH_SIZE: DEFAULT_BATCH_SIZE}
-        args = DatasetArgs(config_dict, client_id=DEFAULT_CLIENT_ID)
-    """
-    
-    def __init__(self, config_dict: Dict[str, Any], client_id: int):
-        """Initialize dataset args from configuration dictionary."""
-        # Store config dict for direct access instead of individual attributes
-        self.config_dict = config_dict
-        self.client_id = client_id
-        
-        # Only store essential attributes that are frequently accessed
-        self.dataset = config_dict.get(CONFIG_KEY_DATASET, DEFAULT_DATASET)
-        self.model = config_dict.get(CONFIG_KEY_MODEL, DEFAULT_MODEL)
-        self.data_type = config_dict.get(CONFIG_KEY_DATA_TYPE, DEFAULT_DATA_TYPE)
-        self.peft = config_dict.get(CONFIG_KEY_PEFT, DEFAULT_PEFT)
-        self.batch_size = config_dict.get(CONFIG_KEY_BATCH_SIZE, DEFAULT_BATCH_SIZE)
-        self.num_users = config_dict.get(CONFIG_KEY_NUM_USERS, DEFAULT_NUM_USERS)
-        
-        # Device configuration
-        self.device = torch.device(DEFAULT_CUDA_DEVICE if torch.cuda.is_available() else DEFAULT_CPU_DEVICE)
-        
-        # Logger
-        self.logger = self._create_simple_logger()
-        
-        # Additional attributes that might be needed
-        self.num_classes = config_dict.get(CONFIG_KEY_NUM_CLASSES, DEFAULT_NUM_CLASSES)
-        self.labels = None  # Will be set by load_partition
-        self.label2id = None  # Will be set by load_partition
-        self.id2label = None  # Will be set by load_partition
-        
-        # Computed attributes
-        self.iid = config_dict.get(CONFIG_KEY_IID, DEFAULT_ZERO_VALUE) == DEFAULT_ONE_VALUE
-        self.noniid = not self.iid
-
-    def _create_simple_logger(self):
-        """Create a simple logger for compatibility."""
-        class SimpleLogger:
-            def info(self, msg, main_process_only=False):
-                logging.info(msg)
-        return SimpleLogger()
-    
-    def get(self, key: str, default: Any = None) -> Any:
-        """Get configuration value with default."""
-        return self.config_dict.get(key, default)
-    
-    def __getattr__(self, name: str) -> Any:
-        """Get attribute from config_dict if not found as direct attribute."""
-        if name in self.config_dict:
-            return self.config_dict[name]
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
   
 class Config:
     """
@@ -405,7 +352,7 @@ class FlowerClient(fl.client.NumPyClient):
         logging.info(LOG_CLIENT_INITIALIZED.format(client_id=client_id, num_cores=num_cores))
         
         # Initialize loss function based on data type (will be created when needed)
-        self._loss_func = None
+        #self._loss_func = None
         
         # Initialize training history
         self.training_history = {
@@ -415,7 +362,11 @@ class FlowerClient(fl.client.NumPyClient):
         }
         
         # Load dataset configuration and data
-        self.dataset_info = self._load_dataset_config()
+        self.dataset_info = load_dataset_config(self.args, self.client_id)
+        
+        # Load actual dataset if configuration indicates it should be loaded
+        if self.dataset_info.get(CONFIG_KEY_DATA_LOADED, False):
+            self._load_and_store_dataset()
         
         # Initialize heterogeneous group configuration if needed
         self._initialize_heterogeneous_config()
@@ -431,117 +382,30 @@ class FlowerClient(fl.client.NumPyClient):
             if not hasattr(self.args, param): 
                 logging.warning(f"Missing configuration parameter: {param}, using default")
     
-    def _get_loss_function(self) -> nn.Module:
-        """Get appropriate loss function based on data type."""
-        # Create loss function on demand to avoid storing as instance variable
-        if self._loss_func is None:
-            data_type = getattr(self.args, CONFIG_KEY_DATA_TYPE, DEFAULT_IMAGE_DATA_TYPE)
+    # def _get_loss_function(self) -> nn.Module:
+    #     """Get appropriate loss function based on data type."""
+    #     # Create loss function on demand to avoid storing as instance variable
+    #     if self._loss_func is None:
+    #         data_type = getattr(self.args, CONFIG_KEY_DATA_TYPE, DEFAULT_IMAGE_DATA_TYPE)
             
-            loss_functions = {
-                DEFAULT_IMAGE_DATA_TYPE: nn.CrossEntropyLoss(),
-                DEFAULT_TEXT_DATA_TYPE: nn.CrossEntropyLoss(),
-                DEFAULT_SENTIMENT_DATA_TYPE: nn.NLLLoss()
-            }
+    #         loss_functions = {
+    #             DEFAULT_IMAGE_DATA_TYPE: nn.CrossEntropyLoss(),
+    #             DEFAULT_TEXT_DATA_TYPE: nn.CrossEntropyLoss(),
+    #             DEFAULT_SENTIMENT_DATA_TYPE: nn.NLLLoss()
+    #         }
             
-            self._loss_func = loss_functions.get(data_type, nn.CrossEntropyLoss())
+    #         self._loss_func = loss_functions.get(data_type, nn.CrossEntropyLoss())
         
-        return self._loss_func
+    #     return self._loss_func
     
-    def _load_dataset_config(self) -> Dict[str, Any]:
-        """
-        Load dataset configuration and prepare dataset information.
+    def _load_and_store_dataset(self) -> None:
+        """Load and store dataset data using the data_loading module."""
+        dataset_name = self.dataset_info.get(CONFIG_KEY_DATASET_NAME, DEFAULT_DATASET)
         
-        Returns:
-            Dictionary containing dataset information with the following keys:
-            - dataset_name: Name of the dataset
-            - data_type: Type of data (image/text)
-            - model_name: Name of the model architecture
-            - batch_size: Batch size for training
-            - num_classes: Number of output classes
-            - labels: Dataset labels (if available)
-            - label2id: Label to ID mapping (if available)
-            - id2label: ID to label mapping (if available)
-            - data_loaded: Whether actual data was loaded
-            
-        Raises:
-            ValueError: If dataset configuration is invalid
-        """
-        dataset_name = self._get_dataset_name()
-        dataset_info = self._create_base_dataset_info(dataset_name)
+        # Load dataset using the data_loading module
+        load_dataset(dataset_name, self.args, self.client_id)
         
-        self._validate_dataset_name(dataset_name)
-        self._apply_dataset_specific_config(dataset_info, dataset_name)
-        
-        # Load actual dataset if available
-        dataset_info[CONFIG_KEY_DATA_LOADED] = self._load_dataset(dataset_name)
-        logging.info(f"Dataset loading result: {dataset_info[CONFIG_KEY_DATA_LOADED]}")
-        
-        # Update with actual data if loaded successfully
-        if dataset_info[CONFIG_KEY_DATA_LOADED]:
-            self._update_dataset_info_with_loaded_data(dataset_info)
-
-        logging.info(f"Dataset configuration loaded: {dataset_name} "
-                     f"({dataset_info[CONFIG_KEY_NUM_CLASSES]} classes, {dataset_info[CONFIG_KEY_DATA_TYPE]} data)")
-
-        return dataset_info
-    
-    def _get_dataset_name(self) -> str:
-        """Get dataset name from configuration."""
-        return self.args.get(CONFIG_KEY_DATASET, DEFAULT_DATASET)
-    
-    def _create_base_dataset_info(self, dataset_name: str) -> Dict[str, Any]:
-        """Create base dataset information dictionary."""
-        return {
-            CONFIG_KEY_DATASET_NAME: dataset_name,
-            CONFIG_KEY_DATA_TYPE: self.args.get(CONFIG_KEY_DATA_TYPE, DEFAULT_IMAGE_DATA_TYPE),
-            CONFIG_KEY_MODEL_NAME: self.args.get(CONFIG_KEY_MODEL, DEFAULT_MODEL),
-            CONFIG_KEY_BATCH_SIZE: self.args.get(CONFIG_KEY_BATCH_SIZE, DEFAULT_BATCH_SIZE),
-            CONFIG_KEY_NUM_CLASSES: None,
-            CONFIG_KEY_LABELS: None,
-            CONFIG_KEY_LABEL2ID: None,
-            CONFIG_KEY_ID2LABEL: None,
-            CONFIG_KEY_DATA_LOADED: False
-        }
-    
-    def _validate_dataset_name(self, dataset_name: str) -> None:
-        """Validate dataset name."""
-        if not dataset_name or not isinstance(dataset_name, str):
-            raise ValueError(f"Invalid dataset name: {dataset_name}")
-        logging.info(f"Loading dataset configuration for: {dataset_name}")
-    
-    def _apply_dataset_specific_config(self, dataset_info: Dict[str, Any], dataset_name: str) -> None:
-        """Apply dataset-specific configuration."""
-        if dataset_name in DATASET_CONFIGS:
-            config = DATASET_CONFIGS[dataset_name]
-            dataset_info[CONFIG_KEY_NUM_CLASSES] = config[CONFIG_KEY_NUM_CLASSES]
-            dataset_info[CONFIG_KEY_DATA_TYPE] = config[CONFIG_KEY_DATA_TYPE]
-        else:
-            raise ValueError(ERROR_INVALID_DATASET.format(dataset_name=dataset_name))
-    
-    def _update_dataset_info_with_loaded_data(self, dataset_info: Dict[str, Any]) -> None:
-        """Update dataset info with actual loaded data."""
-        if hasattr(self, 'dataset_train'):
-            dataset_info.update({
-                CONFIG_KEY_TRAIN_SAMPLES: len(self.dataset_train) if self.dataset_train else DEFAULT_ZERO_VALUE,
-                CONFIG_KEY_TEST_SAMPLES: len(self.dataset_test) if self.dataset_test else DEFAULT_ZERO_VALUE,
-                CONFIG_KEY_NUM_USERS: len(self.client_data_partition) if self.client_data_partition else DEFAULT_ZERO_VALUE,
-                CONFIG_KEY_CLIENT_DATA_INDICES: getattr(self, CONFIG_KEY_DATASET_INFO, {}).get(CONFIG_KEY_CLIENT_DATA_INDICES, set()),
-                CONFIG_KEY_NONIID_TYPE: getattr(self.args_loaded, CONFIG_KEY_NONIID_TYPE, DEFAULT_DIRICHLET_TYPE) if hasattr(self, 'args_loaded') else DEFAULT_DIRICHLET_TYPE
-            })
-    
-    def _load_dataset(self, dataset_name: str) -> bool:
-        """
-        Attempt to load actual dataset data.
-        
-        Args:
-            dataset_name: Name of the dataset to load
-            
-        Returns:
-            True if dataset was loaded successfully, False otherwise
-        """
-        logging.info(f"Loading dataset: {dataset_name}")
-
-        # Create dataset args and load dataset
+        # Store the loaded data
         dataset_args = DatasetArgs(self.args.to_dict(), self.client_id)
         dataset_data = self._load_dataset_with_partition(dataset_args)
         
@@ -550,41 +414,11 @@ class FlowerClient(fl.client.NumPyClient):
             
         # Store dataset information
         self._store_dataset_data(dataset_data)
-        
-        # Log dataset statistics
-        self._log_dataset_statistics(dataset_name, dataset_data)
-        
-        return True
     
     def _load_dataset_with_partition(self, dataset_args: DatasetArgs) -> Optional[Tuple]:
         """Load dataset using shared load_data function."""
-        
-        logging.info(f"Loading dataset: {dataset_args.dataset} with model: {dataset_args.model}")
-        logging.info(f"Non-IID configuration: {dataset_args.noniid_type}, {dataset_args.pat_num_cls} classes per client")
-
-        # Use shared load_data function for consistency
-        args_loaded, dataset_train, dataset_test, client_data_partition, dataset_fim = load_data(dataset_args)
-
-        # Log dataset loading information
-        logging.info(f'Dataset train length: {len(dataset_train)}')
-        logging.info(f'Dataset test length: {len(dataset_test)}')
-        logging.info(f'Client data partition length: {len(client_data_partition)}')
-        logging.info(f'Dataset FIM length: {len(dataset_fim) if dataset_fim else 0}')
-        logging.debug(f'Args loaded: {args_loaded}')
-
-        # Validate that we have the required data
-        if not dataset_train:
-            raise ValueError("Failed to load training dataset")
-            
-        if not client_data_partition:
-            raise ValueError("Failed to load user data partition")
-
-        # TODO Liam: other edge cases
-
-        return (args_loaded, dataset_train, dataset_test, client_data_partition, dataset_fim)
-            
-    
-
+        from data_loading import load_dataset_with_partition
+        return load_dataset_with_partition(dataset_args)
     
     def _store_dataset_data(self, dataset_data: Tuple) -> None:
         """Store loaded dataset data in instance variables."""
@@ -605,34 +439,7 @@ class FlowerClient(fl.client.NumPyClient):
             logging.warning(f"Client {self.client_id} not found in user data partition")
             self.client_data_indices = set()
     
-    def _log_dataset_statistics(self, dataset_name: str, dataset_data: Tuple) -> None:
-        """Log comprehensive dataset statistics."""
-        args_loaded, dataset_train, dataset_test, client_data_partition, dataset_fim = dataset_data
-        
-        logging.info(LOG_DATASET_LOADED.format(dataset_name=dataset_name))
-        logging.info(f"Train samples: {len(dataset_train) if dataset_train else 0}")
-        logging.info(f"Test samples: {len(dataset_test) if dataset_test else 0}")
-        logging.info(f"Total clients: {len(client_data_partition) if client_data_partition else 0}")
-        logging.info(f"Client {self.client_id} has {len(client_data_partition.get(self.client_id, set())) if client_data_partition else 0} data samples")
-
-        # Log non-IID distribution information
-        self._log_client_class_distribution(client_data_partition, args_loaded)
     
-    def _log_client_class_distribution(self, client_data_partition: Dict, args_loaded) -> None:
-        """Log client-specific class distribution information."""
-        if not client_data_partition or self.client_id not in client_data_partition:
-            return
-            
-        client_indices = list(client_data_partition[self.client_id])
-        if not hasattr(args_loaded, CONFIG_KEY_TR_LABELS) or args_loaded._tr_labels is None:
-            return
-            
-        client_labels = args_loaded._tr_labels[client_indices]
-        unique_labels = np.unique(client_labels)
-        class_counts = dict(zip(*np.unique(client_labels, return_counts=True)))
-        
-        logging.info(f"Client {self.client_id} has classes: {unique_labels.tolist()}")
-        logging.info(f"Client {self.client_id} class distribution: {class_counts}")
     
     def get_dataset_info(self) -> Dict[str, Any]:
         """
@@ -642,6 +449,30 @@ class FlowerClient(fl.client.NumPyClient):
             Dictionary containing dataset information
         """
         return self.dataset_info.copy()
+    
+    # TODO Liam: refactor this
+    def _initialize_heterogeneous_config(self) -> None:
+        """Initialize heterogeneous group configuration if needed."""
+        # Only initialize if we have heterogeneous group configuration
+        if hasattr(self.args, CONFIG_KEY_HETEROGENEOUS_GROUP):
+            from algorithms.solver.shared_utils import get_group_cnt, update_user_groupid_list, update_block_ids_list
+            
+            # Initialize user group ID list if not present
+            if not hasattr(self.args, CONFIG_KEY_USER_GROUPID_LIST):
+                # Calculate group counts
+                group_cnt = get_group_cnt(self.args)
+                
+                # Create user group ID list
+                update_user_groupid_list(self.args, group_cnt)
+                
+                logging.info(f"Initialized heterogeneous groups: {group_cnt}")
+            
+            # Initialize block IDs list if not present
+            if not hasattr(self.args, CONFIG_KEY_BLOCK_IDS_LIST):
+                update_block_ids_list(self.args)
+                logging.info(f"Initialized block IDs list: {len(self.args.block_ids_list)} clients")
+            
+            logging.info(f"Client {self.client_id} assigned to group {self._get_client_group_id()}")
     
     def _create_actual_model(self):
         """
@@ -741,24 +572,13 @@ class FlowerClient(fl.client.NumPyClient):
                 logging.error(msg)
         return SimpleLogger()
     
-    def _model_to_numpy_params(self) -> List[np.ndarray]:
-        """Convert model parameters to numpy arrays."""
-        params = []
-        for param in self.model.parameters():
-            params.append(param.detach().cpu().numpy())
-        return params
-    
-    def _numpy_params_to_model(self, params: List[np.ndarray]) -> None:
-        """Set model parameters from numpy arrays."""
-        param_idx = 0
-        for param in self.model.parameters():
-            if param_idx < len(params):
-                param.data = torch.from_numpy(params[param_idx]).to(param.device)
-                param_idx += 1
-            
 
-    
-    
+
+    # =============================================================================
+    # Data Loading
+    # =============================================================================
+
+
     def _train_with_actual_data(self, local_epochs: int, learning_rate: float, server_round: int) -> float:
         """
         Train using actual dataset data with real batch iteration and non-IID distribution.
@@ -772,20 +592,9 @@ class FlowerClient(fl.client.NumPyClient):
             Total training loss
         """
         # Check if we should use LocalUpdate for heterogeneous training
-        if self._should_use_local_update():
-            return self._train_with_local_update(local_epochs, learning_rate, server_round)
-        else:
-            return self._train_with_standard_approach(local_epochs, learning_rate, server_round)
-    
-    # TODO Liam: refactor this
-    def _should_use_local_update(self) -> bool:
-        """Check if we should use LocalUpdate for heterogeneous training."""
-        # Use LocalUpdate if we have heterogeneous group configuration
-        return (hasattr(self.args, CONFIG_KEY_HETEROGENEOUS_GROUP) and 
-                hasattr(self.args, CONFIG_KEY_USER_GROUPID_LIST) and
-                hasattr(self.args, CONFIG_KEY_BLOCK_IDS_LIST) and
-                self.args.get(CONFIG_KEY_PEFT) == DEFAULT_LORA_PEFT)
-    
+        
+        return self._train_with_local_update(local_epochs, learning_rate, server_round)
+                
     # TODO Liam: fix
     def _train_with_local_update(self, local_epochs: int, learning_rate: float, server_round: int) -> float:
         """
@@ -805,23 +614,17 @@ class FlowerClient(fl.client.NumPyClient):
             update_block_ids_list(self.args)
             logging.info(f"Initialized block_ids_list for client {self.client_id}")
         
-    
-        
         # Prepare training data with reduced batch size if needed
         client_indices_list = self._get_client_data_indices()
+
+        # get data
         client_dataset = self._create_client_dataset(client_indices_list, self.dataset_train, self.args_loaded)
         dataloader = self._create_training_dataloader(client_dataset)
         
         logging.info(f"Client {self.client_id} using LocalUpdate for heterogeneous training")
         
-        # Create LocalUpdate instance
-        local_solver = LocalUpdate(args=self.args)
-        
-        # Get client group ID for heterogeneous training
-        hete_group_id = self._get_client_group_id()
-        
-        
         # Use LocalUpdate for training
+        local_solver = LocalUpdate(args=self.args)
         local_model, local_loss, no_weight_lora = local_solver.lora_tuning(
                 model=copy.deepcopy(self.model),
                 ldr_train=dataloader,
@@ -829,184 +632,26 @@ class FlowerClient(fl.client.NumPyClient):
                 client_index=self.client_id,
                 client_real_id=self.client_id,
                 round=server_round,
-                hete_group_id=hete_group_id
-            )
+                hete_group_id=self._get_client_group_id()
+        )
             
-            # Update model with trained parameters
+        # TODO Liam: this is inefficient
+        # Update model with trained parameters
         self.model.load_state_dict(local_model)
             
-            # Log results
+        # Log results
         if local_loss is not None:
-                logging.info(f"Client {self.client_id} LocalUpdate training completed: loss={local_loss:.4f}")
-                return float(local_loss)  # Ensure float type
+            logging.info(f"Client {self.client_id} LocalUpdate training completed: loss={local_loss:.4f}")
+            return float(local_loss)  # Ensure float type
         else:
-                logging.warning(f"Client {self.client_id} LocalUpdate training returned no loss")
-                return 0.0
-
-
-    
-    def _get_client_group_id(self) -> int:
-        """Get the heterogeneous group ID for this client."""
-        if hasattr(self.args, CONFIG_KEY_USER_GROUPID_LIST) and self.client_id < len(self.args.user_groupid_list):
-            return self.args.user_groupid_list[self.client_id]
-        return DEFAULT_GROUP_ID  # Default to group 0
-        
-
-    
-    # TODO Liam: refactor this
-    def _initialize_heterogeneous_config(self) -> None:
-        """Initialize heterogeneous group configuration if needed."""
-        # Only initialize if we have heterogeneous group configuration
-        if hasattr(self.args, CONFIG_KEY_HETEROGENEOUS_GROUP):
-            from algorithms.solver.shared_utils import get_group_cnt, update_user_groupid_list, update_block_ids_list
-            
-            # Initialize user group ID list if not present
-            if not hasattr(self.args, CONFIG_KEY_USER_GROUPID_LIST):
-                # Calculate group counts
-                group_cnt = get_group_cnt(self.args)
-                
-                # Create user group ID list
-                update_user_groupid_list(self.args, group_cnt)
-                
-                logging.info(f"Initialized heterogeneous groups: {group_cnt}")
-            
-            # Initialize block IDs list if not present
-            if not hasattr(self.args, CONFIG_KEY_BLOCK_IDS_LIST):
-                update_block_ids_list(self.args)
-                logging.info(f"Initialized block IDs list: {len(self.args.block_ids_list)} clients")
-            
-            logging.info(f"Client {self.client_id} assigned to group {self._get_client_group_id()}")
-    
-    def _create_optimizer(self, learning_rate: float) -> torch.optim.Optimizer:
-        """Create optimizer for training."""
-        # Only optimize LoRA parameters if using LoRA
-        if self.args.get(CONFIG_KEY_PEFT) == DEFAULT_LORA_PEFT:
-            # Get only LoRA parameters
-            lora_params = []
-            # TODO Liam: refactor this
-            for name, param in self.model.named_parameters():
-                if 'lora' in name or 'classifier' in name:
-                    lora_params.append(param)
-            optimizer = torch.optim.AdamW(lora_params, lr=learning_rate)
-        else:
-            # Optimize all parameters
-            optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
-        
-        logging.debug(f"Created optimizer with {len(list(optimizer.param_groups[0]['params']))} parameters")
-        return optimizer
-    
-    
-    def _log_training_results(self, client_indices_list: List[int], total_loss: float, local_epochs: int) -> None:
-        """Log final training results."""
-        avg_total_loss = total_loss / local_epochs if local_epochs > DEFAULT_ZERO_VALUE else DEFAULT_ZERO_VALUE
-        logging.info(f"Client {self.client_id} trained on {len(client_indices_list)} actual samples, "
-                     f"avg_loss={avg_total_loss:.4f}")
+            logging.warning(f"Client {self.client_id} LocalUpdate training returned no loss")
+            return 0.0
     
     def _get_client_data_indices(self) -> List[int]:
         """Get and validate client data indices."""
-        if hasattr(self, 'client_data_indices'):
-            client_indices = self.client_data_indices
-        else:
-            client_indices = self.dataset_info.get(CONFIG_KEY_CLIENT_DATA_INDICES, set())
-        
-        if not client_indices:
-            raise ValueError(ERROR_NO_DATA_INDICES.format(client_id=self.client_id))
-        return list(client_indices)
+        client_data_indices = getattr(self, 'client_data_indices', None)
+        return get_client_data_indices(client_data_indices, self.dataset_info, self.client_id)
     
-    # TODO Liam: refactor this
-    def _create_training_dataloader(self, client_dataset):
-        """Create DataLoader for training using shared utilities."""
-        collate_fn = self._get_collate_function(self.args_loaded)
-        
-        # Use shared create_client_dataloader function
-        return create_client_dataloader(client_dataset, self.args, collate_fn)
-    
-    def _get_collate_function(self, args_loaded):
-        """Get the appropriate collate function based on dataset type."""
-        if self._is_cifar100_dataset(args_loaded):
-            return vit_collate_fn
-        elif self._is_ledgar_dataset(args_loaded):
-            return getattr(args_loaded, CONFIG_KEY_DATA_COLLATOR, None)
-        else:
-            raise ValueError(f"Invalid dataset: {args_loaded.dataset}")
-    
-    def _is_cifar100_dataset(self, args_loaded) -> bool:
-        """Check if the dataset is CIFAR-100."""
-        return (hasattr(args_loaded, 'dataset') and 
-                args_loaded.dataset == DEFAULT_CIFAR100_DATASET)
-    
-    def _is_ledgar_dataset(self, args_loaded) -> bool:
-        """Check if the dataset is LEDGAR."""
-        return (hasattr(args_loaded, 'dataset') and 
-                DEFAULT_LEDGAR_DATASET in args_loaded.dataset)
-    
-    
-    # TODO Liam: is this correct?
-    def _process_training_batch_with_gradients(self, batch, batch_idx: int, epoch: int, optimizer: torch.optim.Optimizer) -> float:
-        """Process a single training batch with actual gradients."""
-        # Extract batch data
-        pixel_values, labels = self._extract_batch_data(batch)
-        
-        # Move to device
-        device = next(self.model.parameters()).device
-        pixel_values = pixel_values.to(device)
-        labels = labels.to(device)
-        
-        # Zero gradients
-        optimizer.zero_grad()
-        
-        # Forward pass
-        outputs = self.model(pixel_values=pixel_values, labels=labels)
-        loss = outputs.loss
-        
-        # Backward pass
-        loss.backward()
-        
-        # Update parameters
-        optimizer.step()
-        
-        batch_loss = loss.item()
-        
-        # Log progress for first few batches
-        if batch_idx < self.args.get(CONFIG_KEY_LOGGING_BATCHES, DEFAULT_LOGGING_BATCHES):
-            logging.debug(f"Client {self.client_id} epoch {epoch + 1}, batch {batch_idx + 1}: loss={batch_loss:.4f}")
-        
-        return batch_loss
-    
-    def _compute_epoch_metrics(self, epoch: int, epoch_loss: float, num_batches: int) -> float:
-        """Compute and log epoch metrics."""
-        if num_batches > DEFAULT_ZERO_VALUE:
-            avg_epoch_loss = epoch_loss / num_batches
-            logging.info(f"Client {self.client_id} epoch {epoch + DEFAULT_ONE_VALUE}: avg_loss={avg_epoch_loss:.4f} ({num_batches} batches)")
-            return avg_epoch_loss
-        else:
-            logging.warning(f"Client {self.client_id} epoch {epoch + DEFAULT_ONE_VALUE}: no batches processed")
-            return DEFAULT_ZERO_VALUE
-    
-    def _extract_batch_data(self, batch) -> Tuple:
-        """Extract pixel_values and labels from batch."""
-        if isinstance(batch, dict):
-            return self._extract_from_dict_batch(batch)
-        elif len(batch) == DEFAULT_BATCH_FORMAT_3_ELEMENTS:
-            return self._extract_from_three_element_batch(batch)
-        elif len(batch) == DEFAULT_BATCH_FORMAT_2_ELEMENTS:
-            return self._extract_from_two_element_batch(batch)
-        else:
-            raise ValueError(ERROR_INVALID_BATCH_FORMAT.format(batch_type=type(batch)))
-    
-    def _extract_from_dict_batch(self, batch: Dict) -> Tuple:
-        """Extract data from dictionary format batch."""
-        return batch[CONFIG_KEY_PIXEL_VALUES], batch[CONFIG_KEY_LABELS]
-    
-    def _extract_from_three_element_batch(self, batch) -> Tuple:
-        """Extract data from three-element batch (image, label, pixel_values)."""
-        image, label, pixel_values = batch
-        return pixel_values, label
-    
-    def _extract_from_two_element_batch(self, batch) -> Tuple:
-        """Extract data from two-element batch (pixel_values, labels)."""
-        return batch[DEFAULT_ZERO_VALUE], batch[DEFAULT_ONE_VALUE]
-
     def _create_client_dataset(self, client_indices: List[int], dataset_train, args_loaded):
         """
         Create a client-specific dataset subset using shared utilities.
@@ -1020,187 +665,28 @@ class FlowerClient(fl.client.NumPyClient):
             Dataset subset for this client
         """
         # Use shared create_client_dataset function
-        client_dataset = create_client_dataset(dataset_train, client_indices, args_loaded)
+        client_dataset = create_client_dataset(client_indices, dataset_train, args_loaded)
 
         logging.debug(f"Client {self.client_id} created dataset subset with {len(client_dataset)} samples")
         return client_dataset
 
+    def _create_training_dataloader(self, client_dataset):
+        """Create DataLoader for training using shared utilities."""
+        return create_training_dataloader(client_dataset, self.args_loaded, self.args)
 
-
-
-
-    
-    
-    def _evaluate_with_actual_data(self, server_round: int) -> Tuple[float, float]:
-        """
-        Evaluate using actual dataset data with real batch iteration.
-
-        Args:
-            server_round: Current server round
-
-        Returns:
-            Tuple of (accuracy, loss)
-        """
-        # Prepare evaluation dataset
-        eval_dataset = self._get_evaluation_dataset()
-        if eval_dataset is None:
-            raise ValueError("No test dataset available for evaluation")
-
-        # Create evaluation DataLoader
-        eval_dataloader = self._create_evaluation_dataloader(eval_dataset)
+    def _get_client_group_id(self) -> int:
+        """Get the heterogeneous group ID for this client."""
+        if hasattr(self.args, CONFIG_KEY_USER_GROUPID_LIST) and self.client_id < len(self.args.user_groupid_list):
+            return self.args.user_groupid_list[self.client_id]
+        return DEFAULT_GROUP_ID  # Default to group 0
         
-        # Perform evaluation
-        metrics = self._perform_evaluation(eval_dataloader, server_round)
-        
-        return metrics
-    
-    def _get_evaluation_dataset(self):
-        """Get evaluation dataset (test only)."""
-        return self.dataset_test
-    
-    def _create_evaluation_dataloader(self, eval_dataset):
-        """Create DataLoader for evaluation."""
-        from torch.utils.data import DataLoader
-        batch_size = len(eval_dataset)  # Use full dataset for evaluation
-        collate_fn = self._get_collate_function(self.args_loaded)
-        
-        return DataLoader(
-            eval_dataset,
-            batch_size=batch_size,
-            shuffle=self.args.get(CONFIG_KEY_SHUFFLE_EVAL, DEFAULT_SHUFFLE_EVAL),
-            drop_last=self.args.get(CONFIG_KEY_DROP_LAST_EVAL, DEFAULT_DROP_LAST_EVAL),
-            num_workers=self.args.get(CONFIG_KEY_NUM_WORKERS, DEFAULT_NUM_WORKERS),
-            collate_fn=collate_fn
-        )
-    
-    def _perform_evaluation(self, eval_dataloader, server_round: int) -> Tuple[float, float]:
-        """Perform evaluation on all batches."""
-        metrics = {CONFIG_KEY_TOTAL_LOSS: DEFAULT_ZERO_VALUE, CONFIG_KEY_TOTAL_CORRECT: DEFAULT_ZERO_VALUE, CONFIG_KEY_TOTAL_SAMPLES: DEFAULT_ZERO_VALUE, CONFIG_KEY_NUM_BATCHES: DEFAULT_ZERO_VALUE}
-        
-        logging.info(f"Client {self.client_id} evaluating on {len(eval_dataloader)} test batches")
-
-        for batch_idx, batch in enumerate(eval_dataloader):
-            self._process_evaluation_batch(batch, server_round, batch_idx, metrics)
-
-        return self._compute_overall_evaluation_metrics(
-            metrics[CONFIG_KEY_TOTAL_LOSS], metrics[CONFIG_KEY_TOTAL_CORRECT], 
-            metrics[CONFIG_KEY_TOTAL_SAMPLES], metrics[CONFIG_KEY_NUM_BATCHES]
-        )
-    
-    def _process_evaluation_batch(self, batch, server_round: int, batch_idx: int, metrics: Dict) -> None:
-        """Process a single evaluation batch."""
-        pixel_values, label = self._extract_evaluation_batch_data(batch)
-        batch_loss, batch_correct, batch_size = self._compute_batch_evaluation_metrics(
-            pixel_values, label, server_round, batch_idx
-        )
-
-        metrics[CONFIG_KEY_TOTAL_LOSS] += batch_loss
-        metrics[CONFIG_KEY_TOTAL_CORRECT] += batch_correct
-        metrics[CONFIG_KEY_TOTAL_SAMPLES] += batch_size
-        metrics[CONFIG_KEY_NUM_BATCHES] += 1
-
-        # Log progress for first few batches
-        if batch_idx < self.args.get(CONFIG_KEY_EVAL_BATCHES, DEFAULT_EVAL_BATCHES):
-            batch_accuracy = batch_correct / batch_size if batch_size > DEFAULT_ZERO_VALUE else DEFAULT_ZERO_VALUE
-            logging.debug(f"Client {self.client_id} eval batch {batch_idx + DEFAULT_ONE_VALUE}: "
-                          f"loss={batch_loss:.4f}, acc={batch_accuracy:.4f}")
-    
-    def _extract_evaluation_batch_data(self, batch) -> Tuple:
-        """Extract batch data for evaluation."""
-        if len(batch) == DEFAULT_BATCH_FORMAT_3_ELEMENTS:  # DatasetSplit format
-            image, label, pixel_values = batch
-            return pixel_values, label
-        elif len(batch) == DEFAULT_BATCH_FORMAT_2_ELEMENTS:  # Standard format
-            return batch[DEFAULT_ZERO_VALUE], batch[DEFAULT_ONE_VALUE]
-        else:
-            raise ValueError(f"Invalid batch length for evaluation: {len(batch)}")
-    
-    def _compute_overall_evaluation_metrics(self, total_loss: float, total_correct: int, 
-                                          total_samples: int, num_batches: int) -> Tuple[float, float]:
-        """Compute overall evaluation metrics."""
-        if num_batches > DEFAULT_ZERO_VALUE and total_samples > DEFAULT_ZERO_VALUE:
-            avg_loss = total_loss / num_batches
-            accuracy = total_correct / total_samples
-
-            logging.info(f"Client {self.client_id} evaluation completed: "
-                         f"loss={avg_loss:.4f}, accuracy={accuracy:.4f} "
-                         f"({total_samples} samples, {num_batches} batches)")
-
-            return accuracy, avg_loss
-        else:
-            raise ValueError("No batches processed during evaluation")
-
-    def _compute_batch_evaluation_metrics(self, pixel_values, labels, server_round: int, batch_idx: int) -> Tuple[float, int, int]:
-        """
-        Compute actual evaluation metrics for a batch of data.
-
-        Args:
-            pixel_values: Batch of image data (tensor or None)
-            labels: Batch of labels (tensor or None)
-            server_round: Current server round
-            batch_idx: Batch index within evaluation
-
-        Returns:
-            Tuple of (batch_loss, num_correct, batch_size)
-        """
-        if pixel_values is None or labels is None:
-            raise ValueError(f"Invalid pixel_values or labels: {pixel_values}, {labels}")
-        
-        batch_size = pixel_values.shape[0] if hasattr(pixel_values, 'shape') else labels.shape[0]
-        
-        # Move to device
-        device = next(self.model.parameters()).device
-        pixel_values = pixel_values.to(device)
-        labels = labels.to(device)
-        
-        # Set model to evaluation mode
-        self.model.eval()
-        
-        with torch.no_grad():
-            # Forward pass
-            outputs = self.model(pixel_values=pixel_values, labels=labels)
-            loss = outputs.loss
-            logits = outputs.logits
-            
-            # Get predictions
-            predictions = torch.argmax(logits, dim=DEFAULT_DIMENSION_1)
-            num_correct = int(torch.sum(predictions == labels).item())
-
-        logging.debug(f"Eval batch {batch_idx}: size={batch_size}, "
-                      f"loss={loss:.4f}, correct={num_correct}")
-
-        return float(loss.item()), num_correct, batch_size
 
 
 
+    # =============================================================================
+    # TRAINING
+    # =============================================================================
 
-
-    def get_parameters(self, config: Dict[str, Any]) -> List[np.ndarray]:
-        """
-        Get current model parameters.
-        
-        Args:
-            config: Configuration dictionary
-            
-        Returns:
-            List of model parameters as numpy arrays
-        """
-        return self._model_to_numpy_params()
-    
-    def set_parameters(self, parameters: List[np.ndarray]) -> None:
-        """
-        Set model parameters from server.
-        
-        Args:
-            parameters: List of model parameters from server
-        """
-        if not parameters:
-            logging.warning("Received empty parameters from server")
-            return
-            
-        self._numpy_params_to_model(parameters)
-        logging.debug(f"Updated model parameters with {len(parameters)} parameter arrays")
-    
     def fit(self, parameters: List[np.ndarray], config: Dict[str, Any]) -> Tuple[List[np.ndarray], int, Dict[str, Any]]:
         """
         Train the model on local data.
@@ -1231,6 +717,28 @@ class FlowerClient(fl.client.NumPyClient):
         metrics = self._create_training_metrics(avg_loss, local_epochs, learning_rate)
         return self.get_parameters(config), int(num_examples), metrics
     
+    def set_parameters(self, parameters: List[np.ndarray]) -> None:
+        """
+        Set model parameters from server.
+        
+        Args:
+            parameters: List of model parameters from server
+        """
+        if not parameters:
+            logging.warning("Received empty parameters from server")
+            return
+            
+        self._numpy_params_to_model(parameters)
+        logging.debug(f"Updated model parameters with {len(parameters)} parameter arrays")
+    
+    def _numpy_params_to_model(self, params: List[np.ndarray]) -> None:
+        """Set model parameters from numpy arrays."""
+        param_idx = 0
+        for param in self.model.parameters():
+            if param_idx < len(params):
+                param.data = torch.from_numpy(params[param_idx]).to(param.device)
+                param_idx += 1
+
     def _extract_training_config(self, config: Dict[str, Any]) -> Tuple[int, int, float]:
         """Extract and validate training configuration."""
         server_round = config.get('server_round')
@@ -1252,7 +760,19 @@ class FlowerClient(fl.client.NumPyClient):
         logging.info(f"Client {self.client_id} received config: {config}")
         logging.info(f"Client {self.client_id} starting training for round {server_round} "
                      f"(epochs={local_epochs}, lr={learning_rate:.4f})")
-    
+        
+    def _create_training_metrics(self, avg_loss: float, local_epochs: int, learning_rate: float) -> Dict[str, Any]:
+        """Create training metrics dictionary with proper types for Flower."""
+        metrics = {
+            'loss': avg_loss,
+            'num_epochs': local_epochs,
+            'client_id': self.client_id,
+            'learning_rate': learning_rate,
+            'data_loaded': self.dataset_info.get(CONFIG_KEY_DATA_LOADED, False),
+            'noniid_type': self.dataset_info.get(CONFIG_KEY_NONIID_TYPE, DEFAULT_UNKNOWN_VALUE)
+        }
+        return self._ensure_flower_compatible_types(metrics)
+
     def _perform_training(self, local_epochs: int, learning_rate: float, server_round: int) -> Tuple[float, int]:
         """Perform the actual training."""
         data_loaded = self.dataset_info.get(CONFIG_KEY_DATA_LOADED, False)
@@ -1269,29 +789,43 @@ class FlowerClient(fl.client.NumPyClient):
         logging.info(f"Client {self.client_id} trained with actual non-IID dataset: {num_examples} samples")
         return total_loss, num_examples
     
+
     def _get_num_examples(self) -> int:
         """Get number of training examples for this client."""
         if hasattr(self, 'client_data_indices'):
             return len(self.client_data_indices)
         else:
             return len(self.dataset_info.get(CONFIG_KEY_CLIENT_DATA_INDICES, set()))
-    
+
     def _update_training_history(self, avg_loss: float, server_round: int) -> None:
         """Update training history."""
         self.training_history[CONFIG_KEY_LOSSES].append(avg_loss)
         self.training_history[CONFIG_KEY_ROUNDS].append(server_round)
+
+
+    def get_parameters(self, config: Dict[str, Any]) -> List[np.ndarray]:
+        """
+        Get current model parameters.
+        
+        Args:
+            config: Configuration dictionary
+            
+        Returns:
+            List of model parameters as numpy arrays
+        """
+        return self._model_to_numpy_params()
     
-    def _create_training_metrics(self, avg_loss: float, local_epochs: int, learning_rate: float) -> Dict[str, Any]:
-        """Create training metrics dictionary with proper types for Flower."""
-        metrics = {
-            'loss': avg_loss,
-            'num_epochs': local_epochs,
-            'client_id': self.client_id,
-            'learning_rate': learning_rate,
-            'data_loaded': self.dataset_info.get(CONFIG_KEY_DATA_LOADED, False),
-            'noniid_type': self.dataset_info.get(CONFIG_KEY_NONIID_TYPE, DEFAULT_UNKNOWN_VALUE)
-        }
-        return self._ensure_flower_compatible_types(metrics)
+    def _model_to_numpy_params(self) -> List[np.ndarray]:
+        """Convert model parameters to numpy arrays."""
+        params = []
+        for param in self.model.parameters():
+            params.append(param.detach().cpu().numpy())
+        return params
+
+    
+    # =============================================================================
+    # EVALUATION
+    # =============================================================================
     
     def evaluate(self, parameters: List[np.ndarray], config: Dict[str, Any]) -> Tuple[float, int, Dict[str, Any]]:
         """
@@ -1341,6 +875,102 @@ class FlowerClient(fl.client.NumPyClient):
         logging.info(f"Client {self.client_id} evaluated with actual test dataset: {num_examples} samples")
         return accuracy, loss, num_examples
     
+    def _evaluate_with_actual_data(self, server_round: int) -> Tuple[float, float]:
+        """
+        Evaluate using actual dataset data with real batch iteration.
+
+        Args:
+            server_round: Current server round
+
+        Returns:
+            Tuple of (accuracy, loss)
+        """
+        # Prepare evaluation dataset
+        eval_dataset = self._get_evaluation_dataset()
+        if eval_dataset is None:
+            raise ValueError("No test dataset available for evaluation")
+
+        # Create evaluation DataLoader
+        eval_dataloader = self._create_evaluation_dataloader(eval_dataset)
+        
+        # Perform evaluation
+        metrics = self._perform_evaluation(eval_dataloader, server_round)
+        
+        return metrics
+    
+    def _get_evaluation_dataset(self):
+        """Get evaluation dataset (test only)."""
+        return get_evaluation_dataset(self.dataset_test)
+    
+    def _create_evaluation_dataloader(self, eval_dataset):
+        """Create DataLoader for evaluation."""
+        return create_evaluation_dataloader(eval_dataset, self.args_loaded, self.args)
+
+    def _perform_evaluation(self, eval_dataloader, server_round: int) -> Tuple[float, float]:
+        """Perform evaluation on all batches."""
+        metrics = {CONFIG_KEY_TOTAL_LOSS: DEFAULT_ZERO_VALUE, CONFIG_KEY_TOTAL_CORRECT: DEFAULT_ZERO_VALUE, CONFIG_KEY_TOTAL_SAMPLES: DEFAULT_ZERO_VALUE, CONFIG_KEY_NUM_BATCHES: DEFAULT_ZERO_VALUE}
+        
+        logging.info(f"Client {self.client_id} evaluating on {len(eval_dataloader)} test batches")
+
+        for batch_idx, batch in enumerate(eval_dataloader):
+            self._process_evaluation_batch(batch, server_round, batch_idx, metrics)
+
+        return self._compute_overall_evaluation_metrics(
+            metrics[CONFIG_KEY_TOTAL_LOSS], metrics[CONFIG_KEY_TOTAL_CORRECT], 
+            metrics[CONFIG_KEY_TOTAL_SAMPLES], metrics[CONFIG_KEY_NUM_BATCHES]
+        )
+    
+    def _process_evaluation_batch(self, batch, server_round: int, batch_idx: int, metrics: Dict) -> None:
+        """Process a single evaluation batch."""
+        pixel_values, label = extract_evaluation_batch_data(batch)
+        batch_loss, batch_correct, batch_size = self._compute_batch_evaluation_metrics(
+            pixel_values, label, server_round, batch_idx
+        )
+
+        metrics[CONFIG_KEY_TOTAL_LOSS] += batch_loss
+        metrics[CONFIG_KEY_TOTAL_CORRECT] += batch_correct
+        metrics[CONFIG_KEY_TOTAL_SAMPLES] += batch_size
+        metrics[CONFIG_KEY_NUM_BATCHES] += 1
+
+        # Log progress for first few batches
+        if batch_idx < self.args.get(CONFIG_KEY_EVAL_BATCHES, DEFAULT_EVAL_BATCHES):
+            batch_accuracy = batch_correct / batch_size if batch_size > DEFAULT_ZERO_VALUE else DEFAULT_ZERO_VALUE
+            logging.debug(f"Client {self.client_id} eval batch {batch_idx + DEFAULT_ONE_VALUE}: "
+                          f"loss={batch_loss:.4f}, acc={batch_accuracy:.4f}")
+    
+    
+    def _compute_overall_evaluation_metrics(self, total_loss: float, total_correct: int, 
+                                          total_samples: int, num_batches: int) -> Tuple[float, float]:
+        """Compute overall evaluation metrics."""
+        if num_batches > DEFAULT_ZERO_VALUE and total_samples > DEFAULT_ZERO_VALUE:
+            avg_loss = total_loss / num_batches
+            accuracy = total_correct / total_samples
+
+            logging.info(f"Client {self.client_id} evaluation completed: "
+                         f"loss={avg_loss:.4f}, accuracy={accuracy:.4f} "
+                         f"({total_samples} samples, {num_batches} batches)")
+
+            return accuracy, avg_loss
+        else:
+            raise ValueError("No batches processed during evaluation")
+
+    def _compute_batch_evaluation_metrics(self, pixel_values, labels, server_round: int, batch_idx: int) -> Tuple[float, int, int]:
+        """
+        Compute actual evaluation metrics for a batch of data.
+
+        Args:
+            pixel_values: Batch of image data (tensor or None)
+            labels: Batch of labels (tensor or None)
+            server_round: Current server round
+            batch_idx: Batch index within evaluation
+
+        Returns:
+            Tuple of (batch_loss, num_correct, batch_size)
+        """
+        return compute_batch_evaluation_metrics(
+            pixel_values, labels, self.model, server_round, batch_idx, self.client_id
+        )
+
     def _create_evaluation_metrics(self, accuracy: float) -> Dict[str, Any]:
         """Create evaluation metrics dictionary with proper types for Flower."""
         metrics = {
