@@ -15,19 +15,12 @@ import argparse
 import os
 import sys
 import yaml
-import torch
 from typing import Dict, Any, Optional, List, Tuple
-from torch.utils.data import DataLoader
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from algorithms.solver.fl_utils import setup_multiprocessing
-from algorithms.solver.shared_utils import (
-    get_data_loader_list, get_dataset_fim, test_collate_fn, 
-    get_model_update, get_norm_updates, update_delta_norms, 
-    get_train_loss, get_norm
-)
 
 
 class ServerConfig:
@@ -51,122 +44,13 @@ class ServerFederatedLearningUtils:
     """
     Server-side utilities for federated learning operations.
     
-    This class provides server-side implementations of functions that were
-    previously unused in the client but are needed for server operations
-    like aggregation, norm calculations, and data management.
+    This class provides server-side parameter aggregation functionality.
     """
     
     def __init__(self, config: ServerConfig):
         """Initialize with server configuration."""
         self.config = config
-        self.training_history = {
-            'losses': [],
-            'norms': [],
-            'rounds': []
-        }
     
-    def create_data_loader_list(self, dataset_train, dict_users) -> List[DataLoader]:
-        """
-        Create data loaders for all clients (server-side data management).
-        
-        Args:
-            dataset_train: Training dataset
-            dict_users: User data partition dictionary
-            
-        Returns:
-            List of DataLoaders for each client
-        """
-        return get_data_loader_list(self.config, dataset_train, dict_users)
-    
-    def create_dataset_fim(self, dataset_fim) -> DataLoader:
-        """
-        Create DataLoader for FIM dataset (server-side FIM management).
-        
-        Args:
-            dataset_fim: FIM dataset
-            
-        Returns:
-            DataLoader for FIM dataset
-        """
-        return get_dataset_fim(self.config, dataset_fim)
-    
-    def get_test_collate_function(self):
-        """
-        Get test collate function for server-side evaluation.
-        
-        Returns:
-            Test collate function
-        """
-        return test_collate_fn
-    
-    def compute_model_updates(self, global_model_state: Dict, local_model_states: List[Dict], 
-                            no_weight_lora_lists: List[List]) -> List[Dict]:
-        """
-        Compute model updates from multiple clients.
-        
-        Args:
-            global_model_state: Global model state dictionary
-            local_model_states: List of local model state dictionaries
-            no_weight_lora_lists: List of no_weight_lora lists for each client
-            
-        Returns:
-            List of model update dictionaries
-        """
-        model_updates = []
-        for local_state, no_weight_lora in zip(local_model_states, no_weight_lora_lists):
-            model_update = get_model_update(self.config, global_model_state, local_state, no_weight_lora)
-            model_updates.append(model_update)
-        return model_updates
-    
-    def compute_norm_updates(self, model_updates: List[Dict]) -> List[List[torch.Tensor]]:
-        """
-        Compute norm updates for model parameters.
-        
-        Args:
-            model_updates: List of model update dictionaries
-            
-        Returns:
-            List of norm updates for each client
-        """
-        norm_updates_list = []
-        for model_update in model_updates:
-            norm_updates = get_norm_updates(model_update)
-            norm_updates_list.append(norm_updates)
-        return norm_updates_list
-    
-    def update_delta_norms(self, delta_norms: List[torch.Tensor], norm_updates: List[torch.Tensor]) -> None:
-        """
-        Update delta norms list with new norm updates.
-        
-        Args:
-            delta_norms: List of delta norms to update
-            norm_updates: New norm updates to add
-        """
-        update_delta_norms(delta_norms, norm_updates)
-    
-    def compute_average_training_loss(self, local_losses: List[float]) -> float:
-        """
-        Calculate average training loss across clients.
-        
-        Args:
-            local_losses: List of local training losses
-            
-        Returns:
-            Average training loss
-        """
-        return get_train_loss(local_losses)
-    
-    def compute_median_norm(self, delta_norms: List[torch.Tensor]) -> float:
-        """
-        Calculate median norm of model updates.
-        
-        Args:
-            delta_norms: List of delta norms
-            
-        Returns:
-            Median norm
-        """
-        return get_norm(delta_norms)
     
     def aggregate_parameter_updates(self, parameter_updates: List[List[np.ndarray]], 
                                   num_examples: List[int]) -> List[np.ndarray]:
@@ -204,35 +88,6 @@ class ServerFederatedLearningUtils:
         
         return aggregated_params
     
-    def update_training_history(self, loss: float, norm: float, round_num: int) -> None:
-        """
-        Update server training history.
-        
-        Args:
-            loss: Training loss
-            norm: Model update norm
-            round_num: Round number
-        """
-        self.training_history['losses'].append(loss)
-        self.training_history['norms'].append(norm)
-        self.training_history['rounds'].append(round_num)
-    
-    def get_training_metrics(self) -> Dict[str, Any]:
-        """
-        Get current training metrics.
-        
-        Returns:
-            Dictionary of training metrics
-        """
-        if not self.training_history['losses']:
-            return {'loss': 0.0, 'norm': 0.0, 'round': 0}
-        
-        return {
-            'loss': self.training_history['losses'][-1],
-            'norm': self.training_history['norms'][-1],
-            'round': self.training_history['rounds'][-1],
-            'total_rounds': len(self.training_history['rounds'])
-        }
 
 
 def load_server_configuration(config_path: str) -> ServerConfig:

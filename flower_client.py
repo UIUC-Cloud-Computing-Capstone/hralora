@@ -23,7 +23,6 @@ from typing import Dict, List, Tuple, Optional, Any, Union
 import flwr as fl
 import numpy as np
 import torch
-import torch.nn as nn
 import yaml
 
 # Suppress Flower deprecation warnings for cleaner output
@@ -133,7 +132,6 @@ CONFIG_KEY_BATCH_SIZE = 'batch_size'
 CONFIG_KEY_LOCAL_LR = 'local_lr'
 CONFIG_KEY_TAU = 'tau'
 CONFIG_KEY_ROUND = 'round'
-CONFIG_KEY_OPTIMIZER = 'optimizer'
 CONFIG_KEY_NUM_WORKERS = 'num_workers'
 CONFIG_KEY_SHUFFLE_TRAINING = 'shuffle_training'
 CONFIG_KEY_DROP_LAST = 'drop_last'
@@ -214,7 +212,6 @@ LORA_TARGET_MODULES = [DEFAULT_QUERY_MODULE, DEFAULT_VALUE_MODULE]
 LORA_BIAS = DEFAULT_NONE_VALUE
 
 # Training constants (can be overridden by config)
-DEFAULT_LOGGING_BATCHES = DEFAULT_THREE_VALUE  # Number of batches to log during training
 DEFAULT_EVAL_BATCHES = DEFAULT_THREE_VALUE     # Number of batches to log during evaluation
 DEFAULT_FLATTENED_SIZE_CIFAR = DEFAULT_ONE_FIFTY_FIVE_TWENTY_EIGHT_VALUE  # 3*224*224 for CIFAR-100 with ViT
 
@@ -351,8 +348,6 @@ class FlowerClient(fl.client.NumPyClient):
         num_cores = setup_multiprocessing()
         logging.info(LOG_CLIENT_INITIALIZED.format(client_id=client_id, num_cores=num_cores))
         
-        # Initialize loss function based on data type (will be created when needed)
-        #self._loss_func = None
         
         # Initialize training history
         self.training_history = {
@@ -382,21 +377,6 @@ class FlowerClient(fl.client.NumPyClient):
             if not hasattr(self.args, param): 
                 logging.warning(f"Missing configuration parameter: {param}, using default")
     
-    # def _get_loss_function(self) -> nn.Module:
-    #     """Get appropriate loss function based on data type."""
-    #     # Create loss function on demand to avoid storing as instance variable
-    #     if self._loss_func is None:
-    #         data_type = getattr(self.args, CONFIG_KEY_DATA_TYPE, DEFAULT_IMAGE_DATA_TYPE)
-            
-    #         loss_functions = {
-    #             DEFAULT_IMAGE_DATA_TYPE: nn.CrossEntropyLoss(),
-    #             DEFAULT_TEXT_DATA_TYPE: nn.CrossEntropyLoss(),
-    #             DEFAULT_SENTIMENT_DATA_TYPE: nn.NLLLoss()
-    #         }
-            
-    #         self._loss_func = loss_functions.get(data_type, nn.CrossEntropyLoss())
-        
-    #     return self._loss_func
     
     def _load_and_store_dataset(self) -> None:
         """Load and store dataset data using the data_loading module."""
