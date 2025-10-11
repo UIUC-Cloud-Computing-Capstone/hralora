@@ -708,28 +708,7 @@ class FlowerClient(fl.client.NumPyClient):
 
 
 
-    def _evaluate_with_actual_data(self, server_round: int) -> Tuple[float, float]:
-        """
-        Evaluate using actual dataset data with real batch iteration.
 
-        Args:
-            server_round: Current server round
-
-        Returns:
-            Tuple of (accuracy, loss)
-        """
-        # Prepare evaluation dataset
-        eval_dataset = self._get_evaluation_dataset()
-        if eval_dataset is None:
-            raise ValueError("No test dataset available for evaluation")
-
-        # Create evaluation DataLoader
-        eval_dataloader = self._create_evaluation_dataloader(eval_dataset)
-        
-        # Perform evaluation
-        metrics = self._perform_evaluation(eval_dataloader, server_round)
-        
-        return metrics
     
     def _get_evaluation_dataset(self):
         """Get evaluation dataset (test only)."""
@@ -994,6 +973,29 @@ class FlowerClient(fl.client.NumPyClient):
         logging.info(f"Client {self.client_id} evaluated with actual test dataset: {num_examples} samples")
         return accuracy, loss, num_examples
     
+    def _evaluate_with_actual_data(self, server_round: int) -> Tuple[float, float]:
+        """
+        Evaluate using actual dataset data with real batch iteration.
+
+        Args:
+            server_round: Current server round
+
+        Returns:
+            Tuple of (accuracy, loss)
+        """
+        # Prepare evaluation dataset
+        eval_dataset = self._get_evaluation_dataset()
+        if eval_dataset is None:
+            raise ValueError("No test dataset available for evaluation")
+
+        # Create evaluation DataLoader
+        eval_dataloader = self._create_evaluation_dataloader(eval_dataset)
+        
+        # Perform evaluation
+        metrics = self._perform_evaluation(eval_dataloader, server_round)
+        
+        return metrics
+
     def _create_evaluation_metrics(self, accuracy: float) -> Dict[str, Any]:
         """Create evaluation metrics dictionary with proper types for Flower."""
         metrics = {
