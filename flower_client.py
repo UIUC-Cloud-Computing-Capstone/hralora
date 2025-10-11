@@ -11,20 +11,17 @@ Version: 1.0.0
 """
 
 # Standard library imports
-import argparse
-import copy
 import logging
 import os
 import sys
 import warnings
-from typing import Dict, List, Tuple, Optional, Any, Union
+from typing import Dict, List, Tuple, Optional, Any
 
 # Third-party imports
 import flwr as fl
 import numpy as np
 import torch
 import torch.nn as nn
-import yaml
 
 # Suppress Flower deprecation warnings for cleaner output
 warnings.filterwarnings("ignore", category=DeprecationWarning, module="flwr")
@@ -33,341 +30,25 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="flwr")
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 # Local imports
-from algorithms.solver.fl_utils import (
-    setup_multiprocessing
-)
-from algorithms.solver.shared_utils import (
-    load_data, vit_collate_fn, create_client_dataset, 
-    create_client_dataloader
-)
-from algorithms.solver.local_solver import LocalUpdate
+from algorithms.solver.fl_utils import setup_multiprocessing
+from algorithms.solver.shared_utils import load_data
 from utils.model_utils import model_setup
+
+# Import our modular components
+from client_constants import *
+from client_config import Config, DatasetArgs
+from client_training import ClientTrainingMixin
+from client_evaluation import ClientEvaluationMixin
+from client_utils import (
+    load_configuration, setup_logging, create_flower_client, start_flower_client,
+    parse_arguments, load_and_merge_config, setup_environment
+)
 
 # Constants
 DATASET_LOADING_AVAILABLE = True
 
-# =============================================================================
-# CONSTANTS
-# =============================================================================
 
-# Basic numeric constants
-DEFAULT_ZERO_VALUE = 0
-DEFAULT_ONE_VALUE = 1
-DEFAULT_TWO_VALUE = 2
-DEFAULT_THREE_VALUE = 3
-DEFAULT_TWELVE_VALUE = 12
-DEFAULT_SIXTEEN_VALUE = 16
-DEFAULT_THIRTY_TWO_VALUE = 32
-DEFAULT_ONE_HUNDRED_VALUE = 100
-DEFAULT_FIVE_HUNDRED_VALUE = 500
-DEFAULT_ONE_THOUSAND_TWENTY_FOUR_VALUE = 1024
-DEFAULT_SEVEN_HUNDRED_SIXTY_EIGHT_VALUE = 768
-DEFAULT_ONE_FIFTY_FIVE_TWENTY_EIGHT_VALUE = 150528
-
-# Floating point constants
-DEFAULT_ZERO_POINT_ZERO = 0.0
-DEFAULT_ZERO_POINT_FIVE = 0.5
-DEFAULT_ONE_POINT_ZERO = 1.0
-DEFAULT_ZERO_POINT_ZERO_ONE = 0.01
-DEFAULT_ZERO_POINT_ZERO_ZERO_ONE = 0.001
-DEFAULT_ZERO_POINT_ONE = 0.1
-
-# String constants
-DEFAULT_DATASET = 'cifar100'
-DEFAULT_MODEL = 'google/vit-base-patch16-224-in21k'
-DEFAULT_DATA_TYPE = 'image'
-DEFAULT_PEFT = 'lora'
-DEFAULT_LORA_LAYER = DEFAULT_TWELVE_VALUE
-DEFAULT_TAU = DEFAULT_THREE_VALUE
-DEFAULT_ROUND = DEFAULT_FIVE_HUNDRED_VALUE
-DEFAULT_OPTIMIZER = 'adamw'
-DEFAULT_NUM_USERS = DEFAULT_ONE_HUNDRED_VALUE
-DEFAULT_NUM_SELECTED_USERS = DEFAULT_ONE_VALUE
-DEFAULT_NUM_CLASSES = DEFAULT_ONE_HUNDRED_VALUE
-DEFAULT_MODEL_HETEROGENEITY = 'depthffm_fim'
-DEFAULT_GROUP_ID = DEFAULT_ZERO_VALUE
-DEFAULT_MEMORY_BATCH_SIZE = DEFAULT_SIXTEEN_VALUE
-DEFAULT_MEMORY_THRESHOLD = DEFAULT_THIRTY_TWO_VALUE
-DEFAULT_PYTORCH_MPS_RATIO = '0.0'
-DEFAULT_LOG_PATH_PREFIX = './logs/client_'
-DEFAULT_CLASS_PREFIX = 'class_'
-DEFAULT_UNKNOWN_VALUE = 'unknown'
-DEFAULT_NONE_VALUE = 'none'
-DEFAULT_DEFAULT_VALUE = 'default'
-DEFAULT_DIRICHLET_TYPE = 'dirichlet'
-DEFAULT_CPU_DEVICE = 'cpu'
-DEFAULT_CUDA_DEVICE = 'cuda'
-DEFAULT_MPS_DEVICE = 'mps'
-DEFAULT_IMAGE_DATA_TYPE = 'image'
-DEFAULT_TEXT_DATA_TYPE = 'text'
-DEFAULT_SENTIMENT_DATA_TYPE = 'sentiment'
-DEFAULT_QUERY_MODULE = 'query'
-DEFAULT_VALUE_MODULE = 'value'
-DEFAULT_DIR_PARTITION_MODE = 'dir'
-DEFAULT_ADAMW_OPTIMIZER = 'adamw'
-DEFAULT_LORA_PEFT = 'lora'
-DEFAULT_CIFAR100_DATASET = 'cifar100'
-DEFAULT_LEDGAR_DATASET = 'ledgar'
-DEFAULT_BATCH_FORMAT_3_ELEMENTS = DEFAULT_THREE_VALUE
-DEFAULT_BATCH_FORMAT_2_ELEMENTS = DEFAULT_TWO_VALUE
-DEFAULT_DIMENSION_1 = DEFAULT_ONE_VALUE
-
-# Configuration key constants
-CONFIG_KEY_DATASET = 'dataset'
-CONFIG_KEY_MODEL = 'model'
-CONFIG_KEY_DATA_TYPE = 'data_type'
-CONFIG_KEY_PEFT = 'peft'
-CONFIG_KEY_LORA_LAYER = 'lora_layer'
-CONFIG_KEY_LORA_RANK = 'lora_rank'
-CONFIG_KEY_LORA_ALPHA = 'lora_alpha'
-CONFIG_KEY_LORA_DROPOUT = 'lora_dropout'
-CONFIG_KEY_LORA_TARGET_MODULES = 'lora_target_modules'
-CONFIG_KEY_LORA_BIAS = 'lora_bias'
-CONFIG_KEY_BATCH_SIZE = 'batch_size'
-CONFIG_KEY_LOCAL_LR = 'local_lr'
-CONFIG_KEY_TAU = 'tau'
-CONFIG_KEY_ROUND = 'round'
-CONFIG_KEY_OPTIMIZER = 'optimizer'
-CONFIG_KEY_NUM_WORKERS = 'num_workers'
-CONFIG_KEY_SHUFFLE_TRAINING = 'shuffle_training'
-CONFIG_KEY_DROP_LAST = 'drop_last'
-CONFIG_KEY_SHUFFLE_EVAL = 'shuffle_eval'
-CONFIG_KEY_DROP_LAST_EVAL = 'drop_last_eval'
-CONFIG_KEY_LOGGING_BATCHES = 'logging_batches'
-CONFIG_KEY_EVAL_BATCHES = 'eval_batches'
-CONFIG_KEY_NUM_USERS = 'num_users'
-CONFIG_KEY_NUM_SELECTED_USERS = 'num_selected_users'
-CONFIG_KEY_IID = 'iid'
-CONFIG_KEY_NONIID_TYPE = 'noniid_type'
-CONFIG_KEY_PAT_NUM_CLS = 'pat_num_cls'
-CONFIG_KEY_PARTITION_MODE = 'partition_mode'
-CONFIG_KEY_DIR_CLS_ALPHA = 'dir_cls_alpha'
-CONFIG_KEY_DIR_PAR_BETA = 'dir_par_beta'
-CONFIG_KEY_MODEL_HETEROGENEITY = 'model_heterogeneity'
-CONFIG_KEY_FREEZE_DATASPLIT = 'freeze_datasplit'
-CONFIG_KEY_NUM_CLASSES = 'num_classes'
-CONFIG_KEY_SEED = 'seed'
-CONFIG_KEY_GPU_ID = 'gpu_id'
-CONFIG_KEY_FORCE_CPU = 'force_cpu'
-CONFIG_KEY_HETEROGENEOUS_GROUP = 'heterogeneous_group'
-CONFIG_KEY_USER_GROUPID_LIST = 'user_groupid_list'
-CONFIG_KEY_BLOCK_IDS_LIST = 'block_ids_list'
-CONFIG_KEY_LABEL2ID = 'label2id'
-CONFIG_KEY_ID2LABEL = 'id2label'
-CONFIG_KEY_LOGGER = 'logger'
-CONFIG_KEY_ACCELERATOR = 'accelerator'
-CONFIG_KEY_LOG_PATH = 'log_path'
-CONFIG_KEY_DEVICE = 'device'
-CONFIG_KEY_DATASET_INFO = 'dataset_info'
-CONFIG_KEY_CLIENT_DATA_INDICES = 'client_data_indices'
-CONFIG_KEY_NONIID_TYPE = 'noniid_type'
-CONFIG_KEY_DATA_COLLATOR = 'data_collator'
-CONFIG_KEY_TRAIN_SAMPLES = 'train_samples'
-CONFIG_KEY_TEST_SAMPLES = 'test_samples'
-CONFIG_KEY_NUM_USERS = 'num_users'
-CONFIG_KEY_DATA_LOADED = 'data_loaded'
-CONFIG_KEY_DATASET_NAME = 'dataset_name'
-CONFIG_KEY_MODEL_NAME = 'model_name'
-CONFIG_KEY_LABELS = 'labels'
-CONFIG_KEY_NUM_CLASSES = 'num_classes'
-CONFIG_KEY_LOSSES = 'losses'
-CONFIG_KEY_ACCURACIES = 'accuracies'
-CONFIG_KEY_ROUNDS = 'rounds'
-CONFIG_KEY_PIXEL_VALUES = 'pixel_values'
-CONFIG_KEY_LABELS = 'labels'
-CONFIG_KEY_TOTAL_LOSS = 'total_loss'
-CONFIG_KEY_TOTAL_CORRECT = 'total_correct'
-CONFIG_KEY_TOTAL_SAMPLES = 'total_samples'
-CONFIG_KEY_NUM_BATCHES = 'num_batches'
-CONFIG_KEY_TR_LABELS = '_tr_labels'
-
-# Default configuration paths
-DEFAULT_CONFIG_PATH = "experiments/flower/cifar100_vit_lora/fim/image_cifar100_vit_fedavg_fim-6_9_12-noniid-pat_10_dir-noprior-s50-e50.yaml"
-
-# Network configuration
-DEFAULT_SERVER_ADDRESS = "localhost"
-DEFAULT_SERVER_PORT = 8080
-DEFAULT_CLIENT_ID = DEFAULT_ZERO_VALUE
-
-# Training configuration
-DEFAULT_SEED = DEFAULT_ONE_VALUE
-DEFAULT_GPU_ID = -1
-DEFAULT_LOG_LEVEL = "INFO"
-DEFAULT_TRAINING_STEPS_PER_EPOCH = 10
-DEFAULT_MIN_LEARNING_RATE = DEFAULT_ZERO_POINT_ZERO_ZERO_ONE
-DEFAULT_LEARNING_RATE = DEFAULT_ZERO_POINT_ZERO_ONE
-DEFAULT_LOCAL_EPOCHS = DEFAULT_ONE_VALUE
-
-# Model architecture constants (can be overridden by config)
-VIT_BASE_HIDDEN_SIZE = DEFAULT_SEVEN_HUNDRED_SIXTY_EIGHT_VALUE
-VIT_LARGE_HIDDEN_SIZE = DEFAULT_ONE_THOUSAND_TWENTY_FOUR_VALUE
-LORA_RANK = 64
-LORA_ALPHA = DEFAULT_SIXTEEN_VALUE
-LORA_DROPOUT = DEFAULT_ZERO_POINT_ONE
-LORA_TARGET_MODULES = [DEFAULT_QUERY_MODULE, DEFAULT_VALUE_MODULE]
-LORA_BIAS = DEFAULT_NONE_VALUE
-
-# Training constants (can be overridden by config)
-DEFAULT_LOGGING_BATCHES = DEFAULT_THREE_VALUE  # Number of batches to log during training
-DEFAULT_EVAL_BATCHES = DEFAULT_THREE_VALUE     # Number of batches to log during evaluation
-DEFAULT_FLATTENED_SIZE_CIFAR = DEFAULT_ONE_FIFTY_FIVE_TWENTY_EIGHT_VALUE  # 3*224*224 for CIFAR-100 with ViT
-
-# Error messages
-ERROR_NO_DATA_INDICES = "Client {client_id} has no data indices"
-ERROR_INVALID_BATCH_FORMAT = "Invalid batch format: {batch_type}"
-ERROR_NO_TEST_DATASET = "No test dataset available for evaluation"
-ERROR_NO_TRAINING_DATASET = "No actual dataset found for training"
-ERROR_INVALID_CONFIG = "Configuration dictionary cannot be None or empty"
-ERROR_INVALID_DATASET = "Unknown dataset: {dataset_name}"
-
-# Logging messages
-LOG_CLIENT_INITIALIZED = "Client {client_id} initialized with {num_cores} CPU cores"
-LOG_DATASET_LOADED = "Successfully loaded dataset: {dataset_name}"
-LOG_TRAINING_COMPLETED = "Client {client_id} completed training: Loss={loss:.4f}"
-LOG_EVALUATION_COMPLETED = "Client {client_id} evaluation: Loss={loss:.4f}, Accuracy={accuracy:.4f}"
-
-# Dataset configuration
-DATASET_CONFIGS = {
-    DEFAULT_CIFAR100_DATASET: {CONFIG_KEY_NUM_CLASSES: DEFAULT_ONE_HUNDRED_VALUE, CONFIG_KEY_DATA_TYPE: DEFAULT_IMAGE_DATA_TYPE},
-    DEFAULT_LEDGAR_DATASET: {CONFIG_KEY_NUM_CLASSES: DEFAULT_TWO_VALUE, CONFIG_KEY_DATA_TYPE: DEFAULT_TEXT_DATA_TYPE},
-}
-
-# Non-IID configuration defaults
-DEFAULT_NONIID_TYPE = DEFAULT_DIRICHLET_TYPE
-DEFAULT_PAT_NUM_CLS = 10
-DEFAULT_PARTITION_MODE = DEFAULT_DIR_PARTITION_MODE
-DEFAULT_DIR_ALPHA = DEFAULT_ZERO_POINT_FIVE
-DEFAULT_DIR_BETA = DEFAULT_ONE_POINT_ZERO
-
-# Data processing constants (can be overridden by config)
-DEFAULT_BATCH_SIZE = 128
-DEFAULT_NUM_WORKERS = DEFAULT_ZERO_VALUE  # Avoid multiprocessing issues in federated setting
-DEFAULT_SHUFFLE_TRAINING = True
-DEFAULT_DROP_LAST = True
-DEFAULT_SHUFFLE_EVAL = False
-DEFAULT_DROP_LAST_EVAL = False
-
-
-# =============================================================================
-# HELPER CLASSES
-# =============================================================================
-
-class DatasetArgs:
-    """
-    Arguments class for dataset loading compatibility.
-    
-    This class provides a bridge between the configuration dictionary and the 
-    dataset loading functions, ensuring compatibility with the existing data 
-    preprocessing pipeline.
-    
-    Example:
-        config_dict = {CONFIG_KEY_DATASET: DEFAULT_DATASET, CONFIG_KEY_BATCH_SIZE: DEFAULT_BATCH_SIZE}
-        args = DatasetArgs(config_dict, client_id=DEFAULT_CLIENT_ID)
-    """
-    
-    def __init__(self, config_dict: Dict[str, Any], client_id: int):
-        """Initialize dataset args from configuration dictionary."""
-        # Store config dict for direct access instead of individual attributes
-        self.config_dict = config_dict
-        self.client_id = client_id
-        
-        # Only store essential attributes that are frequently accessed
-        self.dataset = config_dict.get(CONFIG_KEY_DATASET, DEFAULT_DATASET)
-        self.model = config_dict.get(CONFIG_KEY_MODEL, DEFAULT_MODEL)
-        self.data_type = config_dict.get(CONFIG_KEY_DATA_TYPE, DEFAULT_DATA_TYPE)
-        self.peft = config_dict.get(CONFIG_KEY_PEFT, DEFAULT_PEFT)
-        self.batch_size = config_dict.get(CONFIG_KEY_BATCH_SIZE, DEFAULT_BATCH_SIZE)
-        self.num_users = config_dict.get(CONFIG_KEY_NUM_USERS, DEFAULT_NUM_USERS)
-        
-        # Device configuration
-        self.device = torch.device(DEFAULT_CUDA_DEVICE if torch.cuda.is_available() else DEFAULT_CPU_DEVICE)
-        
-        # Logger
-        self.logger = self._create_simple_logger()
-        
-        # Additional attributes that might be needed
-        self.num_classes = config_dict.get(CONFIG_KEY_NUM_CLASSES, DEFAULT_NUM_CLASSES)
-        self.labels = None  # Will be set by load_partition
-        self.label2id = None  # Will be set by load_partition
-        self.id2label = None  # Will be set by load_partition
-        
-        # Computed attributes
-        self.iid = config_dict.get(CONFIG_KEY_IID, DEFAULT_ZERO_VALUE) == DEFAULT_ONE_VALUE
-        self.noniid = not self.iid
-
-    def _create_simple_logger(self):
-        """Create a simple logger for compatibility."""
-        class SimpleLogger:
-            def info(self, msg, main_process_only=False):
-                logging.info(msg)
-        return SimpleLogger()
-    
-    def get(self, key: str, default: Any = None) -> Any:
-        """Get configuration value with default."""
-        return self.config_dict.get(key, default)
-    
-    def __getattr__(self, name: str) -> Any:
-        """Get attribute from config_dict if not found as direct attribute."""
-        if name in self.config_dict:
-            return self.config_dict[name]
-        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
-  
-class Config:
-    """
-    Configuration class to hold and manage configuration parameters.
-    
-    This class provides a clean interface for accessing configuration parameters
-    with proper validation and default value handling. It acts as a wrapper around
-    a configuration dictionary, providing type safety and validation.
-    
-    Example:
-        config_dict = {CONFIG_KEY_DATASET: DEFAULT_DATASET, CONFIG_KEY_BATCH_SIZE: DEFAULT_BATCH_SIZE, 'learning_rate': DEFAULT_ZERO_POINT_ZERO_ONE}
-        config = Config(config_dict)
-        dataset = config.get(CONFIG_KEY_DATASET, DEFAULT_DEFAULT_VALUE)
-        batch_size = config.batch_size
-    """
-    
-    def __init__(self, config_dict: Dict[str, Any]) -> None:
-        """
-        Initialize configuration from dictionary.
-        
-        Args:
-            config_dict: Dictionary containing configuration parameters
-            
-        Raises:
-            ValueError: If config_dict is None or empty
-        """
-        if not config_dict:
-            raise ValueError(ERROR_INVALID_CONFIG)
-            
-        for key, value in config_dict.items():
-            if not isinstance(key, str):
-                raise ValueError(f"Configuration keys must be strings, got {type(key)}")
-            setattr(self, key, value)
-    
-    def get(self, key: str, default: Any = None) -> Any:
-        """Get configuration value with default."""
-        return getattr(self, key, default)
-    
-    def has(self, key: str) -> bool:
-        """Check if configuration parameter exists."""
-        return hasattr(self, key)
-    
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert configuration to dictionary."""
-        return {key: value for key, value in self.__dict__.items() 
-                if not key.startswith('_')}
-    
-    def __repr__(self) -> str:
-        """String representation of configuration."""
-        return f"Config({self.to_dict()})"
-
-
-# =============================================================================
-# MAIN FLOWER CLIENT CLASS
-# =============================================================================
-
-class FlowerClient(fl.client.NumPyClient):
+class FlowerClient(fl.client.NumPyClient, ClientTrainingMixin, ClientEvaluationMixin):
     """
     Comprehensive Flower client for federated learning with dataset support.
     
@@ -386,7 +67,7 @@ class FlowerClient(fl.client.NumPyClient):
         client = FlowerClient(config, client_id=DEFAULT_CLIENT_ID)
     """
     
-    def __init__(self, args: 'Config', client_id: int = 0):
+    def __init__(self, args: Config, client_id: int = 0):
         """
         Initialize the Flower client.
         
@@ -425,7 +106,6 @@ class FlowerClient(fl.client.NumPyClient):
     
     def _validate_config(self) -> None:
         """Validate required configuration parameters."""
-        # TODO Liam: this is not complete
         required_params = [CONFIG_KEY_DATA_TYPE, CONFIG_KEY_PEFT, CONFIG_KEY_LORA_LAYER, CONFIG_KEY_DATASET, CONFIG_KEY_MODEL]
         for param in required_params:
             if not hasattr(self.args, param): 
@@ -452,19 +132,7 @@ class FlowerClient(fl.client.NumPyClient):
         Load dataset configuration and prepare dataset information.
         
         Returns:
-            Dictionary containing dataset information with the following keys:
-            - dataset_name: Name of the dataset
-            - data_type: Type of data (image/text)
-            - model_name: Name of the model architecture
-            - batch_size: Batch size for training
-            - num_classes: Number of output classes
-            - labels: Dataset labels (if available)
-            - label2id: Label to ID mapping (if available)
-            - id2label: ID to label mapping (if available)
-            - data_loaded: Whether actual data was loaded
-            
-        Raises:
-            ValueError: If dataset configuration is invalid
+            Dictionary containing dataset information
         """
         dataset_name = self._get_dataset_name()
         dataset_info = self._create_base_dataset_info(dataset_name)
@@ -579,12 +247,7 @@ class FlowerClient(fl.client.NumPyClient):
         if not client_data_partition:
             raise ValueError("Failed to load user data partition")
 
-        # TODO Liam: other edge cases
-
         return (args_loaded, dataset_train, dataset_test, client_data_partition, dataset_fim)
-            
-    
-
     
     def _store_dataset_data(self, dataset_data: Tuple) -> None:
         """Store loaded dataset data in instance variables."""
@@ -657,7 +320,6 @@ class FlowerClient(fl.client.NumPyClient):
         self._ensure_model_setup_attributes()
         
         # Use shared model_setup function for consistency with original implementation
-        # TODO Liam: refactor this to support finer LoRA training
         _, model, _, model_dim = model_setup(self.args)
         
         # Update args with model dimension
@@ -755,105 +417,7 @@ class FlowerClient(fl.client.NumPyClient):
             if param_idx < len(params):
                 param.data = torch.from_numpy(params[param_idx]).to(param.device)
                 param_idx += 1
-            
-
     
-    
-    def _train_with_actual_data(self, local_epochs: int, learning_rate: float, server_round: int) -> float:
-        """
-        Train using actual dataset data with real batch iteration and non-IID distribution.
-        
-        Args:
-            local_epochs: Number of local training epochs
-            learning_rate: Learning rate for training
-            server_round: Current server round
-            
-        Returns:
-            Total training loss
-        """
-        # Check if we should use LocalUpdate for heterogeneous training
-        if self._should_use_local_update():
-            return self._train_with_local_update(local_epochs, learning_rate, server_round)
-        else:
-            return self._train_with_standard_approach(local_epochs, learning_rate, server_round)
-    
-    # TODO Liam: refactor this
-    def _should_use_local_update(self) -> bool:
-        """Check if we should use LocalUpdate for heterogeneous training."""
-        # Use LocalUpdate if we have heterogeneous group configuration
-        return (hasattr(self.args, CONFIG_KEY_HETEROGENEOUS_GROUP) and 
-                hasattr(self.args, CONFIG_KEY_USER_GROUPID_LIST) and
-                hasattr(self.args, CONFIG_KEY_BLOCK_IDS_LIST) and
-                self.args.get(CONFIG_KEY_PEFT) == DEFAULT_LORA_PEFT)
-    
-    # TODO Liam: fix
-    def _train_with_local_update(self, local_epochs: int, learning_rate: float, server_round: int) -> float:
-        """
-        Train using LocalUpdate class for heterogeneous federated learning.
-        
-        Args:
-            local_epochs: Number of local training epochs
-            learning_rate: Learning rate for training
-            server_round: Current server round
-            
-        Returns:
-            Total training loss
-        """
-        # Ensure block_ids_list is initialized
-        if not hasattr(self.args, CONFIG_KEY_BLOCK_IDS_LIST):
-            from algorithms.solver.shared_utils import update_block_ids_list
-            update_block_ids_list(self.args)
-            logging.info(f"Initialized block_ids_list for client {self.client_id}")
-        
-    
-        
-        # Prepare training data with reduced batch size if needed
-        client_indices_list = self._get_client_data_indices()
-        client_dataset = self._create_client_dataset(client_indices_list, self.dataset_train, self.args_loaded)
-        dataloader = self._create_training_dataloader(client_dataset)
-        
-        logging.info(f"Client {self.client_id} using LocalUpdate for heterogeneous training")
-        
-        # Create LocalUpdate instance
-        local_solver = LocalUpdate(args=self.args)
-        
-        # Get client group ID for heterogeneous training
-        hete_group_id = self._get_client_group_id()
-        
-        
-        # Use LocalUpdate for training
-        local_model, local_loss, no_weight_lora = local_solver.lora_tuning(
-                model=copy.deepcopy(self.model),
-                ldr_train=dataloader,
-                args=self.args,
-                client_index=self.client_id,
-                client_real_id=self.client_id,
-                round=server_round,
-                hete_group_id=hete_group_id
-            )
-            
-            # Update model with trained parameters
-        self.model.load_state_dict(local_model)
-            
-            # Log results
-        if local_loss is not None:
-                logging.info(f"Client {self.client_id} LocalUpdate training completed: loss={local_loss:.4f}")
-                return float(local_loss)  # Ensure float type
-        else:
-                logging.warning(f"Client {self.client_id} LocalUpdate training returned no loss")
-                return 0.0
-
-
-    
-    def _get_client_group_id(self) -> int:
-        """Get the heterogeneous group ID for this client."""
-        if hasattr(self.args, CONFIG_KEY_USER_GROUPID_LIST) and self.client_id < len(self.args.user_groupid_list):
-            return self.args.user_groupid_list[self.client_id]
-        return DEFAULT_GROUP_ID  # Default to group 0
-        
-
-    
-    # TODO Liam: refactor this
     def _initialize_heterogeneous_config(self) -> None:
         """Initialize heterogeneous group configuration if needed."""
         # Only initialize if we have heterogeneous group configuration
@@ -877,304 +441,7 @@ class FlowerClient(fl.client.NumPyClient):
             
             logging.info(f"Client {self.client_id} assigned to group {self._get_client_group_id()}")
     
-    def _create_optimizer(self, learning_rate: float) -> torch.optim.Optimizer:
-        """Create optimizer for training."""
-        # Only optimize LoRA parameters if using LoRA
-        if self.args.get(CONFIG_KEY_PEFT) == DEFAULT_LORA_PEFT:
-            # Get only LoRA parameters
-            lora_params = []
-            # TODO Liam: refactor this
-            for name, param in self.model.named_parameters():
-                if 'lora' in name or 'classifier' in name:
-                    lora_params.append(param)
-            optimizer = torch.optim.AdamW(lora_params, lr=learning_rate)
-        else:
-            # Optimize all parameters
-            optimizer = torch.optim.AdamW(self.model.parameters(), lr=learning_rate)
-        
-        logging.debug(f"Created optimizer with {len(list(optimizer.param_groups[0]['params']))} parameters")
-        return optimizer
-    
-    
-    def _log_training_results(self, client_indices_list: List[int], total_loss: float, local_epochs: int) -> None:
-        """Log final training results."""
-        avg_total_loss = total_loss / local_epochs if local_epochs > DEFAULT_ZERO_VALUE else DEFAULT_ZERO_VALUE
-        logging.info(f"Client {self.client_id} trained on {len(client_indices_list)} actual samples, "
-                     f"avg_loss={avg_total_loss:.4f}")
-    
-    def _get_client_data_indices(self) -> List[int]:
-        """Get and validate client data indices."""
-        if hasattr(self, 'client_data_indices'):
-            client_indices = self.client_data_indices
-        else:
-            client_indices = self.dataset_info.get(CONFIG_KEY_CLIENT_DATA_INDICES, set())
-        
-        if not client_indices:
-            raise ValueError(ERROR_NO_DATA_INDICES.format(client_id=self.client_id))
-        return list(client_indices)
-    
-    # TODO Liam: refactor this
-    def _create_training_dataloader(self, client_dataset):
-        """Create DataLoader for training using shared utilities."""
-        collate_fn = self._get_collate_function(self.args_loaded)
-        
-        # Use shared create_client_dataloader function
-        return create_client_dataloader(client_dataset, self.args, collate_fn)
-    
-    def _get_collate_function(self, args_loaded):
-        """Get the appropriate collate function based on dataset type."""
-        if self._is_cifar100_dataset(args_loaded):
-            return vit_collate_fn
-        elif self._is_ledgar_dataset(args_loaded):
-            return getattr(args_loaded, CONFIG_KEY_DATA_COLLATOR, None)
-        else:
-            raise ValueError(f"Invalid dataset: {args_loaded.dataset}")
-    
-    def _is_cifar100_dataset(self, args_loaded) -> bool:
-        """Check if the dataset is CIFAR-100."""
-        return (hasattr(args_loaded, 'dataset') and 
-                args_loaded.dataset == DEFAULT_CIFAR100_DATASET)
-    
-    def _is_ledgar_dataset(self, args_loaded) -> bool:
-        """Check if the dataset is LEDGAR."""
-        return (hasattr(args_loaded, 'dataset') and 
-                DEFAULT_LEDGAR_DATASET in args_loaded.dataset)
-    
-    
-    # TODO Liam: is this correct?
-    def _process_training_batch_with_gradients(self, batch, batch_idx: int, epoch: int, optimizer: torch.optim.Optimizer) -> float:
-        """Process a single training batch with actual gradients."""
-        # Extract batch data
-        pixel_values, labels = self._extract_batch_data(batch)
-        
-        # Move to device
-        device = next(self.model.parameters()).device
-        pixel_values = pixel_values.to(device)
-        labels = labels.to(device)
-        
-        # Zero gradients
-        optimizer.zero_grad()
-        
-        # Forward pass
-        outputs = self.model(pixel_values=pixel_values, labels=labels)
-        loss = outputs.loss
-        
-        # Backward pass
-        loss.backward()
-        
-        # Update parameters
-        optimizer.step()
-        
-        batch_loss = loss.item()
-        
-        # Log progress for first few batches
-        if batch_idx < self.args.get(CONFIG_KEY_LOGGING_BATCHES, DEFAULT_LOGGING_BATCHES):
-            logging.debug(f"Client {self.client_id} epoch {epoch + 1}, batch {batch_idx + 1}: loss={batch_loss:.4f}")
-        
-        return batch_loss
-    
-    def _compute_epoch_metrics(self, epoch: int, epoch_loss: float, num_batches: int) -> float:
-        """Compute and log epoch metrics."""
-        if num_batches > DEFAULT_ZERO_VALUE:
-            avg_epoch_loss = epoch_loss / num_batches
-            logging.info(f"Client {self.client_id} epoch {epoch + DEFAULT_ONE_VALUE}: avg_loss={avg_epoch_loss:.4f} ({num_batches} batches)")
-            return avg_epoch_loss
-        else:
-            logging.warning(f"Client {self.client_id} epoch {epoch + DEFAULT_ONE_VALUE}: no batches processed")
-            return DEFAULT_ZERO_VALUE
-    
-    def _extract_batch_data(self, batch) -> Tuple:
-        """Extract pixel_values and labels from batch."""
-        if isinstance(batch, dict):
-            return self._extract_from_dict_batch(batch)
-        elif len(batch) == DEFAULT_BATCH_FORMAT_3_ELEMENTS:
-            return self._extract_from_three_element_batch(batch)
-        elif len(batch) == DEFAULT_BATCH_FORMAT_2_ELEMENTS:
-            return self._extract_from_two_element_batch(batch)
-        else:
-            raise ValueError(ERROR_INVALID_BATCH_FORMAT.format(batch_type=type(batch)))
-    
-    def _extract_from_dict_batch(self, batch: Dict) -> Tuple:
-        """Extract data from dictionary format batch."""
-        return batch[CONFIG_KEY_PIXEL_VALUES], batch[CONFIG_KEY_LABELS]
-    
-    def _extract_from_three_element_batch(self, batch) -> Tuple:
-        """Extract data from three-element batch (image, label, pixel_values)."""
-        image, label, pixel_values = batch
-        return pixel_values, label
-    
-    def _extract_from_two_element_batch(self, batch) -> Tuple:
-        """Extract data from two-element batch (pixel_values, labels)."""
-        return batch[DEFAULT_ZERO_VALUE], batch[DEFAULT_ONE_VALUE]
-
-    def _create_client_dataset(self, client_indices: List[int], dataset_train, args_loaded):
-        """
-        Create a client-specific dataset subset using shared utilities.
-
-        Args:
-            client_indices: List of indices for this client's data
-            dataset_train: Training dataset
-            args_loaded: Loaded arguments
-
-        Returns:
-            Dataset subset for this client
-        """
-        # Use shared create_client_dataset function
-        client_dataset = create_client_dataset(dataset_train, client_indices, args_loaded)
-
-        logging.debug(f"Client {self.client_id} created dataset subset with {len(client_dataset)} samples")
-        return client_dataset
-
-
-
-
-
-    
-    
-    def _evaluate_with_actual_data(self, server_round: int) -> Tuple[float, float]:
-        """
-        Evaluate using actual dataset data with real batch iteration.
-
-        Args:
-            server_round: Current server round
-
-        Returns:
-            Tuple of (accuracy, loss)
-        """
-        # Prepare evaluation dataset
-        eval_dataset = self._get_evaluation_dataset()
-        if eval_dataset is None:
-            raise ValueError("No test dataset available for evaluation")
-
-        # Create evaluation DataLoader
-        eval_dataloader = self._create_evaluation_dataloader(eval_dataset)
-        
-        # Perform evaluation
-        metrics = self._perform_evaluation(eval_dataloader, server_round)
-        
-        return metrics
-    
-    def _get_evaluation_dataset(self):
-        """Get evaluation dataset (test only)."""
-        return self.dataset_test
-    
-    def _create_evaluation_dataloader(self, eval_dataset):
-        """Create DataLoader for evaluation."""
-        from torch.utils.data import DataLoader
-        batch_size = len(eval_dataset)  # Use full dataset for evaluation
-        collate_fn = self._get_collate_function(self.args_loaded)
-        
-        return DataLoader(
-            eval_dataset,
-            batch_size=batch_size,
-            shuffle=self.args.get(CONFIG_KEY_SHUFFLE_EVAL, DEFAULT_SHUFFLE_EVAL),
-            drop_last=self.args.get(CONFIG_KEY_DROP_LAST_EVAL, DEFAULT_DROP_LAST_EVAL),
-            num_workers=self.args.get(CONFIG_KEY_NUM_WORKERS, DEFAULT_NUM_WORKERS),
-            collate_fn=collate_fn
-        )
-    
-    def _perform_evaluation(self, eval_dataloader, server_round: int) -> Tuple[float, float]:
-        """Perform evaluation on all batches."""
-        metrics = {CONFIG_KEY_TOTAL_LOSS: DEFAULT_ZERO_VALUE, CONFIG_KEY_TOTAL_CORRECT: DEFAULT_ZERO_VALUE, CONFIG_KEY_TOTAL_SAMPLES: DEFAULT_ZERO_VALUE, CONFIG_KEY_NUM_BATCHES: DEFAULT_ZERO_VALUE}
-        
-        logging.info(f"Client {self.client_id} evaluating on {len(eval_dataloader)} test batches")
-
-        for batch_idx, batch in enumerate(eval_dataloader):
-            self._process_evaluation_batch(batch, server_round, batch_idx, metrics)
-
-        return self._compute_overall_evaluation_metrics(
-            metrics[CONFIG_KEY_TOTAL_LOSS], metrics[CONFIG_KEY_TOTAL_CORRECT], 
-            metrics[CONFIG_KEY_TOTAL_SAMPLES], metrics[CONFIG_KEY_NUM_BATCHES]
-        )
-    
-    def _process_evaluation_batch(self, batch, server_round: int, batch_idx: int, metrics: Dict) -> None:
-        """Process a single evaluation batch."""
-        pixel_values, label = self._extract_evaluation_batch_data(batch)
-        batch_loss, batch_correct, batch_size = self._compute_batch_evaluation_metrics(
-            pixel_values, label, server_round, batch_idx
-        )
-
-        metrics[CONFIG_KEY_TOTAL_LOSS] += batch_loss
-        metrics[CONFIG_KEY_TOTAL_CORRECT] += batch_correct
-        metrics[CONFIG_KEY_TOTAL_SAMPLES] += batch_size
-        metrics[CONFIG_KEY_NUM_BATCHES] += 1
-
-        # Log progress for first few batches
-        if batch_idx < self.args.get(CONFIG_KEY_EVAL_BATCHES, DEFAULT_EVAL_BATCHES):
-            batch_accuracy = batch_correct / batch_size if batch_size > DEFAULT_ZERO_VALUE else DEFAULT_ZERO_VALUE
-            logging.debug(f"Client {self.client_id} eval batch {batch_idx + DEFAULT_ONE_VALUE}: "
-                          f"loss={batch_loss:.4f}, acc={batch_accuracy:.4f}")
-    
-    def _extract_evaluation_batch_data(self, batch) -> Tuple:
-        """Extract batch data for evaluation."""
-        if len(batch) == DEFAULT_BATCH_FORMAT_3_ELEMENTS:  # DatasetSplit format
-            image, label, pixel_values = batch
-            return pixel_values, label
-        elif len(batch) == DEFAULT_BATCH_FORMAT_2_ELEMENTS:  # Standard format
-            return batch[DEFAULT_ZERO_VALUE], batch[DEFAULT_ONE_VALUE]
-        else:
-            raise ValueError(f"Invalid batch length for evaluation: {len(batch)}")
-    
-    def _compute_overall_evaluation_metrics(self, total_loss: float, total_correct: int, 
-                                          total_samples: int, num_batches: int) -> Tuple[float, float]:
-        """Compute overall evaluation metrics."""
-        if num_batches > DEFAULT_ZERO_VALUE and total_samples > DEFAULT_ZERO_VALUE:
-            avg_loss = total_loss / num_batches
-            accuracy = total_correct / total_samples
-
-            logging.info(f"Client {self.client_id} evaluation completed: "
-                         f"loss={avg_loss:.4f}, accuracy={accuracy:.4f} "
-                         f"({total_samples} samples, {num_batches} batches)")
-
-            return accuracy, avg_loss
-        else:
-            raise ValueError("No batches processed during evaluation")
-
-    def _compute_batch_evaluation_metrics(self, pixel_values, labels, server_round: int, batch_idx: int) -> Tuple[float, int, int]:
-        """
-        Compute actual evaluation metrics for a batch of data.
-
-        Args:
-            pixel_values: Batch of image data (tensor or None)
-            labels: Batch of labels (tensor or None)
-            server_round: Current server round
-            batch_idx: Batch index within evaluation
-
-        Returns:
-            Tuple of (batch_loss, num_correct, batch_size)
-        """
-        if pixel_values is None or labels is None:
-            raise ValueError(f"Invalid pixel_values or labels: {pixel_values}, {labels}")
-        
-        batch_size = pixel_values.shape[0] if hasattr(pixel_values, 'shape') else labels.shape[0]
-        
-        # Move to device
-        device = next(self.model.parameters()).device
-        pixel_values = pixel_values.to(device)
-        labels = labels.to(device)
-        
-        # Set model to evaluation mode
-        self.model.eval()
-        
-        with torch.no_grad():
-            # Forward pass
-            outputs = self.model(pixel_values=pixel_values, labels=labels)
-            loss = outputs.loss
-            logits = outputs.logits
-            
-            # Get predictions
-            predictions = torch.argmax(logits, dim=DEFAULT_DIMENSION_1)
-            num_correct = int(torch.sum(predictions == labels).item())
-
-        logging.debug(f"Eval batch {batch_idx}: size={batch_size}, "
-                      f"loss={loss:.4f}, correct={num_correct}")
-
-        return float(loss.item()), num_correct, batch_size
-
-
-
-
-
+    # Flower client interface methods
     def get_parameters(self, config: Dict[str, Any]) -> List[np.ndarray]:
         """
         Get current model parameters.
@@ -1327,20 +594,6 @@ class FlowerClient(fl.client.NumPyClient):
             raise ValueError("server_round not provided in config")
         return server_round
     
-    def _perform_evaluation_with_validation(self, server_round: int) -> Tuple[float, float, int]:
-        """Perform evaluation with proper validation."""
-        if not (self.dataset_info.get(CONFIG_KEY_DATA_LOADED, False) and self.dataset_test is not None):
-            raise ValueError(ERROR_NO_TEST_DATASET)
-        
-        accuracy, loss = self._evaluate_with_actual_data(server_round)
-        num_examples = self.dataset_info.get(CONFIG_KEY_TEST_SAMPLES)
-        
-        if num_examples is None:
-            raise ValueError("test_samples not available in dataset_info")
-        
-        logging.info(f"Client {self.client_id} evaluated with actual test dataset: {num_examples} samples")
-        return accuracy, loss, num_examples
-    
     def _create_evaluation_metrics(self, accuracy: float) -> Dict[str, Any]:
         """Create evaluation metrics dictionary with proper types for Flower."""
         metrics = {
@@ -1388,201 +641,15 @@ class FlowerClient(fl.client.NumPyClient):
         return compatible_metrics
 
 
-# =============================================================================
-# UTILITY FUNCTIONS
-# =============================================================================
-
-def load_configuration(config_path: str) -> 'Config':
-    """
-    Load configuration from YAML file.
-    
-    Args:
-        config_path: Path to configuration file
-        
-    Returns:
-        Config object with loaded parameters
-        
-    Raises:
-        FileNotFoundError: If config file doesn't exist
-        yaml.YAMLError: If config file is invalid YAML
-    """
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"Configuration file not found: {config_path}")
-    
-    with open(config_path, 'r') as f:
-        config_dict = yaml.safe_load(f)
-
-    if config_dict is None:
-        raise ValueError("Configuration file is empty or invalid")
-
-    return Config(config_dict)
-
-
-def setup_logging(client_id: int, log_level: str = "INFO") -> None:
-    """
-    Setup logging configuration for the client.
-    
-    Args:
-        client_id: Client identifier
-        log_level: Logging level (DEBUG, INFO, WARNING, ERROR)
-    """
-    logging.basicConfig(
-        level=getattr(logging, log_level.upper()),
-        format=f'%(asctime)s - Client {client_id} - %(levelname)s - %(message)s',
-        force=True  # Override any existing logging configuration
-    )
-
-
-def create_flower_client(args: 'Config', client_id: int = 0) -> FlowerClient:
-    """
-    Create a Flower client instance.
-    
-    Args:
-        args: Configuration object
-        client_id: Client identifier
-        
-    Returns:
-        FlowerClient instance
-    """
-    return FlowerClient(args, client_id)
-
-
-def start_flower_client(args: 'Config', server_address: str = "localhost",
-                              server_port: int = 8080, client_id: int = 0) -> None:
-    """
-    Start a Flower client.
-    
-    Args:
-        args: Configuration object
-        server_address: Server address to connect to
-        server_port: Server port to connect to
-        client_id: Client identifier
-    """
-    # Setup logging
-    setup_logging(client_id)
-    
-    # Create client
-    client = create_flower_client(args, client_id)
-    
-    # Start client using Flower API
-    logging.info(f"Starting Flower client {client_id} connecting to {server_address}:{server_port}")
-    
-    # Use the modern Flower API (warnings suppressed)
-    fl.client.start_client(
-        server_address=f"{server_address}:{server_port}",
-        client=client.to_client(),
-    )
-
-
-
-
-def setup_device(gpu_id: int) -> torch.device:
-    """
-    Setup compute device (CPU or GPU).
-    
-    Args:
-        gpu_id: GPU ID (-1 for CPU)
-        
-    Returns:
-        PyTorch device
-    """
-    if torch.cuda.is_available() and gpu_id != -1:
-        if gpu_id >= torch.cuda.device_count():
-            logging.warning(f"GPU {gpu_id} not available, falling back to CPU")
-            return torch.device(DEFAULT_CPU_DEVICE)
-        return torch.device(f'{DEFAULT_CUDA_DEVICE}:{gpu_id}')
-    return torch.device(DEFAULT_CPU_DEVICE)
-
-
-def parse_arguments() -> argparse.Namespace:
-    """
-    Parse command line arguments.
-    
-    Returns:
-        Parsed arguments namespace
-        
-    Raises:
-        SystemExit: If argument parsing fails
-    """
-    parser = argparse.ArgumentParser(
-        description="Flower Client for Federated Learning",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    
-    # Connection arguments
-    parser.add_argument(
-        "--server_address", 
-        type=str, 
-        default=DEFAULT_SERVER_ADDRESS, 
-        help="Server address to connect to"
-    )
-    parser.add_argument(
-        "--server_port", 
-        type=int, 
-        default=DEFAULT_SERVER_PORT, 
-        help="Server port to connect to"
-    )
-    
-    # Client configuration
-    parser.add_argument(
-        "--client_id", 
-        type=int, 
-        default=DEFAULT_CLIENT_ID, 
-        help="Client identifier"
-    )
-    parser.add_argument(
-        "--config_name", 
-        type=str, 
-        default=DEFAULT_CONFIG_PATH,
-        help="Configuration file path (relative to config/ directory)"
-    )
-    
-    # Training configuration
-    parser.add_argument(
-        "--seed", 
-        type=int, 
-        default=DEFAULT_SEED, 
-        help="Random seed for reproducibility"
-    )
-    parser.add_argument(
-        "--gpu", 
-        type=int, 
-        default=DEFAULT_GPU_ID, 
-        help="GPU ID (-1 for CPU, 0+ for specific GPU)"
-    )
-    
-    # Logging configuration
-    parser.add_argument(
-        "--log_level", 
-        type=str, 
-        default=DEFAULT_LOG_LEVEL,
-        choices=["DEBUG", "INFO", "WARNING", "ERROR"], 
-        help="Logging level"
-    )
-    
-    # Memory management
-    parser.add_argument(
-        "--force_cpu", 
-        action="store_true", 
-        help="Force CPU usage (disable GPU/MPS for memory-constrained environments)"
-    )
-    
-    return parser.parse_args()
-
-
-# =============================================================================
-# MAIN FUNCTION
-# =============================================================================
-
 def main() -> None:
     """Main function to run the Flower client."""
     try:
         # Parse arguments and load configuration
         args = parse_arguments()
-        config = _load_and_merge_config(args)
+        config = load_and_merge_config(args)
         
         # Setup environment
-        _setup_environment(config, args)
+        setup_environment(config, args)
         
         # Start client
         start_flower_client(
@@ -1597,43 +664,6 @@ def main() -> None:
     except Exception as e:
         logging.error(f"Client failed with error: {e}")
         raise
-
-
-def _load_and_merge_config(args) -> 'Config':
-    """Load configuration and merge with command line arguments."""
-    config_path = os.path.join('config/', args.config_name)
-    config = load_configuration(config_path)
-    
-    # Override config values with command line arguments if provided
-    # Use config values as defaults for command line arguments
-    if hasattr(config, 'server_address') and not hasattr(args, 'server_address'):
-        args.server_address = config.server_address
-    if hasattr(config, 'server_port') and not hasattr(args, 'server_port'):
-        args.server_port = config.server_port
-    if hasattr(config, 'client_id') and not hasattr(args, 'client_id'):
-        args.client_id = config.client_id
-    if hasattr(config, 'seed') and not hasattr(args, 'seed'):
-        args.seed = config.seed
-    if hasattr(config, 'gpu_id') and not hasattr(args, 'gpu_id'):
-        args.gpu_id = config.gpu_id
-    if hasattr(config, 'log_level') and not hasattr(args, 'log_level'):
-        args.log_level = config.log_level
-    
-    # Merge command line arguments into config
-    for arg_name in vars(args):
-        setattr(config, arg_name, getattr(args, arg_name))
-    
-    # Handle force_cpu option
-    if hasattr(args, 'force_cpu') and args.force_cpu:
-        config.force_cpu = True
-        logging.info("Force CPU mode enabled")
-    
-    return config
-
-
-def _setup_environment(config: 'Config', args) -> None:
-    """Setup device."""
-    config.device = setup_device(args.gpu)
 
 
 if __name__ == "__main__":
