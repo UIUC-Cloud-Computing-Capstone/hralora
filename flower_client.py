@@ -804,6 +804,7 @@ class FlowerClient(fl.client.NumPyClient):
                                     f"received {param_tensor.shape} vs expected {current_state_dict[param_name].shape}")
                         raise ValueError(f"LoRA parameter shape mismatch for {param_name}")
                 else:
+                    # TODO Liam: is this exception hanlding correct? 
                     logging.warning(f"LoRA parameter {param_name} not found in model state dict")
 
         # Load the updated state dict
