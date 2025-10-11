@@ -549,18 +549,7 @@ class FlowerClient(fl.client.NumPyClient):
         return SimpleLogger()
     
 
-            
-
-    
-    # TODO Liam: refactor this
-    def _should_use_local_update(self) -> bool:
-        """Check if we should use LocalUpdate for heterogeneous training."""
-        # Use LocalUpdate if we have heterogeneous group configuration
-        return (hasattr(self.args, CONFIG_KEY_HETEROGENEOUS_GROUP) and 
-                hasattr(self.args, CONFIG_KEY_USER_GROUPID_LIST) and
-                hasattr(self.args, CONFIG_KEY_BLOCK_IDS_LIST) and
-                self.args.get(CONFIG_KEY_PEFT) == DEFAULT_LORA_PEFT)
-    
+                
     # TODO Liam: fix
     def _train_with_local_update(self, local_epochs: int, learning_rate: float, server_round: int) -> float:
         """
@@ -612,11 +601,11 @@ class FlowerClient(fl.client.NumPyClient):
             
             # Log results
         if local_loss is not None:
-                logging.info(f"Client {self.client_id} LocalUpdate training completed: loss={local_loss:.4f}")
-                return float(local_loss)  # Ensure float type
+            logging.info(f"Client {self.client_id} LocalUpdate training completed: loss={local_loss:.4f}")
+            return float(local_loss)  # Ensure float type
         else:
-                logging.warning(f"Client {self.client_id} LocalUpdate training returned no loss")
-                return 0.0
+            logging.warning(f"Client {self.client_id} LocalUpdate training returned no loss")
+            return 0.0
 
 
     
@@ -975,10 +964,9 @@ class FlowerClient(fl.client.NumPyClient):
             Total training loss
         """
         # Check if we should use LocalUpdate for heterogeneous training
-        if self._should_use_local_update():
-            return self._train_with_local_update(local_epochs, learning_rate, server_round)
-        else:
-            return self._train_with_standard_approach(local_epochs, learning_rate, server_round)
+        
+        return self._train_with_local_update(local_epochs, learning_rate, server_round)
+        
 
     def _get_num_examples(self) -> int:
         """Get number of training examples for this client."""
