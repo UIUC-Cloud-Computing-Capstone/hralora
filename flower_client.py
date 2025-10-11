@@ -573,6 +573,12 @@ class FlowerClient(fl.client.NumPyClient):
         return SimpleLogger()
     
 
+
+    # =============================================================================
+    # Data Loading
+    # =============================================================================
+
+
     def _train_with_actual_data(self, local_epochs: int, learning_rate: float, server_round: int) -> float:
         """
         Train using actual dataset data with real batch iteration and non-IID distribution.
@@ -607,8 +613,6 @@ class FlowerClient(fl.client.NumPyClient):
             from algorithms.solver.shared_utils import update_block_ids_list
             update_block_ids_list(self.args)
             logging.info(f"Initialized block_ids_list for client {self.client_id}")
-        
-    
         
         # Prepare training data with reduced batch size if needed
         client_indices_list = self._get_client_data_indices()
@@ -676,6 +680,10 @@ class FlowerClient(fl.client.NumPyClient):
             return self.args.user_groupid_list[self.client_id]
         return DEFAULT_GROUP_ID  # Default to group 0
         
+
+    
+
+
 
     
     def _create_optimizer(self, learning_rate: float) -> torch.optim.Optimizer:
@@ -754,26 +762,6 @@ class FlowerClient(fl.client.NumPyClient):
             
         self._numpy_params_to_model(parameters)
         logging.debug(f"Updated model parameters with {len(parameters)} parameter arrays")
-
-
-    def get_parameters(self, config: Dict[str, Any]) -> List[np.ndarray]:
-        """
-        Get current model parameters.
-        
-        Args:
-            config: Configuration dictionary
-            
-        Returns:
-            List of model parameters as numpy arrays
-        """
-        return self._model_to_numpy_params()
-    
-    def _model_to_numpy_params(self) -> List[np.ndarray]:
-        """Convert model parameters to numpy arrays."""
-        params = []
-        for param in self.model.parameters():
-            params.append(param.detach().cpu().numpy())
-        return params
     
     def _numpy_params_to_model(self, params: List[np.ndarray]) -> None:
         """Set model parameters from numpy arrays."""
@@ -782,7 +770,7 @@ class FlowerClient(fl.client.NumPyClient):
             if param_idx < len(params):
                 param.data = torch.from_numpy(params[param_idx]).to(param.device)
                 param_idx += 1
-    
+
     def _extract_training_config(self, config: Dict[str, Any]) -> Tuple[int, int, float]:
         """Extract and validate training configuration."""
         server_round = config.get('server_round')
@@ -804,7 +792,19 @@ class FlowerClient(fl.client.NumPyClient):
         logging.info(f"Client {self.client_id} received config: {config}")
         logging.info(f"Client {self.client_id} starting training for round {server_round} "
                      f"(epochs={local_epochs}, lr={learning_rate:.4f})")
-    
+        
+    def _create_training_metrics(self, avg_loss: float, local_epochs: int, learning_rate: float) -> Dict[str, Any]:
+        """Create training metrics dictionary with proper types for Flower."""
+        metrics = {
+            'loss': avg_loss,
+            'num_epochs': local_epochs,
+            'client_id': self.client_id,
+            'learning_rate': learning_rate,
+            'data_loaded': self.dataset_info.get(CONFIG_KEY_DATA_LOADED, False),
+            'noniid_type': self.dataset_info.get(CONFIG_KEY_NONIID_TYPE, DEFAULT_UNKNOWN_VALUE)
+        }
+        return self._ensure_flower_compatible_types(metrics)
+
     def _perform_training(self, local_epochs: int, learning_rate: float, server_round: int) -> Tuple[float, int]:
         """Perform the actual training."""
         data_loaded = self.dataset_info.get(CONFIG_KEY_DATA_LOADED, False)
@@ -828,23 +828,32 @@ class FlowerClient(fl.client.NumPyClient):
             return len(self.client_data_indices)
         else:
             return len(self.dataset_info.get(CONFIG_KEY_CLIENT_DATA_INDICES, set()))
-    
+
     def _update_training_history(self, avg_loss: float, server_round: int) -> None:
         """Update training history."""
         self.training_history[CONFIG_KEY_LOSSES].append(avg_loss)
         self.training_history[CONFIG_KEY_ROUNDS].append(server_round)
+
+
+    def get_parameters(self, config: Dict[str, Any]) -> List[np.ndarray]:
+        """
+        Get current model parameters.
+        
+        Args:
+            config: Configuration dictionary
+            
+        Returns:
+            List of model parameters as numpy arrays
+        """
+        return self._model_to_numpy_params()
     
-    def _create_training_metrics(self, avg_loss: float, local_epochs: int, learning_rate: float) -> Dict[str, Any]:
-        """Create training metrics dictionary with proper types for Flower."""
-        metrics = {
-            'loss': avg_loss,
-            'num_epochs': local_epochs,
-            'client_id': self.client_id,
-            'learning_rate': learning_rate,
-            'data_loaded': self.dataset_info.get(CONFIG_KEY_DATA_LOADED, False),
-            'noniid_type': self.dataset_info.get(CONFIG_KEY_NONIID_TYPE, DEFAULT_UNKNOWN_VALUE)
-        }
-        return self._ensure_flower_compatible_types(metrics)
+    def _model_to_numpy_params(self) -> List[np.ndarray]:
+        """Convert model parameters to numpy arrays."""
+        params = []
+        for param in self.model.parameters():
+            params.append(param.detach().cpu().numpy())
+        return params
+
     
     # =============================================================================
     # EVALUATION
