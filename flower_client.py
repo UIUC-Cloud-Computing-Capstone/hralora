@@ -686,41 +686,6 @@ class FlowerClient(fl.client.NumPyClient):
         logging.info(f"Client {self.client_id} trained on {len(client_indices_list)} actual samples, "
                      f"avg_loss={avg_total_loss:.4f}")
     
-
-    
-    
-    
-    # TODO Liam: is this correct?
-    def _process_training_batch_with_gradients(self, batch, batch_idx: int, epoch: int, optimizer: torch.optim.Optimizer) -> float:
-        """Process a single training batch with actual gradients."""
-        # Extract batch data
-        pixel_values, labels = extract_batch_data(batch)
-        
-        # Move to device
-        device = next(self.model.parameters()).device
-        pixel_values = pixel_values.to(device)
-        labels = labels.to(device)
-        
-        # Zero gradients
-        optimizer.zero_grad()
-        
-        # Forward pass
-        outputs = self.model(pixel_values=pixel_values, labels=labels)
-        loss = outputs.loss
-        
-        # Backward pass
-        loss.backward()
-        
-        # Update parameters
-        optimizer.step()
-        
-        batch_loss = loss.item()
-        
-        # Log progress for first few batches
-        if batch_idx < self.args.get(CONFIG_KEY_LOGGING_BATCHES, DEFAULT_LOGGING_BATCHES):
-            logging.debug(f"Client {self.client_id} epoch {epoch + 1}, batch {batch_idx + 1}: loss={batch_loss:.4f}")
-        
-        return batch_loss
     
     def _compute_epoch_metrics(self, epoch: int, epoch_loss: float, num_batches: int) -> float:
         """Compute and log epoch metrics."""
