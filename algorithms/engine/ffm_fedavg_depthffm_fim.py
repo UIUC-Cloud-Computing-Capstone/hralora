@@ -197,11 +197,8 @@ def test_global_model_on_server_side(args, dataset_test, writer, net_glob, globa
     return best_test_acc,best_test_macro_f1,best_test_micro_f1
 
 def get_global_model(args, global_model, local_updates, num_samples):
-    if hasattr(args, 'aggregation'):
-        if args.aggregation ==  'weighted_average':
-            global_model = weighted_average_lora_depthfl(args, global_model, local_updates, num_samples)
-    else:
-        global_model = average_lora_depthfl(args, global_model, local_updates)
+
+    global_model = average_lora_depthfl(args, global_model, local_updates)
     return global_model
 
 

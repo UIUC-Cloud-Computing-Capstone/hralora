@@ -19,8 +19,6 @@ def average_lora_depthfl(args, global_model, loc_updates):
             global_model[k] = global_model[k].detach().cpu() +  sum(model_update_avg_dict[k]) / len(model_update_avg_dict[k])
 
     return global_model
-
-def weighted_average_lora_depthfl(args, global_model, loc_updates, num_samples):
     '''
     weighted hetero average
     '''
