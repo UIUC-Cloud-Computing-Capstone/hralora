@@ -1,21 +1,16 @@
 import copy
 import numpy as np
-import torch
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from utils.data_pre_process import load_partition, DatasetSplit
 from utils.model_utils import model_setup
 from test import test, test_vit, test_ledgar
 from ..solver.local_solver import LocalUpdate
-from ..solver.global_aggregator import average_lora_depthfl, weighted_average_lora_depthfl
+from ..solver.global_aggregator import average_lora_depthfl
 from ..solver.shared_utils import (
-    load_data, get_data_loader_list, get_dataset_fim, vit_collate_fn, test_collate_fn,
+    load_data, get_data_loader_list, get_dataset_fim,
     get_group_cnt, update_user_groupid_list, update_block_ids_list, update_block_ids_list_with_observed_probability,
-    get_observed_prob, get_observed_probability, get_model_update, get_norm_updates,
+    get_observed_prob, get_model_update, get_norm_updates,
     get_train_loss, get_norm, update_delta_norms
 )
-from fractions import Fraction
-import re
 import numpy as np
 from utils.fim_calculator import FIMCalculator
 import threading
@@ -62,13 +57,10 @@ def ffm_fedavg_depthffm_fim(args):
         if len(local_updates) == 0:
             args.logger.info('The number of trainable client is 0, skip the round for average')
             continue
-        # metrics
-        # train_loss.append(sum(local_losses) / args.num_selected_users)
-        # median_model_norm.append(torch.median(torch.stack(delta_norms)).cpu())
-        norm = get_norm(delta_norms)
+
         train_loss = get_train_loss(local_losses)
         
-        add_to_writer(args, writer, t, norm, train_loss)
+        add_to_writer(args, writer, t, get_norm(delta_norms), train_loss)
 
         global_model = get_global_model(args, global_model, local_updates, num_samples)
 
