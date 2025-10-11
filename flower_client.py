@@ -612,9 +612,7 @@ class FlowerClient(fl.client.NumPyClient):
         # Use LocalUpdate for training
         local_solver = LocalUpdate(args=self.args)
 
-        # Store original model state for debugging
-        original_model_state = copy.deepcopy(self.model.state_dict())
-
+        
         # Validate the current model state before training
         self._validate_model_state_dict(self.model.state_dict(), "current model before training")
 
