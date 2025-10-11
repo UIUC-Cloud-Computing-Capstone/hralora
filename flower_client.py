@@ -607,6 +607,7 @@ class FlowerClient(fl.client.NumPyClient):
                 hete_group_id=self._get_client_group_id()
         )
             
+        # TODO Liam: this is inefficient
         # Update model with trained parameters
         self.model.load_state_dict(local_model)
             
