@@ -54,7 +54,7 @@ def load_partition(args):
             args.label2id[label] = i
             args.id2label[i] = label
 
-        image_processor = AutoImageProcessor.from_pretrained('google/vit-base-patch16-224-in21k')
+        image_processor = AutoImageProcessor.from_pretrained('google/vit-base-patch16-224-in21k', use_fast=True)
         normalize = Normalize(mean=image_processor.image_mean, std=image_processor.image_std)
         if args.model == 'google/vit-base-patch16-224-in21k':
             train_transforms = Compose(

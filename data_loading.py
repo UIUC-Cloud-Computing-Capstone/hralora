@@ -569,7 +569,7 @@ def create_combined_dataset(all_partitions: List, dataset_args: DatasetArgs):
                 from transformers import AutoImageProcessor
                 from torchvision.transforms import Compose, Normalize, RandomResizedCrop, RandomHorizontalFlip, ToTensor, Resize
                 
-                image_processor = AutoImageProcessor.from_pretrained('google/vit-base-patch16-224-in21k')
+                image_processor = AutoImageProcessor.from_pretrained('google/vit-base-patch16-224-in21k', use_fast=True)
                 normalize = Normalize(mean=image_processor.image_mean, std=image_processor.image_std)
                 
                 if model_name == 'google/vit-base-patch16-224-in21k':
