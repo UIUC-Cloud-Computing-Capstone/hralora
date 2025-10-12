@@ -16,6 +16,7 @@ import os
 import sys
 import yaml
 from typing import Dict, Any, Optional, List, Tuple
+from flwr.common import parameters_to_ndarrays
 
 # Add project root to path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
@@ -346,7 +347,9 @@ class CustomFedAvgStrategy(fl.server.strategy.FedAvg):
         
         for client, fit_res in results:
             if fit_res.parameters is not None:
-                parameters_list.append(fit_res.parameters)
+                # Convert Parameters object to list of numpy arrays
+                param_arrays = parameters_to_ndarrays(fit_res.parameters)
+                parameters_list.append(param_arrays)
                 num_examples_list.append(fit_res.num_examples)
                 if fit_res.metrics:
                     metrics_list.append(fit_res.metrics)
