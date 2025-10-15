@@ -33,7 +33,7 @@ def model_setup(args):
         net_glob.to(args.device)
     elif args.model == 'google/vit-base-patch16-224-in21k':
         model = AutoModelForImageClassification.from_pretrained(
-            args.model,
+            'facebook/deit-tiny-patch16-224',
             label2id=args.label2id,
             id2label=args.id2label,
             ignore_mismatched_sizes=True,  # provide this in case you're planning to fine-tune an already fine-tuned checkpoint
