@@ -312,8 +312,7 @@ def ffm_fedavg_depthffm_fim(args):
     dataset_fim = update_dataset_fim(args, dataset_fim)
     
     # heterogenity
-    group_cnt = get_group_cnt(args)
-    update_user_groupid_list(args, group_cnt)
+    update_user_groupid_list(args)
 
     best_test_acc = 0.0
     best_test_f1 = 0.0
@@ -322,34 +321,29 @@ def ffm_fedavg_depthffm_fim(args):
     metric_keys = {'Accuracy': 0, 'F1': 0, 'Macro_F1': 0, "Micro_F1": 0}
 
     for t in range(args.round):
+        args.logger.info('Round: ' + str(t) + '/' + str(args.round), main_process_only=True)
+        
         # block ids for each clients
         update_block_ids_list(args, dataset_fim, net_glob, t)
 
-        args.logger.info('Round: ' + str(t) + '/' + str(args.round), main_process_only=True)
         ## learning rate decaying
         decay_learning_rate(args, t)
 
-        ############################################################# FedAvg ##########################################
         ## user selection
         selected_idxs = list(np.random.choice(range(args.num_users), args.num_selected_users, replace=False))
         print('selected client idxs: '+str(selected_idxs))
-        ## copy global model
-        net_glob.train()
+        
         ## local training
         local_losses, local_updates, delta_norms, num_samples = train_selected_clients(args, net_glob, global_model, data_loader_list, t, selected_idxs)
 
         if len(local_updates) == 0:
             args.logger.info('The number of trainable client is 0, skip the round for average')
             continue
+        
         # metrics
-        # train_loss.append(sum(local_losses) / args.num_selected_users)
-        # median_model_norm.append(torch.median(torch.stack(delta_norms)).cpu())
-        norm = get_norm(delta_norms)
-        train_loss = get_train_loss(local_losses)
-        if args.accelerator.is_local_main_process:
-            writer.add_scalar('norm', norm, t)
-            writer.add_scalar('train_loss', train_loss, t)
+        norm, train_loss = log_metrics(args, writer, t, local_losses, delta_norms)
 
+        # global model update
         global_model = update_global_model(args, global_model, local_updates, num_samples)
 
         # test global model on server side   
@@ -358,6 +352,14 @@ def ffm_fedavg_depthffm_fim(args):
         args.accelerator.wait_for_everyone()
 
     return (best_test_acc, best_test_f1, best_test_macro_f1, best_test_micro_f1), metric_keys
+
+def log_metrics(args, writer, t, local_losses, delta_norms):
+    norm = get_norm(delta_norms)
+    train_loss = get_train_loss(local_losses)
+    if args.accelerator.is_local_main_process:
+        writer.add_scalar('norm', norm, t)
+        writer.add_scalar('train_loss', train_loss, t)
+    return norm,train_loss
 
 def test_global_model(args, dataset_test, writer, net_glob, global_model, best_test_acc, best_test_f1, best_test_micro_f1, metric_keys, t, norm, train_loss):
     net_glob.load_state_dict(global_model)
@@ -446,6 +448,10 @@ def test_global_model(args, dataset_test, writer, net_glob, global_model, best_t
     return best_test_acc,best_test_f1,best_test_macro_f1,best_test_micro_f1
 
 def train_selected_clients(args, net_glob, global_model, data_loader_list, t, selected_idxs):
+
+    # sets the model to training mode. https://docs.pytorch.org/docs/stable/generated/torch.nn.Module.html#torch.nn.Module.train
+    net_glob.train()
+
     local_solver = LocalUpdate(args=args)
     local_models, local_losses, local_updates, delta_norms, num_samples = [], [], [], [], []
     for num_index, i in enumerate(selected_idxs):
@@ -471,6 +477,7 @@ def train_selected_clients(args, net_glob, global_model, data_loader_list, t, se
     return local_losses,local_updates,delta_norms,num_samples
 
 def update_global_model(args, global_model, local_updates, num_samples):
+    # TODO Liam: add aggregation function for heterogenous rank
     if hasattr(args, 'aggregation'):
         if args.aggregation ==  'weighted_average':
             global_model = weighted_average_lora_depthfl(args, global_model, local_updates, num_samples)
@@ -779,49 +786,55 @@ def get_observed_probability(cluster_labels):
     observed_probability /= sum(observed_probability)
     return observed_probability
 
-def update_user_groupid_list(args, group_cnt):
+def update_user_groupid_list(args):
     """
-    Create a user-to-group mapping list based on group counts.
+    Create a user-to-group mapping list based on heterogeneous group configuration.
     
     This function generates a list that maps each user to their assigned heterogeneous group.
-    The list is created by repeating each group ID according to the number of users assigned
-    to that group, as specified in the group_cnt parameter.
+    It first calculates the number of users per group using get_group_cnt(), then creates
+    the mapping by repeating each group ID according to the calculated counts.
     
     Args:
-        args: Configuration object that will be modified by adding:
+        args: Configuration object containing:
+            - heterogeneous_group (list): List of fractions representing group proportions
+            - num_users (int): Total number of users in the system
+            The function will modify args by adding:
             - user_groupid_list (list): A list where each element represents the group ID
               assigned to a user. The length equals the total number of users.
-        group_cnt (list): List of integers representing the number of users assigned to
-                         each group. This is typically the output of get_group_cnt().
     
     Returns:
         None: The function modifies args.user_groupid_list in place.
     
     Algorithm:
-        1. Initialize an empty user_groupid_list
-        2. For each group ID and its corresponding count:
+        1. Call get_group_cnt(args) to calculate user distribution across groups
+        2. Initialize an empty user_groupid_list
+        3. For each group ID and its corresponding count:
            - Add the group ID to the list 'count' times
            - This creates a mapping where users are assigned to groups sequentially
     
     Example:
         >>> args = argparse.Namespace()
-        >>> group_cnt = [3, 2, 5]  # 3 users in group 0, 2 in group 1, 5 in group 2
-        >>> update_user_groupid_list(args, group_cnt)
+        >>> args.heterogeneous_group = ['1/3', '1/3', '1/3']
+        >>> args.num_users = 9
+        >>> update_user_groupid_list(args)
         >>> print(args.user_groupid_list)
-        [0, 0, 0, 1, 1, 2, 2, 2, 2, 2]
+        [0, 0, 0, 1, 1, 1, 2, 2, 2]
         
-        >>> group_cnt = [1, 1, 1]  # Equal distribution
-        >>> update_user_groupid_list(args, group_cnt)
+        >>> args.heterogeneous_group = ['1/2', '1/4', '1/4']
+        >>> args.num_users = 8
+        >>> update_user_groupid_list(args)
         >>> print(args.user_groupid_list)
-        [0, 1, 2]
+        [0, 0, 0, 0, 1, 1, 2, 2]
     
     Note:
+        - The function internally calls get_group_cnt() to determine group sizes
         - The function modifies the args object in place
-        - The resulting list length equals sum(group_cnt)
+        - The resulting list length equals args.num_users
         - Users are assigned to groups in sequential order
         - This list is used later to determine which heterogeneous configuration
           each user should use during federated learning
     """
+    group_cnt = get_group_cnt(args)
     args.user_groupid_list = []
     for id, c in enumerate(group_cnt):
         args.user_groupid_list += [id] * c
