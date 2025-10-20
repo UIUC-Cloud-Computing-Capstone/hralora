@@ -65,10 +65,13 @@ def model_setup(args):
         >>> args, model, global_state, dim = model_setup(args)
     """
     if args.model == 'bert-base-uncased':
-        model = AutoModelForSequenceClassification.from_pretrained(args.model, num_labels=args.num_classes)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            'google/bert_uncased_L-12_H-128_A-2', # https://huggingface.co/google/bert_uncased_L-4_H-256_A-4
+            num_labels=args.num_classes
+        )
         config = LoraConfig(
-            r=6,
-            lora_alpha=6,
+            r=64,
+            lora_alpha=64,
             target_modules=["query", "value"],
             lora_dropout=0.1,
             bias="none"

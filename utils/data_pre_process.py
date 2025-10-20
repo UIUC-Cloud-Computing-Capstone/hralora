@@ -70,8 +70,7 @@ class DatasetSplit(Dataset):
             pixel_values = data_item['pixel_values']
             return image, label, pixel_values
         else:
-            image, label = self.dataset[self.idxs[item]]
-            return image, label
+            return self.dataset[int(self.idxs[item])]
 
 def merge_columns(example):
     example["prediction"] = example["quote"] + " ->: " + str(example["labels"])
