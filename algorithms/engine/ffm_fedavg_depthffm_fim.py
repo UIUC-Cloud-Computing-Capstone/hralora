@@ -347,7 +347,7 @@ def ffm_fedavg_depthffm_fim(args):
         global_model = update_global_model(args, global_model, local_updates, num_samples)
 
         # test global model on server side   
-        best_test_acc, best_test_f1, best_test_macro_f1, best_test_micro_f1 = test_global_model(args, dataset_test, writer, net_glob, global_model, best_test_acc, best_test_f1, best_test_micro_f1, metric_keys, t, norm, train_loss)
+        best_test_acc, best_test_f1, best_test_macro_f1, best_test_micro_f1 = test_global_model(args, dataset_test, writer, net_glob, global_model, best_test_acc, best_test_f1, best_test_micro_f1, best_test_macro_f1, metric_keys, t, norm, train_loss)
 
         args.accelerator.wait_for_everyone()
 
@@ -361,7 +361,7 @@ def log_metrics(args, writer, t, local_losses, delta_norms):
         writer.add_scalar('train_loss', train_loss, t)
     return norm,train_loss
 
-def test_global_model(args, dataset_test, writer, net_glob, global_model, best_test_acc, best_test_f1, best_test_micro_f1, metric_keys, t, norm, train_loss):
+def test_global_model(args, dataset_test, writer, net_glob, global_model, best_test_acc, best_test_f1, best_test_micro_f1, best_test_macro_f1, metric_keys, t, norm, train_loss):
     net_glob.load_state_dict(global_model)
     net_glob.eval()
     if 'vit' in args.model:
