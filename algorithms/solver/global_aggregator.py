@@ -54,7 +54,10 @@ def average_lora_depthfl(args, global_model, loc_updates):
 
     for k in global_model.keys():
         if k in model_update_avg_dict:
-            global_model[k] = global_model[k].detach().cpu() +  sum(model_update_avg_dict[k]) / len(model_update_avg_dict[k])
+            # MODIFIED: Only aggregate B matrices since A matrices are frozen and randomized
+            if 'lora_B' in k or 'classifier' in k:
+                global_model[k] = global_model[k].detach().cpu() +  sum(model_update_avg_dict[k]) / len(model_update_avg_dict[k])
+            # Skip lora_A matrices as they are frozen and randomized
 
     return global_model
 
@@ -84,9 +87,12 @@ def weighted_average_lora_depthfl(args, global_model, loc_updates, num_samples):
 
     for k in global_model.keys():
         if k in model_update_avg_dict:
-            weight_based = model_weights_cnt[k]
-            model_weights_list[k] = [item/weight_based for item in model_weights_list[k]]
-            global_model[k] = global_model[k].detach().cpu() + sum([model*weight for model, weight in zip(model_update_avg_dict[k], model_weights_list[k])])
+            # MODIFIED: Only aggregate B matrices since A matrices are frozen and randomized
+            if 'lora_B' in k or 'classifier' in k:
+                weight_based = model_weights_cnt[k]
+                model_weights_list[k] = [item/weight_based for item in model_weights_list[k]]
+                global_model[k] = global_model[k].detach().cpu() + sum([model*weight for model, weight in zip(model_update_avg_dict[k], model_weights_list[k])])
+            # Skip lora_A matrices as they are frozen and randomized
 
     return global_model
 
@@ -125,16 +131,8 @@ def weighted_average_lora_depthfl(args, global_model, loc_updates, num_samples):
 
     for k in global_model.keys():
         if k in model_update_avg_dict:
-            if 'lora_A' in k:
-                for i in range(global_model[k].size(0)):
-                    temp = []
-                    for tensor in model_update_avg_dict[k]:
-                        if i < tensor.size(0):
-                            temp.append(tensor[i, :])
-                    if temp:
-                        # global_model[k][i, :] = global_model[k][i, :].detach().cpu() + torch.stack(temp).mean(dim=0)
-                        global_model[k][i, :] = global_model[k][i, :].detach().cpu() + torch.stack(temp).sum(dim=0)
-            elif 'lora_B' in k:
+            # MODIFIED: Only aggregate B matrices since A matrices are frozen and randomized
+            if 'lora_B' in k:
                 for i in range(global_model[k].size(1)):
                     temp = []
                     for tensor in model_update_avg_dict[k]:
@@ -143,6 +141,7 @@ def weighted_average_lora_depthfl(args, global_model, loc_updates, num_samples):
                     if temp:
                         # global_model[k][:, i] = global_model[k][:, i].detach().cpu() + torch.stack(temp).mean(dim=0)
                         global_model[k][:, i] = global_model[k][:, i].detach().cpu() + torch.stack(temp).sum(dim=0)
+            # Skip lora_A matrices as they are frozen and randomized
     return global_model
 
 

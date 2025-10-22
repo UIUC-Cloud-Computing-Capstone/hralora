@@ -47,12 +47,23 @@ class LocalUpdate(object):
         if len(no_weight_lora) == args.lora_layer:
             return model.state_dict(), None, no_weight_lora
 
+        # NEW: Randomize and freeze LoRA A matrices, only train B matrices
+        for name, param in model.named_parameters():
+            if 'lora_A' in name and not any(str(nd) in name for nd in no_weight_lora):
+                # Randomize A matrix and freeze it
+                with torch.no_grad():
+                    param.data.normal_(0, 0.02)  # Random initialization
+                param.requires_grad = False  # Freeze A matrix
+            elif 'lora_B' in name and not any(str(nd) in name for nd in no_weight_lora):
+                # Keep B matrix trainable
+                param.requires_grad = True
+
         optimizer_grouped_parameters = [
                 {
-                    "params": [p for n, p in model.named_parameters() if not any(str(nd) in n for nd in no_weight_lora)]
+                    "params": [p for n, p in model.named_parameters() if not any(str(nd) in n for nd in no_weight_lora) and p.requires_grad]
                 },
                 {
-                    "params": [p for n, p in model.named_parameters() if any(str(nd) in n for nd in no_weight_lora)],
+                    "params": [p for n, p in model.named_parameters() if any(str(nd) in n for nd in no_weight_lora) or not p.requires_grad],
                     'lr': 0.0
                 }
         ]
@@ -84,12 +95,23 @@ class LocalUpdate(object):
 
         no_weight_lora = []
 
+        # NEW: Randomize and freeze LoRA A matrices, only train B matrices
+        for name, param in model.named_parameters():
+            if 'lora_A' in name and not any(str(nd) in name for nd in no_weight_lora):
+                # Randomize A matrix and freeze it
+                with torch.no_grad():
+                    param.data.normal_(0, 0.02)  # Random initialization
+                param.requires_grad = False  # Freeze A matrix
+            elif 'lora_B' in name and not any(str(nd) in name for nd in no_weight_lora):
+                # Keep B matrix trainable
+                param.requires_grad = True
+
         optimizer_grouped_parameters = [
                 {
-                    "params": [p for n, p in model.named_parameters() if not any(str(nd) in n for nd in no_weight_lora)]
+                    "params": [p for n, p in model.named_parameters() if not any(str(nd) in n for nd in no_weight_lora) and p.requires_grad]
                 },
                 {
-                    "params": [p for n, p in model.named_parameters() if any(str(nd) in n for nd in no_weight_lora)],
+                    "params": [p for n, p in model.named_parameters() if any(str(nd) in n for nd in no_weight_lora) or not p.requires_grad],
                     'lr': 0.0
                 }
         ]
@@ -154,12 +176,23 @@ class LocalUpdate(object):
 
         no_weight_lora = []
 
+        # NEW: Randomize and freeze LoRA A matrices, only train B matrices
+        for name, param in model.named_parameters():
+            if 'lora_A' in name and not any(str(nd) in name for nd in no_weight_lora):
+                # Randomize A matrix and freeze it
+                with torch.no_grad():
+                    param.data.normal_(0, 0.02)  # Random initialization
+                param.requires_grad = False  # Freeze A matrix
+            elif 'lora_B' in name and not any(str(nd) in name for nd in no_weight_lora):
+                # Keep B matrix trainable
+                param.requires_grad = True
+
         optimizer_grouped_parameters = [
                 {
-                    "params": [p for n, p in model.named_parameters() if not any(str(nd) in n for nd in no_weight_lora)]
+                    "params": [p for n, p in model.named_parameters() if not any(str(nd) in n for nd in no_weight_lora) and p.requires_grad]
                 },
                 {
-                    "params": [p for n, p in model.named_parameters() if any(str(nd) in n for nd in no_weight_lora)],
+                    "params": [p for n, p in model.named_parameters() if any(str(nd) in n for nd in no_weight_lora) or not p.requires_grad],
                     'lr': 0.0
                 }
         ]
