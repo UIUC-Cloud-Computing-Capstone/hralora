@@ -524,6 +524,8 @@ def get_model_update(args, global_model, local_model, no_weight_lora):
             if 'lora' in k: # no classifier
                 if int(re.findall(r"\d+", k)[0]) not in no_weight_lora:
                     model_update[k] = local_model[k].detach().cpu() - global_model[k].detach().cpu() 
+            #elif 'classifier' in k:
+            #    model_update[k] = local_model[k].detach().cpu() - global_model[k].detach().cpu() 
     else:
         model_update = {k: local_model[k].detach().cpu() - global_model[k].detach().cpu() for k in global_model.keys()}
     return model_update
@@ -724,6 +726,7 @@ def update_block_ids_list(args, dataset_fim, net_glob, t):
     layers_rank, cluster_labels = calc.bottom_k_layers(fim, k=args.lora_layer)
     observed_probability = get_observed_probability(cluster_labels)
     args.block_ids_list = []
+    args.rank_list = []
     for id in args.user_groupid_list:
         layer_list = np.random.choice(range(args.lora_layer),
                                         p=observed_probability,
@@ -739,6 +742,7 @@ def update_block_ids_list_predefined(args, dataset_fim, net_glob, t):
     if hasattr(args, 'heterogeneous_group0_lora'):
         if isinstance(getattr(args, 'heterogeneous_group0_lora'), int):
             args.block_ids_list = []
+            args.rank_list = []
             for id in args.user_groupid_list:
                 layer_list = np.random.choice(range(args.lora_layer),
                                                 p=[float(Fraction(x)) for x in args.layer_prob],
@@ -749,7 +753,6 @@ def update_block_ids_list_predefined(args, dataset_fim, net_glob, t):
 
 
 def get_rank_list(args, layer_list, fim, id):
-    args.rank_list = []
     # Get the rank list based on the fim value
     sorted_layer_list = sorted(layer_list)
     selected_layer_fim = [fim[x] for x in sorted_layer_list]
@@ -765,7 +768,8 @@ def get_rank_list(args, layer_list, fim, id):
     final_rank_list = [x + 1 for x in rank_list]
     args.rank_list.append(final_rank_list)
 
-    #print(f'rank_budget = {rank_budget}, fim = {selected_layer_fim}, rank_list = {final_rank_list} ')
+    print(f'{id} client: rank_budget = {rank_budget}, fim = {selected_layer_fim}, rank_list = {final_rank_list} ')
+    #print(f'args.rank_list = {args.rank_list}')
 
 def get_observed_probability(cluster_labels):
     """

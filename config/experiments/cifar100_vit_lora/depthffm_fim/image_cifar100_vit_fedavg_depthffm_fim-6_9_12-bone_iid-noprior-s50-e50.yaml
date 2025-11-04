@@ -48,9 +48,11 @@ layer_prob: [1/9, 1/9, 1/9, 2/27, 2/27, 1/27, 1/27, 1/27, 2/27, 1/9, 1/9, 1/9]
 
 ##### rank variation
 enable_rank_var: false
-var_rank_group0_lora: 6
-var_rank_group1_lora: 12
-var_rank_group2_lora: 48
+var_rank_group0_lora: 144 # 48*6
+var_rank_group1_lora: 216
+var_rank_group2_lora: 288
+
+lora_max_rank: 48
 
 ##### fixed A for training
 only_train_b: false
@@ -78,5 +80,5 @@ iid: 1 # whether i.i.d or not
 
 #####################################
 ########### fim params ##############
-fim_every_iter: 1
+fim_every_iter: 10
 fim_prior_epoch: 1

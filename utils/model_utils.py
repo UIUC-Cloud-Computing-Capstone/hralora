@@ -87,8 +87,8 @@ def model_setup(args):
         )
 
         config = LoraConfig(
-            r=48,
-            lora_alpha=48,
+            r=args.lora_max_rank,
+            lora_alpha=args.lora_max_rank,
             target_modules=["query", "value"],
             lora_dropout=0.1,
             bias="none",

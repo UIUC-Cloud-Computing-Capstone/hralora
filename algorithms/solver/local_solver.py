@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import copy
+import re
 
 import numpy as np
 from tqdm import tqdm
@@ -58,6 +59,33 @@ class LocalUpdate(object):
             for name, param in model.named_parameters():
                 if 'lora_A' in name:
                     param.requires_grad = False
+
+        # add register to truncate the rank
+        def lora_A_hook(idx: int):
+            def hook(grad):
+                # grad is a tensor
+                grad[rank:,:] = 0       # zero out rows from idx onward
+            return hook
+
+        def lora_B_hook(idx: int):
+            def hook(grad):
+                # grad is a tensor
+                grad[:,rank:] = 0       # zero out rows from idx onward
+            return hook
+
+        for name, param in model.named_parameters():
+            if 'lora' in name and param.requires_grad:
+                layer_id = int(re.findall(r"\d+", name)[0])
+                #print(f'args.block_ids_list = {args.block_ids_list}')
+                #print(f'args.rank_list = {args.rank_list}')
+                layer_index = args.block_ids_list[client_real_id].index(layer_id)
+                
+                rank = args.rank_list[client_real_id][layer_index]
+                #print(f'layer id {layer_id}, rank = {rank}')
+                if 'lora_A' in name:
+                    param.register_hook(lora_A_hook(rank) )
+                elif 'lora_B' in name:
+                    param.register_hook(lora_B_hook(rank) )
 
         #print('############## trainable param ############')
         #print(f'args.block_ids_list[client_real_id] = {args.block_ids_list[client_real_id]}')
