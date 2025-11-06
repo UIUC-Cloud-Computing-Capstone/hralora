@@ -4,39 +4,92 @@ OURS = 'Ours'
 class RankEstimator:
 
 
-    def get_rank(self, method, model, total_gpu_memory_size, upload_network_speed, download_network_speed):
-        if method == FEDHELLO:
-            return self._get_rank_based_on_gpu_memory(model, total_gpu_memory_size)
-        elif method == OURS:
-            return self._get_rank_based_on_all(model, total_gpu_memory_size, upload_network_speed, download_network_speed)
+    def get_rank(self, args, model, total_gpu_memory_size_in_GB, upload_network_speed_in_Mbps, download_network_speed_in_Mbps):
+        if args.rank_estimator_method == FEDHELLO:
+            return self._get_rank_based_on_gpu_memory(args, model, total_gpu_memory_size_in_GB)
+        elif args.rank_estimator_method == OURS:
+            return self._get_rank_based_on_all(args, model, total_gpu_memory_size_in_GB, upload_network_speed_in_Mbps, download_network_speed_in_Mbps)
         else:
-            raise ValueError(f'Invalid method: {method}')
+            raise ValueError(f'Invalid rank estimator method: {args.rank_estimator_method}')
 
-    def _get_rank_based_on_all(self, model, total_gpu_memory_size, upload_network_speed, download_network_speed):
-        rank_based_on_gpu_memory = self._get_rank_based_on_gpu_memory(total_gpu_memory_size, model)
-        rank_based_on_upload_network_speed = self._get_rank_based_on_upload_network_speed(upload_network_speed)
-        rank_based_on_download_network_speed = self._get_rank_based_on_download_network_speed(download_network_speed)
+    def _get_rank_based_on_all(self, args, model, total_gpu_memory_size_in_GB, upload_network_speed_in_Mbps, download_network_speed_in_Mbps):
+        rank_based_on_gpu_memory = self._get_rank_based_on_gpu_memory(args, model,  total_gpu_memory_size_in_GB)
+        rank_based_on_upload_network_speed = self._get_rank_based_on_upload_network_speed(args, upload_network_speed_in_Mbps)
+        rank_based_on_download_network_speed = self._get_rank_based_on_download_network_speed(args, download_network_speed_in_Mbps)
         return self._get_final_rank(rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed)
 
     def _get_final_rank(self, rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed):
         # TODO Liam: add penalty? how?
         return min(rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed)
     
-    def _get_rank_based_on_gpu_memory(self, model, total_gpu_memory_size):
+    def _get_rank_based_on_gpu_memory(self, args, model, total_gpu_memory_size_in_GB):
+
+        total_gpu_memory_size_in_bytes = self._get_total_gpu_memory_size_in_bytes(args, total_gpu_memory_size_in_GB)
+
+        # Total GPU memory=(1) base model + (2) LoRA params +(3) activations+(4) optimizer states+(5) safety margin
+        base_model_memory_size_in_bytes = self._get_base_model_memory_size_in_bytes(args, model)
+        activations_memory_size_in_bytes = self._get_activations_memory_size_in_bytes(model)
+        optimizer_states_memory_size_in_bytes = self._get_optimizer_states_memory_size_in_bytes(model)
+        safety_margin_memory_size_in_bytes = self._get_safety_margin_memory_size_in_bytes(args, model, base_model_memory_size_in_bytes, activations_memory_size_in_bytes, optimizer_states_memory_size_in_bytes)
+
+        # (2) = Total GPU memory - (1) - (3) - (4) - (5)
+        lora_params_memory_size_in_bytes = total_gpu_memory_size_in_bytes - base_model_memory_size_in_bytes - activations_memory_size_in_bytes - optimizer_states_memory_size_in_bytes - safety_margin_memory_size_in_bytes
+
+        return self._get_rank_based_on_lora_params_memory_size_in_bytes(lora_params_memory_size_in_bytes)
+
+    def _get_rank_based_on_lora_params_memory_size_in_bytes(self, lora_params_memory_size_in_bytes):
         # TODO Liam: implement this
+        # get rank based on lora_params_memory_size_in_bytes
         pass
 
-    def _get_rank_based_on_upload_network_speed(self, upload_network_speed):
+    def _get_total_gpu_memory_size_in_bytes(self, args, total_gpu_memory_size_in_GB):
+        return total_gpu_memory_size_in_GB * 1024 * 1024 * 1024
+
+    def _get_base_model_memory_size_in_bytes(self, args, model):
+        
+        parameter_size = 0 # TODO Abdul: Please check documentation and only include parameters of base model without LoRA
+        
+        byte_per_parameter = self._get_byte_per_parameter(args.precision)
+
+        return parameter_size * byte_per_parameter
+
+    def _get_byte_per_parameter(self, precision):
+        if precision == 'fp32':
+            return 4
+        elif precision == 'fp16':
+            return 2
+        else:
+            raise ValueError(f'Invalid precision: {precision}')
+    
+    def _get_activations_memory_size_in_bytes(self, model):
+        # TODO Liam
+        # Depends on batch size and image size
+        pass
+    
+    def _get_optimizer_states_memory_size_in_bytes(self, model):
+        # TODO Liam
+        pass
+    
+    def _get_safety_margin_memory_size_in_bytes(self, args, model, base_model_memory_size, activations_memory_size, optimizer_states_memory_size):
+        if args.alpha is None:
+            args.alpha = 0.2
+        safety_margin_memory_size = (base_model_memory_size + activations_memory_size + optimizer_states_memory_size) * args.alpha
+        return safety_margin_memory_size
+
+    def _get_rank_based_on_upload_network_speed(self, args, upload_network_speed_in_Mbps):
         # TODO Abdul
 
 
-        # 1. Based on which group this client belongs to, desired_uploading_time_for_each_group_in_seconds and avg_upload_network_speed_for_each_group_in_Mbps, get parameter_size_in_bytes
-        # 2. Based on the parameter_size_in_bytes, and precision, get rank
+        # 1. Based on which group this client belongs to, desired_uploading_time_for_each_group_in_seconds and upload_network_speed_in_Mbps, get parameter_size_in_bytes
+        # 2. Based on the parameter_size_in_bytes, and args.precision, get rank
         # 3. add unit test for this function
         pass
 
-    def _get_rank_based_on_download_network_speed(self, download_network_speed):
+    def _get_rank_based_on_download_network_speed(self, args, download_network_speed_in_Mbps):
         # TODO Abdul
+        # 1. Based on which group this client belongs to, desired_downloading_time_for_each_group_in_seconds and download_network_speed_in_Mbps, get parameter_size_in_bytes
+        # 2. Based on the parameter_size_in_bytes, and args.precision, get rank
+        # 3. add unit test for this function
         pass
 
 # TODO Liam: refactor heterogeneous_group0_lora etc in YAML
