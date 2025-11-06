@@ -40,7 +40,7 @@ class RankEstimator:
     def _get_rank_based_on_lora_memory_size_in_bytes(self, lora_memory_size_in_bytes):
         # TODO Liam: implement this
         # get rank based on lora_memory_size_in_bytes 
-        # lora_memory_size_in_bytes includes parameter size and optimizer states size for LoRA.
+        # lora_memory_size_in_bytes includes parameter size, activations and safety margin size, and optimizer states size for LoRA.
         pass
 
     def _get_total_gpu_memory_size_in_bytes(self, args, total_gpu_memory_size_in_GB):
