@@ -34,7 +34,7 @@ class RankEstimator:
         # parameter + activations + safety margin + optimizer states
         
         base_model_parameter_memory_size_in_bytes = self._get_base_model_parameter_memory_size_in_bytes(args, model)
-        base_model_activations_and_safety_margin_memory_size_in_bytes = self._get_base_model_activations_and_safety_margin_memory_size_in_bytes(args, model)
+        base_model_activations_and_safety_margin_memory_size_in_bytes = self._get_base_model_activations_and_safety_margin_memory_size_in_bytes(args)
         base_model_optimizer_states_memory_size_in_bytes = self._get_base_model_optimizer_states_memory_size_in_bytes(args, base_model_parameter_memory_size_in_bytes)
         return base_model_parameter_memory_size_in_bytes + base_model_activations_and_safety_margin_memory_size_in_bytes + base_model_optimizer_states_memory_size_in_bytes
 
@@ -66,10 +66,9 @@ class RankEstimator:
         else:
             raise ValueError(f'Invalid precision: {precision}')
     
-    def _get_base_model_activations_and_safety_margin_memory_size_in_bytes(self, args, model):
+    def _get_base_model_activations_and_safety_margin_memory_size_in_bytes(self, args):
         # TODO Liam
         # is this correct?
-        # How about the LoRA part?
         # sanity check
         # unit test
 
@@ -91,22 +90,38 @@ class RankEstimator:
         
         # we use facebook/deit-small-patch16-224
         
-        # (224 / 16)² + 1 = 197
-        sequence_length = 197
+        sequence_length = self._get_sequence_length()
         hidden_dimension = 384
         dtype_bytes = self._get_byte_per_parameter(args.precision)
-        num_blocks = 12
-        num_heads = 6
         workspace_margin = 0.2
-
-        bytes_per_block = batch_size * sequence_length * hidden_dimension * dtype_bytes
-        total_forward = bytes_per_block * num_blocks
-        attn_scores = batch_size * num_heads * sequence_length * sequence_length * dtype_bytes
-        peak_activations = (total_forward + attn_scores) * (1 + workspace_margin)
-
-        return peak_activations
         
-    
+        # method 1
+        #intermediate_size = hidden_dimension * 4
+        #A_resid = batch_size * sequence_length * hidden_dimension * dtype_bytes
+        #A_mlp = batch_size * sequence_length * intermediate_size * dtype_bytes
+        #peak_activations = (A_resid + A_mlp) * (1 + workspace_margin)
+        
+        # method 2
+        #num_blocks = 12
+        #num_heads = 6
+        # bytes_per_block = batch_size * sequence_length * hidden_dimension * dtype_bytes
+        # total_forward = bytes_per_block * num_blocks
+        # attn_scores = batch_size * num_heads * sequence_length * sequence_length * dtype_bytes
+        # peak_activations = (total_forward + attn_scores) * (1 + workspace_margin)
+
+        # 500 MB
+        peak_activations = 500 * 1024 * 1024
+        return peak_activations * (1 + workspace_margin)
+
+    def _get_sequence_length(self):
+        #if model_name == 'facebook/deit-small-patch16-224':
+        H = 224
+        P = 16
+        W = 224
+        CLS_TOKEN = 1
+        # number of patches ((H / P) × (W / P)) + CLS token
+        return H / P * W / P + CLS_TOKEN
+        
     def _get_base_model_optimizer_states_memory_size_in_bytes(self, args, base_model_memory_size_in_bytes):
         '''
         Optimizer states include the part for base model and the part for LoRA.
