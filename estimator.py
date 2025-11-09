@@ -9,22 +9,24 @@ class RankEstimator:
             total_gpu_memory_size_in_GB_for_one_client_group = args.gpu_memory_size_for_each_group_in_GB[i]
             upload_network_speed_in_Mbps_for_one_client_group = args.avg_upload_network_speed_for_each_group_in_Mbps[i]
             download_network_speed_in_Mbps_for_one_client_group = args.avg_download_network_speed_for_each_group_in_Mbps[i]
-            rank_for_one_client_group = self._get_rank_for_one_client_group(args, model, total_gpu_memory_size_in_GB_for_one_client_group, upload_network_speed_in_Mbps_for_one_client_group, download_network_speed_in_Mbps_for_one_client_group)
+            desired_uploading_time_in_seconds_for_one_client_group = args.desired_uploading_time_for_each_group_in_seconds[i]
+            desired_downloading_time_in_seconds_for_one_client_group = args.desired_downloading_time_for_each_group_in_seconds[i]
+            rank_for_one_client_group = self._get_rank_for_one_client_group(args, model, total_gpu_memory_size_in_GB_for_one_client_group, upload_network_speed_in_Mbps_for_one_client_group, download_network_speed_in_Mbps_for_one_client_group, desired_uploading_time_in_seconds_for_one_client_group, desired_downloading_time_in_seconds_for_one_client_group)
             rank_for_all_client_groups.append(rank_for_one_client_group)
         return rank_for_all_client_groups
 
-    def _get_rank_for_one_client_group(self, args, model, total_gpu_memory_size_in_GB, upload_network_speed_in_Mbps, download_network_speed_in_Mbps):
+    def _get_rank_for_one_client_group(self, args, model, total_gpu_memory_size_in_GB, upload_network_speed_in_Mbps, download_network_speed_in_Mbps, desired_uploading_time_in_seconds, desired_downloading_time_in_seconds):
         if args.rank_estimator_method == FEDHELLO:
             return self._get_rank_based_on_gpu_memory(args, model, total_gpu_memory_size_in_GB)
         elif args.rank_estimator_method == OURS:
-            return self._get_rank_based_on_all(args, model, total_gpu_memory_size_in_GB, upload_network_speed_in_Mbps, download_network_speed_in_Mbps)
+            return self._get_rank_based_on_all(args, model, total_gpu_memory_size_in_GB, upload_network_speed_in_Mbps, download_network_speed_in_Mbps, desired_uploading_time_in_seconds, desired_downloading_time_in_seconds)
         else:
             raise ValueError(f'Invalid rank estimator method: {args.rank_estimator_method}')
 
-    def _get_rank_based_on_all(self, args, model, total_gpu_memory_size_in_GB, upload_network_speed_in_Mbps, download_network_speed_in_Mbps):
+    def _get_rank_based_on_all(self, args, model, total_gpu_memory_size_in_GB, upload_network_speed_in_Mbps, download_network_speed_in_Mbps, desired_uploading_time_in_seconds, desired_downloading_time_in_seconds):
         rank_based_on_gpu_memory = self._get_rank_based_on_gpu_memory(args, model,  total_gpu_memory_size_in_GB)
-        rank_based_on_upload_network_speed = self._get_rank_based_on_upload_network_speed(args, upload_network_speed_in_Mbps)
-        rank_based_on_download_network_speed = self._get_rank_based_on_download_network_speed(args, download_network_speed_in_Mbps)
+        rank_based_on_upload_network_speed = self._get_rank_based_on_network_speed(args, model, upload_network_speed_in_Mbps, desired_uploading_time_in_seconds)
+        rank_based_on_download_network_speed = self._get_rank_based_on_network_speed(args, model, download_network_speed_in_Mbps, desired_downloading_time_in_seconds)
         return self._get_final_rank(rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed)
 
     def _get_final_rank(self, rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed):
@@ -221,21 +223,20 @@ class RankEstimator:
         safety_margin_memory_size = (base_model_memory_size + activations_memory_size + optimizer_states_memory_size) * args.alpha
         return safety_margin_memory_size
 
-    def _get_rank_based_on_upload_network_speed(self, args, upload_network_speed_in_Mbps):
-        # TODO Abdul
+    def _get_rank_based_on_network_speed(self, args, model,network_speed_in_Mbps, desired_communication_time_in_seconds):
+        # TODO Abdul review and add unit test for this function
 
-
-        # 1. Based on which group this client belongs to, desired_uploading_time_for_each_group_in_seconds and upload_network_speed_in_Mbps, get parameter_size_in_bytes
-        # 2. Based on the parameter_size_in_bytes, and args.precision, get rank
-        # 3. add unit test for this function
-        return 1000000
-
-    def _get_rank_based_on_download_network_speed(self, args, download_network_speed_in_Mbps):
-        # TODO Abdul
-        # 1. Based on which group this client belongs to, desired_downloading_time_for_each_group_in_seconds and download_network_speed_in_Mbps, get parameter_size_in_bytes
-        # 2. Based on the parameter_size_in_bytes, and args.precision, get rank
-        # 3. add unit test for this function
-        return 2000000
+    
+        bytes_per_second = network_speed_in_Mbps * 1_000_000 / 8
+        parameter_size_in_bytes = desired_communication_time_in_seconds * bytes_per_second
+        num_modules_per_layer = 2
+        H = self._get_hidden_dimension(args, model)
+        C = 2 # A and B matrices
+        num_layers = 12
+        bytes_per_parameter = self._get_byte_per_parameter(args.precision)
+        total_dimension_size = C * num_modules_per_layer * H * num_layers * bytes_per_parameter
+        rank = int(parameter_size_in_bytes / total_dimension_size)
+        return rank
 
 # TODO Liam: refactor heterogeneous_group0_lora etc in YAML
 
