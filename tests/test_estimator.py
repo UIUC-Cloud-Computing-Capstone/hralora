@@ -68,7 +68,7 @@ class TestRankEstimator(unittest.TestCase):
     def test_get_rank_for_all_client_groups(self):
         args = argparse.Namespace()
         args.num_users = 3
-        args.gpu_memory_size_for_each_group_in_GB = [8, 8, 4]
+        args.gpu_memory_size_for_each_group_in_GB = [24, 24, 8]
         args.avg_upload_network_speed_for_each_group_in_Mbps = [1, 7, 7]
         args.avg_download_network_speed_for_each_group_in_Mbps = [10, 50, 50]
         args.rank_estimator_method = 'Ours'
