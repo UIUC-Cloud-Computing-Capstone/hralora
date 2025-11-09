@@ -3,8 +3,17 @@ OURS = 'Ours'
 
 class RankEstimator:
 
+    def get_rank_for_all_client_groups(self, args, model):
+        rank_for_all_client_groups = []
+        for i in range(args.num_users):
+            total_gpu_memory_size_in_GB_for_one_client_group = args.gpu_memory_size_for_each_group_in_GB[i]
+            upload_network_speed_in_Mbps_for_one_client_group = args.avg_upload_network_speed_for_each_group_in_Mbps[i]
+            download_network_speed_in_Mbps_for_one_client_group = args.avg_download_network_speed_for_each_group_in_Mbps[i]
+            rank_for_one_client_group = self._get_rank_for_one_client_group(args, model, total_gpu_memory_size_in_GB_for_one_client_group, upload_network_speed_in_Mbps_for_one_client_group, download_network_speed_in_Mbps_for_one_client_group)
+            rank_for_all_client_groups.append(rank_for_one_client_group)
+        return rank_for_all_client_groups
 
-    def get_rank(self, args, model, total_gpu_memory_size_in_GB, upload_network_speed_in_Mbps, download_network_speed_in_Mbps):
+    def _get_rank_for_one_client_group(self, args, model, total_gpu_memory_size_in_GB, upload_network_speed_in_Mbps, download_network_speed_in_Mbps):
         if args.rank_estimator_method == FEDHELLO:
             return self._get_rank_based_on_gpu_memory(args, model, total_gpu_memory_size_in_GB)
         elif args.rank_estimator_method == OURS:
@@ -219,14 +228,14 @@ class RankEstimator:
         # 1. Based on which group this client belongs to, desired_uploading_time_for_each_group_in_seconds and upload_network_speed_in_Mbps, get parameter_size_in_bytes
         # 2. Based on the parameter_size_in_bytes, and args.precision, get rank
         # 3. add unit test for this function
-        pass
+        return 1000
 
     def _get_rank_based_on_download_network_speed(self, args, download_network_speed_in_Mbps):
         # TODO Abdul
         # 1. Based on which group this client belongs to, desired_downloading_time_for_each_group_in_seconds and download_network_speed_in_Mbps, get parameter_size_in_bytes
         # 2. Based on the parameter_size_in_bytes, and args.precision, get rank
         # 3. add unit test for this function
-        pass
+        return 2000
 
 # TODO Liam: refactor heterogeneous_group0_lora etc in YAML
 
