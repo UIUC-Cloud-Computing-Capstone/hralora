@@ -145,14 +145,32 @@ class RankEstimator:
         # 1. Based on which group this client belongs to, desired_uploading_time_for_each_group_in_seconds and upload_network_speed_in_Mbps, get parameter_size_in_bytes
         # 2. Based on the parameter_size_in_bytes, and args.precision, get rank
         # 3. add unit test for this function
-        pass
+        group_id = self._resolve_client_group_id(args)
+
+        desired_time = self._get_group_value(
+            getattr(args, 'desired_uploading_time_for_each_group_in_seconds', None),
+            group_id,
+            required_name='desired_uploading_time_for_each_group_in_seconds'
+        )
+
+        byte_budget = self._network_transfer_budget(upload_network_speed_in_Mbps, desired_time)
+        return self._bytes_to_rank_budget(args, group_id, byte_budget)
 
     def _get_rank_based_on_download_network_speed(self, args, download_network_speed_in_Mbps):
         # TODO Abdul
         # 1. Based on which group this client belongs to, desired_downloading_time_for_each_group_in_seconds and download_network_speed_in_Mbps, get parameter_size_in_bytes
         # 2. Based on the parameter_size_in_bytes, and args.precision, get rank
         # 3. add unit test for this function
-        pass
+        group_id = self._resolve_client_group_id(args)
+
+        desired_time = self._get_group_value(
+            getattr(args, 'desired_downloading_time_for_each_group_in_seconds', None),
+            group_id,
+            required_name='desired_downloading_time_for_each_group_in_seconds'
+        )
+
+        byte_budget = self._network_transfer_budget(download_network_speed_in_Mbps, desired_time)
+        return self._bytes_to_rank_budget(args, group_id, byte_budget)
 
 # TODO Liam: refactor heterogeneous_group0_lora etc in YAML
 
