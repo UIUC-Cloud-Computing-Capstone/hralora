@@ -54,10 +54,16 @@ class RankEstimator:
         # Bytes per parameter is 4 for fp32, 2 for fp16.
         # Parameter memory size is 4 * r * m * H * L * bytes per parameter.
 
-
         # (2) activations and safety margin memory size
         # TODO Liam: analyze this
-
+        # input_to_lora = batch_size * sequence_length * hidden_dimension
+        # intermediate_lora = batch_size * sequence_length * r
+        # output_gradient = batch_size * sequence_length * hidden_dimension
+        # activations_per_module = input_to_lora + intermediate_lora + output_gradient
+        # activations_per_layer = activations_per_module * num_modules_per_layer
+        # activations_total = activations_per_layer * num_layers
+        # peak_activations_bytes = peak_activations_all_layers * dtype_bytes
+        # (2) = peak_activations_bytes * (1 + workspace_margin)
 
         # (3) optimizer states memory size
         # if using adam, (3) optimizer states memory size = 2 * (1) parameter memory size.
