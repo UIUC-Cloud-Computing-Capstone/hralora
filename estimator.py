@@ -43,9 +43,7 @@ class RankEstimator:
         # get rank based on lora_portion
         # lora_portion includes (1) parameter size, (2) activations and safety margin size, and (3) optimizer states size.
         
-        # The way we achieve dynamic rank adjustment is using truncation.
-        # Truncating rank can save (2) activations and (3) optimizer states size, but it will not save (1) parameter size. 
-
+        # The way we achieve dynamic rank adjustment is masking.
 
         # (1) parameter memory size
         # Let r1, r2, ... be the rank of each layer. r_total = r1 + r2 + ... be the total rank.
@@ -55,6 +53,7 @@ class RankEstimator:
         # Parameter memory size is 4 * r_total * H * L * bytes per parameter.
 
         # (2) activations and safety margin memory size
+        # TODO Liam: analyze this
 
 
         # (3) optimizer states memory size
@@ -110,28 +109,41 @@ class RankEstimator:
         
         # we use facebook/deit-small-patch16-224
         
-        sequence_length = self._get_sequence_length()
+        batch_size = args.batch_size
+        sequence_length = self._get_sequence_length()  # 197 for deit-small
         hidden_dimension = 384
+        num_layers = 12
+        num_heads = 6
+        intermediate_size = hidden_dimension * 4  # 1536
         dtype_bytes = self._get_byte_per_parameter(args.precision)
         workspace_margin = 0.2
+    
+        # Per-layer activation memory breakdown:
+        # 1. Input to layer (for residual): B × S × D
+        input_activations = batch_size * sequence_length * hidden_dimension
         
-        # method 1
-        #intermediate_size = hidden_dimension * 4
-        #A_resid = batch_size * sequence_length * hidden_dimension * dtype_bytes
-        #A_mlp = batch_size * sequence_length * intermediate_size * dtype_bytes
-        #peak_activations = (A_resid + A_mlp) * (1 + workspace_margin)
+        # 2. Attention output: B × S × D
+        attn_output = batch_size * sequence_length * hidden_dimension
         
-        # method 2
-        #num_blocks = 12
-        #num_heads = 6
-        # bytes_per_block = batch_size * sequence_length * hidden_dimension * dtype_bytes
-        # total_forward = bytes_per_block * num_blocks
-        # attn_scores = batch_size * num_heads * sequence_length * sequence_length * dtype_bytes
-        # peak_activations = (total_forward + attn_scores) * (1 + workspace_margin)
-
-        # 500 MB
-        peak_activations = 500 * 1024 * 1024
-        return peak_activations * (1 + workspace_margin)
+        # 3. MLP intermediate (after first dense, before second): B × S × 4D
+        mlp_intermediate = batch_size * sequence_length * intermediate_size
+        
+        # 4. Attention scores (QK^T): B × num_heads × S × S
+        attn_scores = batch_size * num_heads * sequence_length * sequence_length
+        
+        # Total per layer
+        activations_per_layer = (input_activations + attn_output + mlp_intermediate + attn_scores)
+        
+        # Peak memory = all layers simultaneously during backprop
+        # Note: In practice, some activations can be recomputed (gradient checkpointing)
+        # but for conservative estimate, assume all are stored
+        peak_activations_all_layers = activations_per_layer * num_layers
+        
+        # Convert to bytes
+        peak_activations_bytes = peak_activations_all_layers * dtype_bytes
+        
+        # Add workspace margin
+        return peak_activations_bytes * (1 + workspace_margin)
 
     def _get_sequence_length(self):
         #if model_name == 'facebook/deit-small-patch16-224':
