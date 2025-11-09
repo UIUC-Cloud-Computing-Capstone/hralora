@@ -129,8 +129,6 @@ class RankEstimator:
             raise ValueError(f'Invalid precision: {precision}')
     
     def _get_base_model_activations_and_safety_margin_memory_size_in_bytes(self, args):
-        # TODO Liam
-        # is this correct?
 
         """
         B: batch size
