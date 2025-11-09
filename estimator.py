@@ -110,8 +110,10 @@ class RankEstimator:
         # r = (total memory size - h * total_sequence_length_with_margin) / (total_dimension_size + total_sequence_length_with_margin + multiplier * total_dimension_size)
         
         multiplier = 2
-        return int((lora_portion - H * total_sequence_length_with_margin) / (total_dimension_size + total_sequence_length_with_margin + multiplier * total_dimension_size))
-
+        result = int((lora_portion - H * total_sequence_length_with_margin) / (total_dimension_size + total_sequence_length_with_margin + multiplier * total_dimension_size))
+        result = min(result, H) # cap the rank by the hidden dimension
+        return result 
+    
     def _get_hidden_dimension(self, args, model):
         # TODO Liam
         # return the hidden dimension of the model
