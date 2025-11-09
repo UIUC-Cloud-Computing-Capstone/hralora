@@ -58,9 +58,10 @@ class TestRankEstimator(unittest.TestCase):
     def test_get_base_model_activations_and_safety_margin_memory_size_in_bytes(self):
         args = argparse.Namespace()
         args.batch_size = 32
-        args.precision = "fp32"
+        args.precision = "fp16"
         result = self.estimator._get_base_model_activations_and_safety_margin_memory_size_in_bytes(args)
-        print(result)
+        result_in_MB = result / 1024 / 1024
+        print(result_in_MB)
 
 
 if __name__ == '__main__':
