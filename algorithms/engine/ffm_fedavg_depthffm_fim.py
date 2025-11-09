@@ -775,10 +775,8 @@ def update_block_ids_list(args, dataset_fim, net_glob, t):
     args.block_ids_list = []
     args.rank_list = []
     for id in args.user_groupid_list:
-        layer_list = np.random.choice(range(args.lora_layer),
-                                        p=observed_probability,
-                                        size=getattr(args, 'heterogeneous_group'+str(id)+'_lora'),
-                                        replace=False)
+        layer_max_rank_budget = getattr(args, 'heterogeneous_group'+str(id)+'_lora')
+        layer_list = np.random.choice(range(args.lora_layer), p=observed_probability, size=layer_max_rank_budget, replace=False)
         args.block_ids_list.append(sorted(layer_list))
         if args.enable_rank_var:
             get_rank_list(args, layer_list, fim, id)
