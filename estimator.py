@@ -124,10 +124,10 @@ class RankEstimator:
 
     def _get_base_model_parameter_memory_size_in_bytes(self, args, model):
         '''
-        model = AutoModelForImageClassification.from_pretrained('facebook/deit-small-patch16-224').state_dict()
+        model = AutoModelForImageClassification.from_pretrained('facebook/deit-small-patch16-224')
         '''
         
-        parameter_size = 0 # TODO Abdul: Please check documentation and only include parameters of base model without LoRA
+        parameter_size = 22_000_000_000 # TODO Abdul: Please check documentation and only include parameters of base model without LoRA
         
         byte_per_parameter = self._get_byte_per_parameter(args.precision)
 
