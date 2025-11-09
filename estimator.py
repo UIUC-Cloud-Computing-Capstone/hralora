@@ -38,8 +38,8 @@ class RankEstimator:
         base_model_optimizer_states_memory_size_in_bytes = self._get_base_model_optimizer_states_memory_size_in_bytes(args, base_model_parameter_memory_size_in_bytes)
         return base_model_parameter_memory_size_in_bytes + base_model_activations_and_safety_margin_memory_size_in_bytes + base_model_optimizer_states_memory_size_in_bytes
 
-    def _get_rank_based_on_lora_portion(self, lora_portion):
-        # TODO Liam: implement this
+    def _get_rank_based_on_lora_portion(self, args, model, lora_portion):
+        
         # get rank based on lora_portion
         # lora_portion includes (1) parameter size, (2) activations and safety margin size, and (3) optimizer states size.
         
@@ -53,27 +53,58 @@ class RankEstimator:
         # Hidden dimension is H.
         # Bytes per parameter is 4 for fp32, 2 for fp16.
         # C is the number of adapted matrices (A and B, so C = 2).
-        # Parameter memory size is C * r * m * H * L * bytes per parameter.
+        # Parameter memory size is r * (C  * m * H * L * bytes per parameter).
+        # Let total_dimension_size = C  * m * H * L * bytes per parameter.
+        # Parameter memory size is r * total_dimension_size.
+
+        num_modules_per_layer = 2
+        num_layers = 12
+        H = self._get_hidden_dimension(args, model)
+        def get_total_dimension_size(args, model):
+            C = 2
+            bytes_per_parameter = self._get_byte_per_parameter(args.precision)
+            return C * num_modules_per_layer * H * num_layers * bytes_per_parameter
+
+        total_dimension_size = get_total_dimension_size(args, model)
 
         # (2) activations and safety margin memory size
-        # TODO Liam: analyze this
-        # input_to_lora = batch_size * sequence_length * hidden_dimension
-        # intermediate_lora = batch_size * sequence_length * r
+        # sequence_length_per_batch = batch size * sequence_length
+        # input_to_lora = sequence_length_per_batch * hidden_dimension
+        # intermediate_lora = sequence_length_per_batch * r
         # activations_per_module = input_to_lora + intermediate_lora
-        # activations_per_layer = activations_per_module * num_modules_per_layer
-        # activations_total = activations_per_layer * num_layers
-        # peak_activations_bytes = peak_activations_all_layers * dtype_bytes
-        # (2) = peak_activations_bytes * (1 + workspace_margin)
+        # peak_activations_bytes = activations_per_module * num_modules_per_layer * num_layers * dtype_bytes * (1 + workspace_margin)
+        # = (hidden_dimension + r) * sequence_length_per_batch * num_modules_per_layer * num_layers * dtype_bytes * (1 + workspace_margin)
+        # Let total_sequence_length_with_margin = sequence_length_per_batch * num_modules_per_layer * num_layers * dtype_bytes * (1 + workspace_margin).
+        # peak_activations_bytes = (hidden_dimension + r) * total_sequence_length_with_margin.
+
+        def get_total_sequence_length_with_margin(args):
+            sequence_length_per_batch = args.batch_size * self._get_sequence_length()
+            
+            dtype_bytes = self._get_byte_per_parameter(args.precision)
+            workspace_margin = 0.2
+            return sequence_length_per_batch * num_modules_per_layer * num_layers * dtype_bytes * (1 + workspace_margin)
+
+        total_sequence_length_with_margin = get_total_sequence_length_with_margin(args)
 
         # (3) optimizer states memory size
         # if using adam, 
         # For numerical stability, these states are almost always stored in 32-bit precision (4 bytes), even if the model is being trained in 16-bit (fp16/bf16)
         # (3) optimizer states memory size = 2 * (1) parameter memory size if model is trained in fp32, 4 * (1) parameter memory size if model is trained in fp16.
+        # multiplier is 2 for fp32, 4 for fp16.
+        # optimizer states memory size = multiplier * a * r.
 
-
-
+        # (4) total memory size
+        # total memory size = (1) + (2) + (3)
+        # total memory size = r * total_dimension_size + (h + r) * total_sequence_length_with_margin + multiplier * r * total_dimension_size = (total_dimension_size + total_sequence_length_with_margin + multiplier * total_dimension_size) * r + h * total_sequence_length_with_margin
+        # r = (total memory size - h * total_sequence_length_with_margin) / (total_dimension_size + total_sequence_length_with_margin + multiplier * total_dimension_size)
         
-        pass
+        multiplier = 2
+        return int((lora_portion - H * total_sequence_length_with_margin) / (total_dimension_size + total_sequence_length_with_margin + multiplier * total_dimension_size))
+
+    def _get_hidden_dimension(self, args, model):
+        # TODO Liam
+        # return the hidden dimension of the model
+        return 384
 
     def _get_total_gpu_memory_size_in_bytes(self, args, total_gpu_memory_size_in_GB):
         return total_gpu_memory_size_in_GB * 1024 * 1024 * 1024
