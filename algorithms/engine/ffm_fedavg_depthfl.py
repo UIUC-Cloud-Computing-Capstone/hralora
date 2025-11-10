@@ -141,6 +141,9 @@ def ffm_fedavg_depthfl(args):
                 for id in args.user_groupid_list:
                     args.block_ids_list.append(getattr(args, 'heterogeneous_group'+str(id)+'_lora'))
 
+            # for exclusive and straggler tuning, all the rank are the same as the max lora rank
+            args.rank_list = [[args.lora_max_rank]*args.lora_layer]*args.num_users
+
     best_test_acc = 0.0
     best_test_f1 = 0.0
     best_test_macro_f1 = 0.0
@@ -161,6 +164,7 @@ def ffm_fedavg_depthfl(args):
         ## local training
         local_solver = LocalUpdate(args=args)
         local_models, local_losses, local_updates, delta_norms, num_samples = [], [], [], [], []
+        print('selected client idxs: '+str(selected_idxs))
         for num_index, i in enumerate(selected_idxs):
             if args.peft == 'lora':
                 local_model, local_loss, no_weight_lora =  local_solver.lora_tuning(model=copy.deepcopy(net_glob),

@@ -2,21 +2,24 @@ from transformers import AutoModelForImageClassification, AutoModelForSequenceCl
 import numpy as np
 import torch
 from peft import LoraConfig, get_peft_model
-model = AutoModelForImageClassification.from_pretrained(
-    'facebook/deit-small-patch16-224', # https://huggingface.co/google/bert_uncased_L-4_H-256_A-4
+model = AutoModelForSequenceClassification.from_pretrained(
+    'google/bert_uncased_L-12_H-128_A-2', # https://huggingface.co/google/bert_uncased_L-4_H-256_A-4
+    num_labels=100
 )
 config = LoraConfig(
-    r=48,
-    lora_alpha=48,
+    r=12,
+    lora_alpha=12,
     target_modules=["query", "value"],
     lora_dropout=0.1,
-    bias="none",
-    modules_to_save=["classifier"],
+    bias="none"
 )
 net_glob = get_peft_model(model, config)
 
 for name, _ in net_glob.named_parameters():
     print(name)
+global_model = net_glob.state_dict()
+
+print(global_model['base_model.model.bert.encoder.layer.0.attention.self.value.lora_A.default.weight'].shape)
 
 
 print('########### trainable param ###########')
@@ -25,26 +28,26 @@ for n in trainable_names:
     print(n)
     # only lora and trainable 
 
-global_model = net_glob.state_dict()
 
-model = net_glob
 
-no_weight_lora = [1,2,3]
+#model = net_glob
 
-optimizer_grouped_parameters = [
-        {
-            "params": [p for n, p in model.named_parameters() if not any(str(nd) in n for nd in no_weight_lora)]
-        },
-        {
-            "params": [p for n, p in model.named_parameters() if any(str(nd) in n for nd in no_weight_lora)],
-            'lr': 0.0
-        }
-]
+#no_weight_lora = [1,2,3]
 
-print('######## normal learning rate param ###########')
-param_name = [n for n, p in model.named_parameters() if (('lora_A' in n) or any(('layer.' + str(nd) + '.') in n for nd in no_weight_lora))];
-for  n in param_name:
-    print(n)
+#optimizer_grouped_parameters = [
+#        {
+#            "params": [p for n, p in model.named_parameters() if not any(str(nd) in n for nd in no_weight_lora)]
+#        },
+#        {
+#            "params": [p for n, p in model.named_parameters() if any(str(nd) in n for nd in no_weight_lora)],
+#            'lr': 0.0
+#        }
+#]
+
+#print('######## normal learning rate param ###########')
+#param_name = [n for n, p in model.named_parameters() if (('lora_A' in n) or any(('layer.' + str(nd) + '.') in n for nd in no_weight_lora))];
+#for  n in param_name:
+#    print(n)
 #B*A
 
 #s = 'base_model.model.vit.encoder.layer.11.attention.attention.query.lora_A.default.weight'

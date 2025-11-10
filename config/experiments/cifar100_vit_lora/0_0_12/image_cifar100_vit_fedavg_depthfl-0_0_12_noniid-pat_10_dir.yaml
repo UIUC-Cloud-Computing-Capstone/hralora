@@ -40,6 +40,27 @@ heterogeneous_group0_lora: [] # [0, 2, 4, 6, 8, 10]  [0, 1, 2, 4, 5, 6, 8, 9, 10
 heterogeneous_group1_lora: []
 heterogeneous_group2_lora: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 
+##### rank variation
+enable_rank_var: false
+var_rank_group0_lora: 144 #16 
+var_rank_group1_lora: 216
+var_rank_group2_lora: 288
+
+lora_max_rank: 32 # 384 is full rank already for vit
+
+##### Weighted aggregation
+# 'weighted_average' or normal avg when comment out
+aggregation: 'weighted_average'
+
+##### fixed A for training
+only_train_b: false
+
+##### apply SVD for aggregation
+apply_svd_aggregation: false
+
+###### Whether to train classifier (default: false)
+train_classifier: false
+
 # Dataset configure
 data_type: image
 dataset: cifar100

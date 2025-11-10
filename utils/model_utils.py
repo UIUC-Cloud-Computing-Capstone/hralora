@@ -70,8 +70,8 @@ def model_setup(args):
             num_labels=args.num_classes
         )
         config = LoraConfig(
-            r=64,
-            lora_alpha=64,
+            r=args.lora_max_rank,
+            lora_alpha=args.lora_max_rank,
             target_modules=["query", "value"],
             lora_dropout=0.1,
             bias="none"
