@@ -5,7 +5,7 @@ class RankEstimator:
 
     def get_rank_for_all_client_groups(self, args, model):
         rank_for_all_client_groups = []
-        for i in range(args.num_users):
+        for i in range(len(args.heterogeneous_group)):
             total_gpu_memory_size_in_GB_for_one_client_group = args.gpu_memory_size_for_each_group_in_GB[i]
             upload_network_speed_in_Mbps_for_one_client_group = args.avg_upload_network_speed_for_each_group_in_Mbps[i]
             download_network_speed_in_Mbps_for_one_client_group = args.avg_download_network_speed_for_each_group_in_Mbps[i]

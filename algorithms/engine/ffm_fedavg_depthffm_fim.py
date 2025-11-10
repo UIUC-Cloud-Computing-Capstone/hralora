@@ -1,4 +1,5 @@
 import copy
+from estimator import RankEstimator
 import numpy as np
 import time, math
 import torch
@@ -299,11 +300,14 @@ def ffm_fedavg_depthffm_fim(args):
     args.logger.info(args.log_path, main_process_only=True)
     
     args.logger.info("{:<50}".format("-" * 15 + " model setup " + "-" * 50)[0:60], main_process_only=True)
-    args, net_glob, global_model, args.dim = model_setup(args)
+    args, net_glob, global_model, args.dim, base_model = model_setup(args)
     
     args.logger.info('model dim: '+str(args.dim), main_process_only=True)
 
     ###################################### model initialization ###########################
+    rank_estimator = RankEstimator()
+    rank_for_all_client_groups = rank_estimator.get_rank_for_all_client_groups(args, base_model)
+    
     trainining_start_time = time.time()
     args.logger.info("{:<50}".format("-" * 15 + " training... " + "-" * 50)[0:60], main_process_only=True)
     # initialize data loader for training and/or public dataset

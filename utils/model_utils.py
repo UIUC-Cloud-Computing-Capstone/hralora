@@ -109,7 +109,7 @@ def model_setup(args):
     #        global_model[k][:,:] = 0
     #net_glob.load_state_dict(global_model)
 
-    return args, net_glob, global_model, model_dim(global_model)
+    return args, net_glob, global_model, model_dim(global_model), model
 
 def model_dim(model):
     '''
