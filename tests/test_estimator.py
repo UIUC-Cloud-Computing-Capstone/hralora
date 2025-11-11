@@ -77,6 +77,7 @@ class TestRankEstimator(unittest.TestCase):
         args.desired_uploading_time_for_each_group_in_seconds = [60, 60, 60]
         args.desired_downloading_time_for_each_group_in_seconds = [60, 60, 60]
         args.optimizer = 'adamw'
+        args.heterogeneous_group = [1/3, 1/3, 1/3]
         model = AutoModelForImageClassification.from_pretrained('facebook/deit-small-patch16-224')
         result = self.estimator.get_rank_for_all_client_groups(args, model)
         print(result)
@@ -93,6 +94,7 @@ class TestRankEstimator(unittest.TestCase):
         args.desired_uploading_time_for_each_group_in_seconds = [60, 60, 60]
         args.desired_downloading_time_for_each_group_in_seconds = [60, 60, 60]
         args.optimizer = 'adamw'
+        args.heterogeneous_group = [1/3, 1/3, 1/3]
         model = AutoModelForImageClassification.from_pretrained('facebook/deit-small-patch16-224')
         result = self.estimator.get_rank_for_all_client_groups(args, model)
         print(result)
