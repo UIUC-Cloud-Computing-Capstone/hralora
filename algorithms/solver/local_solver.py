@@ -44,6 +44,7 @@ class LocalUpdate(object):
 
         # early stop for exclusive training
         if len(no_weight_lora) == args.lora_layer:
+            print(f'client {client_real_id} has not weight to train, return')
             return model.state_dict(), None, no_weight_lora
 
         # only train the lora module.
