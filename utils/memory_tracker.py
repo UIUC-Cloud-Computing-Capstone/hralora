@@ -24,8 +24,8 @@ class MemoryTracker:
         Args:
             device: Device to track memory on. If None, auto-detects from model.
         """
-        self.device = device
-        self.is_cuda = device is not None and device.type == 'cuda'
+        # Device is auto-detected from model in each method, so we don't need to store it
+        pass
     
     def get_parameter_memory(self, model: torch.nn.Module, precision: str = 'fp32') -> Dict[str, Union[int, float]]:
         """
@@ -110,104 +110,6 @@ class MemoryTracker:
             'param_count': param_count,
             'optimizer_memory_bytes': total_optimizer_memory,
             'optimizer_memory_MB': total_optimizer_memory / (1024 * 1024),
-        }
-        """
-        Estimate activation memory usage during forward/backward pass.
-        
-        Args:
-            model: PyTorch model
-            input_shape: Input shape (without batch dimension), e.g., (3, 224, 224)
-            batch_size: Batch size
-            precision: 'fp32' or 'fp16'
-            include_backward: Whether to include backward pass activations
-        
-        Returns:
-            Dictionary with activation memory estimates
-        
-        Note:
-            For accurate measurements, especially on CPU, use profile_forward_backward() instead.
-        """
-        bytes_per_element = 4 if precision == 'fp32' else 2
-        
-        # Set to train mode to store activations (needed for gradient computation)
-        model.train()
-        device = next(model.parameters()).device if list(model.parameters()) else torch.device('cpu')
-        is_cuda = device.type == 'cuda'
-        
-        try:
-            # Reset memory stats before forward pass
-            if is_cuda:
-                torch.cuda.reset_peak_memory_stats()
-                initial_memory = torch.cuda.memory_allocated()
-            
-            # Create dummy input - handle HuggingFace models
-            if hasattr(model, 'config') and hasattr(model.config, 'model_type'):
-                # HuggingFace model - use dict input
-                model_type = model.config.model_type.lower()
-                if 'vit' in model_type or 'deit' in model_type or 'image' in model_type:
-                    # Vision transformer - use pixel_values
-                    dummy_input = {'pixel_values': torch.randn(batch_size, *input_shape, device=device)}
-                else:
-                    # Text model - use input_ids
-                    seq_len = 128  # Default sequence length
-                    dummy_input = {'input_ids': torch.randint(0, 1000, (batch_size, seq_len), device=device)}
-            else:
-                # Regular PyTorch model - use tensor input
-                dummy_input = torch.randn(batch_size, *input_shape, device=device)
-            
-            # Forward pass WITHOUT no_grad() to store activations for backprop
-            if isinstance(dummy_input, dict):
-                outputs = model(**dummy_input)
-            else:
-                outputs = model(dummy_input)
-            
-            # Get forward pass memory
-            if is_cuda:
-                forward_memory = torch.cuda.max_memory_allocated() - initial_memory
-                torch.cuda.reset_peak_memory_stats()
-            else:
-                # For CPU, estimate based on model architecture
-                # This is a rough estimate - use profile_forward_backward for accuracy
-                total_params = sum(p.numel() for p in model.parameters())
-                # Rough estimate: activations ~= 10-20% of parameter memory for transformers
-                # For vision models with batch_size, this can be higher
-                # Estimate: batch_size * sequence_length * hidden_dim * num_layers * bytes
-                if hasattr(model, 'config'):
-                    # Try to get model dimensions from config
-                    hidden_dim = getattr(model.config, 'hidden_size', 384)
-                    num_layers = getattr(model.config, 'num_hidden_layers', 12)
-                    if 'vit' in model_type or 'deit' in model_type:
-                        # Vision transformer: sequence_length = patches + 1
-                        seq_len = (input_shape[1] // 16) * (input_shape[2] // 16) + 1  # Approximate
-                    else:
-                        seq_len = 128  # Default for text models
-                    
-                    # Estimate activation memory: batch * seq * hidden * layers * bytes
-                    forward_memory = int(batch_size * seq_len * hidden_dim * num_layers * bytes_per_element * 0.5)
-                else:
-                    # Fallback: estimate based on parameters
-                    forward_memory = int(total_params * bytes_per_element * 0.15)
-            
-            # Estimate backward (roughly 2-3x forward for activations stored during backprop)
-            backward_memory = int(forward_memory * 2.5) if include_backward else 0
-            
-            total_activation_memory = forward_memory + backward_memory
-            
-        except Exception as e:
-            # If model forward fails, return estimates based on parameters
-            total_params = sum(p.numel() for p in model.parameters())
-            # Conservative estimate
-            forward_memory = int(total_params * bytes_per_element * 0.1)
-            backward_memory = int(forward_memory * 2.5) if include_backward else 0
-            total_activation_memory = forward_memory + backward_memory
-        
-        return {
-            'forward_memory_bytes': forward_memory,
-            'backward_memory_bytes': backward_memory,
-            'total_activation_memory_bytes': total_activation_memory,
-            'forward_memory_MB': forward_memory / (1024 * 1024),
-            'backward_memory_MB': backward_memory / (1024 * 1024),
-            'total_activation_memory_MB': total_activation_memory / (1024 * 1024),
         }
     
     def profile_forward_backward(
@@ -410,19 +312,15 @@ class MemoryTracker:
             optimizer.step()
             optimizer.zero_grad()
             
-            # TODO Liam: should we memory before optimizer.zero_grad()?
             if is_cuda:
                 peak_memory = torch.cuda.max_memory_allocated()
-                current_memory = torch.cuda.memory_allocated()
                 # Peak includes everything: params + optimizer + activations
                 # So peak_memory is the total actual peak
             else:
                 # For CPU, measure process memory
-                current_memory = process.memory_info().rss
-                peak_memory = current_memory  # CPU doesn't track peak easily
+                peak_memory = process.memory_info().rss
         except Exception as e:
             peak_memory = baseline_memory
-            current_memory = baseline_memory
         
         # 4. Profile activation memory separately for detailed breakdown
         profile_results = self.profile_forward_backward(
@@ -438,9 +336,6 @@ class MemoryTracker:
             'parameters': param_memory,
             'optimizer_states': optimizer_memory,
             'activations': {
-                'forward_memory_bytes': profile_results.get('forward_memory_bytes', 0),
-                'backward_memory_bytes': profile_results.get('backward_memory_bytes', 0),
-                'peak_activation_memory_bytes': profile_results.get('peak_memory_bytes', 0),
                 'forward_memory_MB': profile_results.get('forward_memory_MB', 0),
                 'backward_memory_MB': profile_results.get('backward_memory_MB', 0),
                 'peak_activation_memory_MB': profile_results.get('peak_memory_MB', 0),
