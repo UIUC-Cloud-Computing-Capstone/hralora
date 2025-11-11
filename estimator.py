@@ -48,10 +48,12 @@ class RankEstimator:
         base_model_parameter_memory_size_in_bytes = self._get_base_model_parameter_memory_size_in_bytes(args, model)
         base_model_activations_and_safety_margin_memory_size_in_bytes = self._get_base_model_activations_and_safety_margin_memory_size_in_bytes(args)
         base_model_optimizer_states_memory_size_in_bytes = self._get_base_model_optimizer_states_memory_size_in_bytes(args, base_model_parameter_memory_size_in_bytes)
-        return base_model_parameter_memory_size_in_bytes + base_model_activations_and_safety_margin_memory_size_in_bytes + base_model_optimizer_states_memory_size_in_bytes
+        result = base_model_parameter_memory_size_in_bytes + base_model_activations_and_safety_margin_memory_size_in_bytes + base_model_optimizer_states_memory_size_in_bytes
+        print(f"base_model_portion estimated: {result}")
+        return result
 
     def _get_rank_based_on_lora_portion(self, args, model, lora_portion):
-
+        print(f"lora_portion: {lora_portion}")
         if lora_portion <= 0:
             raise ValueError('GPU memory is too small to train the model')
         
