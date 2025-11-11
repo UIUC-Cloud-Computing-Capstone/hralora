@@ -11,6 +11,7 @@ from transformers import AutoModelForImageClassification
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 from estimator import RankEstimator
+from torchinfo import summary  # Better alternative to torchsummary for HuggingFace models
 
 
 class TestRankEstimator(unittest.TestCase):
@@ -79,6 +80,8 @@ class TestRankEstimator(unittest.TestCase):
         args.optimizer = 'adamw'
         args.heterogeneous_group = [1/3, 1/3, 1/3]
         model = AutoModelForImageClassification.from_pretrained('facebook/deit-small-patch16-224')
+        # torchinfo works with HuggingFace models - shows model summary
+        summary(model, input_size=(1, 3, 224, 224), col_names=["input_size", "output_size", "num_params", "trainable"])
         result = self.estimator.get_rank_for_all_client_groups(args, model)
         print(result)
 
@@ -95,6 +98,7 @@ class TestRankEstimator(unittest.TestCase):
         args.desired_downloading_time_for_each_group_in_seconds = [60, 60, 60]
         args.optimizer = 'adamw'
         args.heterogeneous_group = [1/3, 1/3, 1/3]
+        
         model = AutoModelForImageClassification.from_pretrained('facebook/deit-small-patch16-224')
         result = self.estimator.get_rank_for_all_client_groups(args, model)
         print(result)
