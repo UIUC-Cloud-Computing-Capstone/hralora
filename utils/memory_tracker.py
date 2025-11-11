@@ -239,6 +239,13 @@ class MemoryTracker:
         if is_cuda:
             torch.cuda.reset_peak_memory_stats()
             initial_memory = torch.cuda.memory_allocated()
+        else:
+            # For CPU, use psutil to track process memory
+            import psutil
+            import os
+            process = psutil.Process(os.getpid())
+            initial_memory = process.memory_info().rss
+            peak_memory_during_profiling = initial_memory
         
         activities = [ProfilerActivity.CPU]
         if is_cuda:
@@ -264,15 +271,25 @@ class MemoryTracker:
                         loss = loss_fn(outputs, batch.get('labels'))
                     else:
                         loss = outputs
+                    
+                    # Track peak memory during forward (CPU only)
+                    if not is_cuda:
+                        peak_memory_during_profiling = max(peak_memory_during_profiling, process.memory_info().rss)
                 
                 with record_function("backward"):
                     # Backward pass
                     loss.backward()
+                    # Track peak memory during backward (CPU only)
+                    if not is_cuda:
+                        peak_memory_during_profiling = max(peak_memory_during_profiling, process.memory_info().rss)
                 
                 with record_function("optimizer_step"):
                     # Optimizer step
                     optimizer.step()
                     optimizer.zero_grad()
+                    # Track peak memory during optimizer step (CPU only)
+                    if not is_cuda:
+                        peak_memory_during_profiling = max(peak_memory_during_profiling, process.memory_info().rss)
         
         except Exception as e:
             return {
@@ -283,7 +300,7 @@ class MemoryTracker:
                 'peak_memory_bytes': 0,
             }
         
-        # Extract memory information
+        # Extract memory information from profiler events
         events = prof.key_averages()
         
         forward_memory = 0
@@ -307,17 +324,20 @@ class MemoryTracker:
                 else:
                     optimizer_memory += event.cpu_memory_usage
         
-        # Get peak memory if CUDA
+        # Get peak memory
         if is_cuda:
+            # For CUDA, use PyTorch's built-in peak memory tracking
             peak_memory = torch.cuda.max_memory_allocated() - initial_memory
         else:
-            peak_memory = forward_memory + backward_memory + optimizer_memory
+            # For CPU, use the peak memory tracked during profiling
+            # This gives us the actual peak RSS (Resident Set Size) during execution
+            peak_memory = peak_memory_during_profiling - initial_memory
+            # If peak is negative or very small, fall back to profiler estimate
+            if peak_memory <= 0:
+                print("Warning: Peak memory is negative or very small, falling back to profiler estimate")
+                peak_memory = forward_memory + backward_memory + optimizer_memory
         
         return {
-            'forward_memory_bytes': forward_memory,
-            'backward_memory_bytes': backward_memory,
-            'optimizer_memory_bytes': optimizer_memory,
-            'peak_memory_bytes': peak_memory,
             'forward_memory_MB': forward_memory / (1024 * 1024),
             'backward_memory_MB': backward_memory / (1024 * 1024),
             'optimizer_memory_MB': optimizer_memory / (1024 * 1024),
@@ -426,10 +446,7 @@ class MemoryTracker:
                 'peak_activation_memory_MB': profile_results.get('peak_memory_MB', 0),
             },
             'total': {
-                'total_memory_bytes': total_memory,
                 'total_memory_MB': total_memory / (1024 * 1024),
-                'total_memory_GB': total_memory / (1024 * 1024 * 1024),
-                'peak_memory_bytes': peak_memory,
                 'peak_memory_MB': peak_memory / (1024 * 1024),
                 'peak_memory_GB': peak_memory / (1024 * 1024 * 1024),
                 'baseline_memory_bytes': baseline_memory,
