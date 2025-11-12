@@ -129,11 +129,12 @@ class RankEstimator:
         # Let total_sequence_length_with_margin = sequence_length_per_batch * num_modules_per_layer * num_layers * dtype_bytes * (1 + workspace_margin).
         # peak_activations_bytes = (hidden_dimension + r) * total_sequence_length_with_margin.
 
+        workspace_margin = 0.2
         def get_total_sequence_length_with_margin(args):
             sequence_length_per_batch = args.batch_size * self._get_sequence_length()
             
             dtype_bytes = self._get_byte_per_parameter(args.precision)
-            workspace_margin = 0.2
+            #workspace_margin = 0.2
             return sequence_length_per_batch * num_modules_per_layer * num_layers * dtype_bytes * (1 + workspace_margin)
 
         total_sequence_length_with_margin = get_total_sequence_length_with_margin(args)
@@ -166,10 +167,10 @@ class RankEstimator:
         lora_portion_activations_size_in_MB = self._bytes_to_mb(lora_portion_activations_size)
         if memory_summary_dict is not None:
             memory_summary_dict['lora_portion_activations_size_in_MB_with_workspace_margin'] = lora_portion_activations_size_in_MB
-        lora_portion_activations_size_in_MB /= 1.2 # 20% workspace margin
+        lora_portion_activations_size_in_MB /= (1 + workspace_margin) # 20% workspace margin
         if memory_summary_dict is not None:
             memory_summary_dict['lora_portion_activations_size_in_MB'] = lora_portion_activations_size_in_MB
-            memory_summary_dict['lora_portion_activations_workspace_margin_in_MB'] = lora_portion_activations_size_in_MB * 0.2
+            memory_summary_dict['lora_portion_activations_workspace_margin_in_MB'] = lora_portion_activations_size_in_MB * workspace_margin
         # optimizer states memory size = multiplier * total_dimension_size * r.
         lora_portion_optimizer_states_size = result * multiplier * total_dimension_size
         lora_portion_optimizer_states_size_in_MB = self._bytes_to_mb(lora_portion_optimizer_states_size)
