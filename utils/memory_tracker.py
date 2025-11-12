@@ -533,8 +533,10 @@ class MemoryTracker:
                 print(f"\nMemory Breakdown (based on peak memory):")
                 print(f"  Parameters: {breakdown['parameter_memory_MB']:.2f} MB ({breakdown['parameter_memory_MB']/peak_mb*100:.1f}%)")
                 print(f"  Optimizer States: {breakdown['optimizer_memory_MB']:.2f} MB ({breakdown['optimizer_memory_MB']/peak_mb*100:.1f}%)")
-                print(f"  Activations: {breakdown['activation_memory_MB']:.2f} MB ({breakdown['activation_memory_MB']/peak_mb*100:.1f}%)")
-                print(f"  Overhead: {breakdown['overhead_memory_MB']:.2f} MB ({breakdown['overhead_memory_MB']/peak_mb*100:.1f}%)")
+                # print(f"  Activations: {breakdown['activation_memory_MB']:.2f} MB ({breakdown['activation_memory_MB']/peak_mb*100:.1f}%)")
+                # print(f"  Overhead: {breakdown['overhead_memory_MB']:.2f} MB ({breakdown['overhead_memory_MB']/peak_mb*100:.1f}%)")
+                activations_and_overhead = breakdown['activation_memory_MB'] + breakdown['overhead_memory_MB']
+                print(f"  Activations and Overhead: {activations_and_overhead:.2f} MB ({activations_and_overhead/peak_mb*100:.1f}%)")
                 print(f"  Total Peak Memory ({peak_mb:.2f} MB)")
         
         print("=" * 80)
