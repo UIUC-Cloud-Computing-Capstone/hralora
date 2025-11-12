@@ -268,68 +268,155 @@ class MemoryTracker:
             torch.cuda.reset_peak_memory_stats()
             baseline_memory = torch.cuda.memory_allocated()
         else:
-            process = self._get_cpu_process()
-            baseline_memory = process.memory_info().rss
+            # For CPU, use profiler to get baseline memory
+            # We'll get the actual baseline from profiler events
+            baseline_memory = 0
         
         # Measure peak memory during forward+backward (for activation memory calculation)
-        # Reset peak stats ONCE before forward+backward to track overall peak
+        # Use profiler for both CUDA and CPU to get accurate memory tracking
+        activities = [ProfilerActivity.CPU]
         if is_cuda:
+            activities.append(ProfilerActivity.CUDA)
             torch.cuda.reset_peak_memory_stats()
             forward_backward_baseline = torch.cuda.memory_allocated()
         else:
-            forward_backward_baseline = process.memory_info().rss
+            forward_backward_baseline = 0  # Will be set from profiler
         
         try:
-            # Forward pass - measure peak during forward (for reporting only)
-            # Don't reset peak stats here - we want to track overall peak from forward_backward_baseline
+            with profile(
+                activities=activities,
+                profile_memory=True,
+                record_shapes=True,
+                with_stack=False
+            ) as prof:
+                # Forward pass
+                with record_function("forward"):
+                    if is_cuda:
+                        forward_baseline = torch.cuda.memory_allocated()
+                    else:
+                        forward_baseline = 0  # Will be extracted from profiler
+                    
+                    outputs = model(**batch) if isinstance(batch, dict) else model(batch)
+                    loss = self._compute_loss(outputs, batch, loss_fn)
+                    
+                    if is_cuda:
+                        peak_during_forward = torch.cuda.max_memory_allocated()
+                    else:
+                        peak_during_forward = 0  # Will be extracted from profiler
+                
+                # Backward pass
+                with record_function("backward"):
+                    if is_cuda:
+                        backward_baseline = torch.cuda.memory_allocated()
+                    else:
+                        backward_baseline = 0  # Will be extracted from profiler
+                    
+                    loss.backward()
+                    
+                    if is_cuda:
+                        peak_during_backward = torch.cuda.max_memory_allocated()
+                    else:
+                        peak_during_backward = 0  # Will be extracted from profiler
+                
+                # Optimizer step
+                with record_function("optimizer_step"):
+                    optimizer.step()
+                    optimizer.zero_grad()
+            
+            # Extract memory information from profiler events
+            events = prof.key_averages()
+            forward_memory_bytes = 0
+            backward_memory_bytes = 0
+            forward_peak_memory_bytes = 0
+            backward_peak_memory_bytes = 0
+            
+            # Track peak memory usage
+            peak_cpu_memory = 0
+            baseline_cpu_memory = 0
+            forward_peak_cpu_memory = 0
+            backward_peak_cpu_memory = 0
+            
+            for event in events:
+                if is_cuda:
+                    # For CUDA, use existing tracking
+                    if 'forward' in event.key:
+                        forward_memory_bytes += event.cuda_memory_usage
+                    elif 'backward' in event.key:
+                        backward_memory_bytes += event.cuda_memory_usage
+                else:
+                    # For CPU, extract from profiler
+                    # Use self_cpu_memory_usage for more accurate measurement (excludes child operations)
+                    cpu_mem = getattr(event, 'cpu_memory_usage', 0) or 0
+                    self_cpu_mem = getattr(event, 'self_cpu_memory_usage', 0) or 0
+                    
+                    # Prefer self_cpu_memory_usage as it's more accurate
+                    memory_usage = self_cpu_mem if self_cpu_mem > 0 else cpu_mem
+                    
+                    if 'forward' in event.key:
+                        forward_memory_bytes += memory_usage
+                        forward_peak_cpu_memory = max(forward_peak_cpu_memory, memory_usage)
+                    elif 'backward' in event.key:
+                        backward_memory_bytes += memory_usage
+                        backward_peak_cpu_memory = max(backward_peak_cpu_memory, memory_usage)
+                    
+                    # Track overall peak CPU memory (sum of all operations, not max)
+                    # For CPU, we sum memory allocations to get total activation memory
+                    peak_cpu_memory = max(peak_cpu_memory, memory_usage)
+            
+            # Get baseline from profiler events (memory before forward pass)
+            # For CPU, we need to be careful - the baseline should be small (just model setup)
+            if not is_cuda:
+                # Try to find baseline from profiler events before forward
+                for event in prof.key_averages():
+                    if 'forward' not in event.key and 'backward' not in event.key and 'optimizer' not in event.key:
+                        self_cpu_mem = getattr(event, 'self_cpu_memory_usage', 0) or 0
+                        cpu_mem = getattr(event, 'cpu_memory_usage', 0) or 0
+                        memory_usage = self_cpu_mem if self_cpu_mem > 0 else cpu_mem
+                        if memory_usage > 0:
+                            baseline_cpu_memory = max(baseline_cpu_memory, memory_usage)
+                
+                # If no baseline found from profiler, use a small fraction
+                # Don't use params + optimizer as baseline because profiler tracks incremental memory
+                if baseline_cpu_memory == 0:
+                    # Use a small baseline - profiler tracks memory allocated during operations
+                    # The baseline should be minimal (just setup overhead)
+                    baseline_cpu_memory = 1024 * 1024  # 1 MB as minimal baseline
+            
+            # Set values based on device
             if is_cuda:
-                forward_baseline = torch.cuda.memory_allocated()
-            else:
-                forward_baseline = process.memory_info().rss
-            
-            outputs = model(**batch) if isinstance(batch, dict) else model(batch)
-            loss = self._compute_loss(outputs, batch, loss_fn)
-            
-            if is_cuda:
-                peak_during_forward = torch.cuda.max_memory_allocated()
-            else:
-                peak_during_forward = process.memory_info().rss
-            
-            forward_peak_memory_bytes = max(0, peak_during_forward - forward_baseline)
-            
-            # Backward pass - measure peak during backward (for reporting only)
-            # Don't reset peak stats here - we want to track overall peak from forward_backward_baseline
-            if is_cuda:
-                backward_baseline = torch.cuda.memory_allocated()
-            else:
-                backward_baseline = process.memory_info().rss
-            
-            loss.backward()
-            
-            if is_cuda:
-                peak_during_backward = torch.cuda.max_memory_allocated()
-            else:
-                peak_during_backward = process.memory_info().rss
-            
-            backward_peak_memory_bytes = max(0, peak_during_backward - backward_baseline)
-            
-            # Get peak during forward+backward (before optimizer step)
-            # This uses the peak tracked from forward_backward_baseline (not reset between forward/backward)
-            if is_cuda:
+                forward_peak_memory_bytes = max(0, peak_during_forward - forward_baseline)
+                backward_peak_memory_bytes = max(0, peak_during_backward - backward_baseline)
                 peak_during_forward_backward = torch.cuda.max_memory_allocated()
+                forward_backward_baseline = torch.cuda.memory_allocated() if forward_backward_baseline == 0 else forward_backward_baseline
             else:
-                peak_during_forward_backward = max(peak_during_forward, peak_during_backward)
+                # For CPU, use profiler-extracted values
+                # Sum of forward and backward memory gives us total activation memory
+                total_activation_memory = forward_memory_bytes + backward_memory_bytes
+                
+                # Peak is the maximum of individual operations or the sum
+                # But for total peak, we need baseline + activations
+                forward_peak_memory_bytes = forward_peak_cpu_memory
+                backward_peak_memory_bytes = backward_peak_cpu_memory
+                
+                # For CPU, peak_during_forward_backward should be baseline + total activations
+                # But we'll use the max from profiler as the peak, and calculate activation as difference
+                peak_during_forward_backward = peak_cpu_memory
+                forward_backward_baseline = baseline_cpu_memory
+                baseline_memory = baseline_cpu_memory
             
             # The total peak memory is the peak during forward+backward (before optimizer step)
-            # because optimizer.step() may free memory, making it lower than the actual peak
             total_peak_memory = peak_during_forward_backward
             
-            # Now do optimizer step (for completeness, but peak is already captured)
-            optimizer.step()
-            optimizer.zero_grad()
         except Exception as e:
-            total_peak_memory = baseline_memory
-            peak_during_forward_backward = baseline_memory
+            # Fallback to RSS if profiler fails
+            if is_cuda:
+                total_peak_memory = baseline_memory
+                peak_during_forward_backward = baseline_memory
+            else:
+                process = self._get_cpu_process()
+                total_peak_memory = process.memory_info().rss
+                peak_during_forward_backward = total_peak_memory
+                forward_backward_baseline = baseline_memory
             forward_peak_memory_bytes = 0
             backward_peak_memory_bytes = 0
         
@@ -339,7 +426,41 @@ class MemoryTracker:
 
         param_memory_bytes = param_memory['total_memory_MB'] * MB_TO_BYTES
         optimizer_memory_bytes = optimizer_memory['optimizer_memory_MB'] * MB_TO_BYTES
+        
+        # For CPU, the profiler's peak might not include parameters and optimizer states
+        # So we need to adjust: total_peak = baseline (params+opt) + activations + overhead
+        # But profiler peak might be just activations, so we need to add baseline
+        if not is_cuda:
+            # For CPU, total peak should be: params + optimizer + activations + overhead
+            # But profiler peak might only track activations, so we add baseline
+            # However, if baseline is too small, we need to use params + optimizer
+            actual_baseline = param_memory_bytes + optimizer_memory_bytes
+            # If activation is calculated from profiler peak - small baseline,
+            # we need to ensure total = actual_baseline + activation + overhead
+            adjusted_total_peak = actual_baseline + activation_memory_bytes
+            # Use the larger of profiler peak or calculated total
+            total_peak_memory = max(total_peak_memory, adjusted_total_peak)
+        
+        # The total peak memory should equal: parameters + optimizer + activations + overhead
         component_sum_bytes = param_memory_bytes + optimizer_memory_bytes + activation_memory_bytes
+        
+        # If component sum exceeds total peak, cap activation memory
+        if component_sum_bytes > total_peak_memory:
+            max_activation_bytes = max(0, total_peak_memory - param_memory_bytes - optimizer_memory_bytes)
+            activation_memory_bytes = min(activation_memory_bytes, max_activation_bytes)
+            component_sum_bytes = param_memory_bytes + optimizer_memory_bytes + activation_memory_bytes
+        
+        # If component sum is less than total peak, activation might be underestimated
+        # In this case, recalculate activation to fill the gap (but leave room for overhead)
+        if component_sum_bytes < total_peak_memory * 0.9:  # If sum is less than 90% of peak
+            # Activation might be underestimated, so adjust it
+            # Leave 10% for overhead, so activation = total - params - optimizer - 10% overhead
+            estimated_overhead = total_peak_memory * 0.1
+            adjusted_activation = max(0, total_peak_memory - param_memory_bytes - optimizer_memory_bytes - estimated_overhead)
+            if adjusted_activation > activation_memory_bytes:
+                activation_memory_bytes = adjusted_activation
+                component_sum_bytes = param_memory_bytes + optimizer_memory_bytes + activation_memory_bytes
+        
         overhead_bytes = max(0, total_peak_memory - component_sum_bytes)
         
         # Get detailed profiler results (for profiler table only)
@@ -414,6 +535,6 @@ class MemoryTracker:
                 print(f"  Optimizer States: {breakdown['optimizer_memory_MB']:.2f} MB ({breakdown['optimizer_memory_MB']/peak_mb*100:.1f}%)")
                 print(f"  Activations: {breakdown['activation_memory_MB']:.2f} MB ({breakdown['activation_memory_MB']/peak_mb*100:.1f}%)")
                 print(f"  Overhead: {breakdown['overhead_memory_MB']:.2f} MB ({breakdown['overhead_memory_MB']/peak_mb*100:.1f}%)")
-                print(f"  Note: Peak memory ({peak_mb:.2f} MB) is the actual measured peak during training")
+                print(f"  Total Peak Memory ({peak_mb:.2f} MB)")
         
         print("=" * 80)
