@@ -17,7 +17,7 @@ model = AutoModelForImageClassification.from_pretrained(
 
 # KronA/LoKr config
 config = LoKrConfig(
-    r=8,
+    r=12,
     alpha=32,
     decompose_both =False,
     target_modules=["query", "value"],
@@ -45,7 +45,7 @@ global_model = net_glob.state_dict()
 #torch.Size([24, 8])
 #torch.Size([8, 24])
 print(global_model['base_model.model.vit.encoder.layer.11.attention.attention.query.lokr_w1.default'].shape)
-print(global_model['base_model.model.vit.encoder.layer.11.attention.attention.query.lokr_w2_a.default'].shape)
+print(global_model['base_model.model.vit.encoder.layer.11.attention.attention.query.lokr_w2.default'].shape)
 print(global_model['base_model.model.vit.encoder.layer.11.attention.attention.query.lokr_w2_b.default'].shape)
 
 

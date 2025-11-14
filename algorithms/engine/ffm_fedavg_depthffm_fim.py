@@ -516,13 +516,13 @@ def update_global_model(args, global_model, local_updates, num_samples):
         global_model = average_lora_depthfl(args, global_model, local_updates)
 
     # Rank check, the assigned max lora rank needs to be smaller than the model full rank
-    model_full_rank = 0;
-    for k in global_model.keys():
-        if 'hada_w1_a' in k:
-            model_full_rank = global_model[k].shape[0]
-            break
-    if args.lora_max_rank >= model_full_rank:
-        raise ValueError(f"lora_max_rank: {args.lora_max_rank} needs to be smaller than the model full rank {model_full_rank}")
+    #model_full_rank = 0;
+    #for k in global_model.keys():
+    #    if 'hada_w1_a' in k:
+    #        model_full_rank = global_model[k].shape[0]
+    #        break
+    #if args.lora_max_rank >= model_full_rank:
+    #    raise ValueError(f"lora_max_rank: {args.lora_max_rank} needs to be smaller than the model full rank {model_full_rank}")
 
     ### run svd
     #for k in global_model.keys():
@@ -568,7 +568,7 @@ def get_model_update(args, global_model, local_model, no_weight_lora):
     model_update = {}
     if args.peft == 'lora':
         for k in global_model.keys():
-            if 'hada' in k: # no classifier
+            if 'lokr' in k: # no classifier
                 if int(re.findall(r"\d+", k)[0]) not in no_weight_lora:
                     model_update[k] = local_model[k].detach().cpu() - global_model[k].detach().cpu() 
             elif args.train_classifier and 'classifier' in k:

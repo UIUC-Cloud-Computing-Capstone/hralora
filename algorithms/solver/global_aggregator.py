@@ -74,7 +74,7 @@ def weighted_average_lora_depthfl(args, global_model, loc_updates, num_samples):
     model_weights_cnt = {}
     model_weights_list = {}
 
-    lora_str = 'hada_w'
+    lora_str = 'lokr_w'
     #if args.only_train_b:
     #    lora_str = '_b.'
     #    print('Only train Lora_B')
