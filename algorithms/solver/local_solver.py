@@ -61,36 +61,37 @@ class LocalUpdate(object):
                 if 'lora_A' in name:
                     param.requires_grad = False
 
-        # add register to truncate the rank
-        def lora_A_hook(cut_rank: int):
-            def hook(grad):
-                grad = grad.clone()  # ensure writable
-                grad[cut_rank:, :] = 0
-                return grad       # zero out rows from idx onward
-            return hook
+        if args.enable_rank_var:
+            # add register to truncate the rank if rank variation is enable
+            def lora_A_hook(cut_rank: int):
+                def hook(grad):
+                    grad = grad.clone()  # ensure writable
+                    grad[cut_rank:, :] = 0
+                    return grad       # zero out rows from idx onward
+                return hook
 
-        def lora_B_hook(cut_rank: int):
-            def hook(grad):
-                # grad is a tensor
-                grad = grad.clone()
-                grad[:,cut_rank:] = 0       # zero out cols from idx onward
-                return grad
-            return hook
+            def lora_B_hook(cut_rank: int):
+                def hook(grad):
+                    # grad is a tensor
+                    grad = grad.clone()
+                    grad[:,cut_rank:] = 0       # zero out cols from idx onward
+                    return grad
+                return hook
 
-        print(f'client {client_real_id} block_ids_list = {args.block_ids_list[client_real_id]}, rank_list = {args.rank_list[client_real_id]}')
-        for name, param in model.named_parameters():
-            if 'lora' in name and param.requires_grad:
-                layer_id = int(re.findall(r"\d+", name)[0])
-                layer_index = args.block_ids_list[client_real_id].index(layer_id)
-                
-                rank = args.rank_list[client_real_id][layer_index]
-                #print(f'layer id {layer_id}, rank = {rank}')
-                if 'lora_A' in name:
-                    #print(f'lora_A name {name}')
-                    param.register_hook(lora_A_hook(rank) )
-                elif 'lora_B' in name:
-                    #print(f'lora_B name {name}')
-                    param.register_hook(lora_B_hook(rank) )
+            print(f'client {client_real_id} block_ids_list = {args.block_ids_list[client_real_id]}, rank_list = {args.rank_list[client_real_id]}')
+            for name, param in model.named_parameters():
+                if 'lora' in name and param.requires_grad:
+                    layer_id = int(re.findall(r"\d+", name)[0])
+                    layer_index = args.block_ids_list[client_real_id].index(layer_id)
+                    
+                    rank = args.rank_list[client_real_id][layer_index]
+                    #print(f'layer id {layer_id}, rank = {rank}')
+                    if 'lora_A' in name:
+                        #print(f'lora_A name {name}')
+                        param.register_hook(lora_A_hook(rank) )
+                    elif 'lora_B' in name:
+                        #print(f'lora_B name {name}')
+                        param.register_hook(lora_B_hook(rank) )
 
         #print('############## trainable param ############')
         #print(f'args.block_ids_list[client_real_id] = {args.block_ids_list[client_real_id]}')
