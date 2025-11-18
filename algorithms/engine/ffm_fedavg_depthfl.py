@@ -142,7 +142,8 @@ def ffm_fedavg_depthfl(args):
                     args.block_ids_list.append(getattr(args, 'heterogeneous_group'+str(id)+'_lora'))
 
             # for exclusive and straggler tuning, all the rank are the same as the max lora rank
-            args.rank_list = [[args.lora_max_rank]*args.lora_layer]*args.num_users
+            print(f'args.block_ids_list {args.block_ids_list}')
+            args.rank_list = []
 
     best_test_acc = 0.0
     best_test_f1 = 0.0

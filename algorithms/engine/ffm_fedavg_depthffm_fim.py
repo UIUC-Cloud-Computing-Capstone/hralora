@@ -339,6 +339,25 @@ def ffm_fedavg_depthffm_fim(args):
             args.block_ids_list = saved_block_ids_list
             args.saved_rank_list = saved_rank_list
 
+        if hasattr(args, 'warm_start'):
+            print('#####warm start round#####')
+            # warm start for our method
+            if t<20:
+                args.train_a = True
+                args.train_b = True
+            else:
+
+                if hasattr(args,'alternating'):
+                    if (t%2)==0:
+                        args.train_a = False
+                        args.train_b = True
+                    else:
+                        args.train_a = True
+                        args.train_b = False
+                else:
+                    args.train_a = False
+                    args.train_b = True
+
         # debug list and rank:
         #args.block_ids_list[14] = [0,1]
         #args.rank_list[14] = [3,1]
@@ -521,7 +540,7 @@ def update_global_model(args, global_model, local_updates, num_samples):
         if 'lora_B' in k:
             model_full_rank = global_model[k].shape[0]
             break
-    if args.lora_max_rank >= model_full_rank:
+    if args.lora_max_rank > model_full_rank:
         raise ValueError(f"lora_max_rank: {args.lora_max_rank} needs to be smaller than the model full rank {model_full_rank}")
 
     ### run svd
@@ -804,7 +823,8 @@ def get_rank_list(args, layer_list, fim, id):
     sorted_layer_list = sorted(layer_list)
     selected_layer_fim = [fim[x] for x in sorted_layer_list]
     # reserve 1-rank for each selected block
-    rank_budget = getattr(args, 'var_rank_group'+str(id)+'_lora') - len(layer_list)
+    common_rank = 10
+    rank_budget = getattr(args, 'var_rank_group'+str(id)+'_lora') - common_rank*len(layer_list)
     normalized_selected_layer_fim = [x/sum(selected_layer_fim) for x in selected_layer_fim]
     rank_list = [int(x*rank_budget) for x in normalized_selected_layer_fim]
     left_over = rank_budget - sum(rank_list)
@@ -812,10 +832,10 @@ def get_rank_list(args, layer_list, fim, id):
     rank_list[max_index] += left_over
 
     # add back the reserved rank for each block. Cap the rank assignment to the full rank setting.
-    final_rank_list = [min(args.lora_max_rank,x + 1) for x in rank_list]
+    final_rank_list = [min(args.lora_max_rank,x + common_rank) for x in rank_list]
     args.rank_list.append(final_rank_list)
 
-    print(f'group {id}: rank_budget = {rank_budget}, fim = {selected_layer_fim}, rank_list = {final_rank_list} ')
+    print(f'group {id}: rank_budget = {rank_budget}, fim = {selected_layer_fim}, rank_list = {final_rank_list}, selected layer = {sorted_layer_list} ')
     #print(f'args.rank_list = {args.rank_list}')
 
 def get_observed_probability(cluster_labels):

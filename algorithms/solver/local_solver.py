@@ -52,14 +52,18 @@ class LocalUpdate(object):
         # only train the lora module.
         for name, param in model.named_parameters():
             if ('lora' in name and any(('layer.' + str(nd) + '.') in name for nd in args.block_ids_list[client_real_id])) or 'classifier' in name:
-                param.requires_grad = True
+                if args.train_b and 'lora_B' in name:
+                    print('BBBBB train matrix b')
+                    param.requires_grad = True
+                
+                if args.train_a and 'lora_A' in name:
+                    print('AAAAA train matrix a')
+                    param.requires_grad = True
+                
+                
             else:
                 param.requires_grad = False
         
-        if args.only_train_b:
-            for name, param in model.named_parameters():
-                if 'lora_A' in name:
-                    param.requires_grad = False
 
         if args.enable_rank_var:
             # add register to truncate the rank if rank variation is enable
@@ -78,7 +82,7 @@ class LocalUpdate(object):
                     return grad
                 return hook
 
-            print(f'client {client_real_id} block_ids_list = {args.block_ids_list[client_real_id]}, rank_list = {args.rank_list[client_real_id]}')
+            print(f'client {client_real_id} block_ids_list = {args.block_ids_list[client_real_id]}, rank_list = {args.rank_list[client_real_id]}, rank_budget = {sum(args.rank_list[client_real_id])}')
             for name, param in model.named_parameters():
                 if 'lora' in name and param.requires_grad:
                     layer_id = int(re.findall(r"\d+", name)[0])
@@ -100,7 +104,12 @@ class LocalUpdate(object):
         #        print(name) 
 
         # Note: Have to set the weight_decay to zero otherwise 0 gradient part will still be updated.
-        optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.local_lr,weight_decay=0.0)
+        # weight declay is set to zero only for rank variation
+        weight_decay = 0.01
+        if args.enable_rank_var or hasattr(args, 'warm_start'):
+            weight_decay = 0
+
+        optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.local_lr,weight_decay=weight_decay)
         # # Prepare everything with our `accelerator`.
         model, optimizer, train_dataloader = accelerator.prepare(model, optimizer, ldr_train)
         total_loss = []

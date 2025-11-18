@@ -53,7 +53,8 @@ lora_max_rank: 12 # 384 is full rank already for vit
 aggregation: 'weighted_average'
 
 ##### fixed A for training
-only_train_b: false
+train_a: true
+train_b: true
 
 ##### apply SVD for aggregation
 apply_svd_aggregation: false

@@ -14,7 +14,6 @@ decay_weight: 0.95 # learning rate decay weight default 0.5
 global_momentum: 0.9 # global momentum
 # clip: 1 # clipping threshold
 ########### base differential ends ###########
-
 lr_scheduler_type: linear
 lr_step_size: 1
 optimizer_weight_decay: 0.0
@@ -33,20 +32,21 @@ defend: None
 model: google/vit-base-patch16-224-in21k
 peft: lora
 
-model_heterogeneity: depthfl
+model_heterogeneity: depthffm_fim
 heterogeneous_group: [1/3, 1/3, 1/3]
 lora_layer: 12
-heterogeneous_group0_lora: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] # [0, 2, 4, 6, 8, 10]  [0, 1, 2, 4, 5, 6, 8, 9, 10], [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-heterogeneous_group1_lora: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-heterogeneous_group2_lora: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
+heterogeneous_group0_lora: 6
+heterogeneous_group1_lora: 9
+heterogeneous_group2_lora: 12
+layer_prob: [1/9, 1/9, 1/9, 2/27, 2/27, 1/27, 1/27, 1/27, 2/27, 1/9, 1/9, 1/9]
 
 ##### rank variation
 enable_rank_var: false
 var_rank_group0_lora: 144 #16 
-var_rank_group1_lora: 144
-var_rank_group2_lora: 144
+var_rank_group1_lora: 216
+var_rank_group2_lora: 288
 
-lora_max_rank: 12 # 384 is full rank already for vit
+lora_max_rank: 24 # 384 is full rank already for vit
 
 ##### Weighted aggregation
 # 'weighted_average' or normal avg when comment out
@@ -79,3 +79,8 @@ pat_num_cls: 20 # 3 for cifar10
 ##### Parition Distribution ####
 ################################
 partition_mode: dir # uni, dir
+
+#####################################
+########### fim params ##############
+fim_every_iter: 10
+fim_prior_epoch: 10
