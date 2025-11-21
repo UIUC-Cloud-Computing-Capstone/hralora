@@ -106,7 +106,7 @@ def model_setup(args):
         if args.LOKR:
             config = LoKrConfig(
                 r=args.lora_max_rank,
-                alpha=args.lora_alpha,
+                alpha=args.lora_max_rank,
                 target_modules=["query", "value"],
                 modules_to_save=["classifier"],
             )

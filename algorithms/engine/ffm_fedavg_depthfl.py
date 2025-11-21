@@ -144,11 +144,11 @@ def ffm_fedavg_depthfl(args):
                 args.block_ids_list.append(getattr(args, 'heterogeneous_group'+str(id)+'_lora'))
 
             # for exclusive and straggler tuning, all the rank are the same as the max lora rank
-
+    args.rank_list = []
     if args.LEGEND:
         print('running LEGEND')
         for id in args.user_groupid_list:
-            args.rank_list.append(getattr(args, 'rank_'+str(id)+'_lora'))
+            args.rank_list.append(getattr(args, 'rank_group'+str(id)+'_lora'))
     else:
         args.rank_list = []
     print(f'args.block_ids_list {args.block_ids_list}, rank list {args.rank_list}')
