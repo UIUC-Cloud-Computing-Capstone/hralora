@@ -27,7 +27,7 @@ optimizer_weight_decay: 0.0
 # gradient_accumulation_steps: 1
 # checkpointing_steps: 1
 # per_device_train_batch_size: 8
-# weight_decay: 0.0
+weight_decay: 0.0
 # num_warmup_steps: 0
 # use_trained: False
 

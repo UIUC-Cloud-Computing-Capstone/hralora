@@ -110,9 +110,7 @@ class LocalUpdate(object):
 
         # Note: Have to set the weight_decay to zero otherwise 0 gradient part will still be updated.
         # weight declay is set to zero only for rank variation
-        weight_decay = 0.01
-        if args.enable_rank_var:
-            weight_decay = 0
+        weight_decay = args.weight_decay
 
         optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), lr=args.local_lr,weight_decay=weight_decay)
         # # Prepare everything with our `accelerator`.
