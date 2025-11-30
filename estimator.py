@@ -17,9 +17,9 @@ class RankEstimator:
             rank_for_all_client_groups.append(rank_for_one_client_group)
             
             
-            memory_summary_dict['total_parameters_in_MB'] = memory_summary_dict['base_model_parameter_memory_size_in_MB'] + memory_summary_dict['lora_portion_parameter_size_in_MB']
-            memory_summary_dict['total_activations_gradients_and_with_safety_margin_in_MB'] = memory_summary_dict['base_model_activations_gradients_and_safety_margin_memory_size_in_MB'] + memory_summary_dict['lora_portion_activations_gradients_and_workspace_margin_in_MB']
-            memory_summary_dict['total_optimizer_states_in_MB'] = memory_summary_dict.get('base_model_optimizer_states_memory_size_in_MB', 0) + memory_summary_dict['lora_portion_optimizer_states_size_in_MB']
+            memory_summary_dict['total_parameters_in_MB'] = memory_summary_dict['base_model_parameter_memory_size_in_MB'] + memory_summary_dict.get('lora_portion_parameter_size_in_MB', 0)
+            memory_summary_dict['total_activations_gradients_and_with_safety_margin_in_MB'] = memory_summary_dict['base_model_activations_gradients_and_safety_margin_memory_size_in_MB'] + memory_summary_dict.get('lora_portion_activations_gradients_and_workspace_margin_in_MB', 0)
+            memory_summary_dict['total_optimizer_states_in_MB'] = memory_summary_dict.get('base_model_optimizer_states_memory_size_in_MB', 0) + memory_summary_dict.get('lora_portion_optimizer_states_size_in_MB', 0)
             memory_summary_dict['total_memory_in_MB'] = round(memory_summary_dict['total_parameters_in_MB'] + memory_summary_dict['total_activations_gradients_and_with_safety_margin_in_MB'] + memory_summary_dict['total_optimizer_states_in_MB'], 2)
             
             self._print_memory_summary(memory_summary_dict)
@@ -45,7 +45,7 @@ class RankEstimator:
 
     def _get_rank_for_one_client_group(self, args, model, total_gpu_memory_size_in_GB, upload_network_speed_in_Mbps, download_network_speed_in_Mbps, desired_uploading_time_in_seconds, desired_downloading_time_in_seconds, memory_summary_dict):
         if args.rank_estimator_method == FEDHELLO:
-            return self._get_rank_based_on_gpu_memory(args, model, total_gpu_memory_size_in_GB)
+            return self._get_rank_based_on_gpu_memory(args, model, total_gpu_memory_size_in_GB, memory_summary_dict)
         elif args.rank_estimator_method == OURS:
             return self._get_rank_based_on_all(args, model, total_gpu_memory_size_in_GB, upload_network_speed_in_Mbps, download_network_speed_in_Mbps, desired_uploading_time_in_seconds, desired_downloading_time_in_seconds, memory_summary_dict)
         else:
@@ -104,7 +104,9 @@ class RankEstimator:
     def _get_rank_based_on_lora_portion(self, args, model, lora_portion, memory_summary_dict):
         #print(f"lora_portion_in_MB: {self._bytes_to_mb(lora_portion)}")
         if lora_portion <= 0:
-            raise ValueError('GPU memory is too small to train the model')
+            print(f'Warning: GPU memory is too small to train the model')
+            return 0
+            #raise ValueError('GPU memory is too small to train the model')
         
         # get rank based on lora_portion
         # lora_portion includes (1) parameter size, (2) activations and safety margin size, and (3) optimizer states size.
@@ -196,6 +198,10 @@ class RankEstimator:
         lora_portion_optimizer_states_size_in_MB = self._bytes_to_mb(lora_portion_optimizer_states_size)
         if memory_summary_dict is not None:
             memory_summary_dict['lora_portion_optimizer_states_size_in_MB'] = lora_portion_optimizer_states_size_in_MB
+        
+        if result < 0:
+            print(f'Warning: Memory is too small to train the model with positive rank')
+            result = 0
         return result 
     
     def _get_hidden_dimension(self, args, model):
