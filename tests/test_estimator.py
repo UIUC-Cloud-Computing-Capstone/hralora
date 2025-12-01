@@ -105,7 +105,7 @@ class TestRankEstimator(unittest.TestCase):
 
         # training hyperparameters
         args.precision = 'fp32'
-        args.optimizer = 'adamw'
+        args.optimizer = 'adam'
         args.num_of_layers_to_allocate_LoRA = 12
         args.lora_target_modules = ["query", "value"]
 
@@ -137,7 +137,7 @@ class TestRankEstimator(unittest.TestCase):
         args.batch_size = 32
         args.desired_uploading_time_for_each_group_in_seconds = [60, 60, 60]
         args.desired_downloading_time_for_each_group_in_seconds = [60, 60, 60]
-        args.optimizer = 'adamw'
+        args.optimizer = 'adam'
         args.heterogeneous_group = [1/3, 1/3, 1/3]
         args.model = 'facebook/deit-small-patch16-224'
         args.num_of_layers_to_allocate_LoRA = 12
@@ -221,7 +221,7 @@ class TestRankEstimator(unittest.TestCase):
         args.rank_estimator_method = 'Ours'
         args.model = 'facebook/deit-small-patch16-224'
         args.precision = 'fp32'
-        args.optimizer = 'adamw'
+        args.optimizer = 'adam'
         args.num_of_layers_to_allocate_LoRA = 12
         args.lora_target_modules = ["query", "value"]
         args.image_height = 224
@@ -541,7 +541,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         args.rank_estimator_method = 'Ours'
         args.model = 'facebook/deit-small-patch16-224'
         args.precision = 'fp32'
-        args.optimizer = 'adamw'
+        args.optimizer = 'adam'
         args.num_of_layers_to_allocate_LoRA = 12
         args.lora_target_modules = ["query", "value"]
         args.image_height = 224
@@ -631,7 +631,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         args.rank_estimator_method = 'Ours'
         args.model = 'facebook/deit-small-patch16-224'
         args.precision = 'fp32'
-        args.optimizer = 'adamw'
+        args.optimizer = 'adam'
         args.num_of_layers_to_allocate_LoRA = 12
         args.lora_target_modules = ["query", "value"]
         args.image_height = 224
@@ -700,7 +700,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         args.rank_estimator_method = 'Ours'
         args.model = 'facebook/deit-small-patch16-224'
         args.precision = 'fp32'
-        args.optimizer = 'adamw'
+        args.optimizer = 'adam'
         args.num_of_layers_to_allocate_LoRA = 12
         args.lora_target_modules = ["query", "value"]
         args.image_height = 224
