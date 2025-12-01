@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from transformers import AutoModelForImageClassification
+import torch
+from torch.profiler import profile, ProfilerActivity
 
 # Add parent directory to path to import the module
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -209,8 +211,231 @@ class TestRankEstimator(unittest.TestCase):
         # Print full profile
         tracker.print_total_memory_profile(results)
 
-    def test_memory_breakdown_comparison_table(self):
-        """Generate a comparison table between estimated and profiled memory usage"""
+    # def test_memory_breakdown_comparison_table(self):
+    #     """Generate a comparison table between estimated and profiled memory usage"""
+    #     import torch
+    #     import pandas as pd
+        
+    #     # Configuration
+    #     args = argparse.Namespace()
+    #     args.rank_estimator_method = 'Ours'
+    #     args.model = 'facebook/deit-small-patch16-224'
+    #     args.precision = 'fp32'
+    #     args.optimizer = 'adamw'
+    #     args.num_of_layers_to_allocate_LoRA = 12
+    #     args.lora_target_modules = ["query", "value"]
+    #     args.image_height = 244
+    #     args.image_width = 224
+    #     args.patch_size = 16
+    #     args.batch_size = 32
+    #     args.percentage_of_layers_in_memory = 3 / 12
+    #     args.overhead_and_safety_margin_factor = 0.05
+    #     args.desired_uploading_time_for_each_group_in_seconds = [60]
+    #     args.desired_downloading_time_for_each_group_in_seconds = [60]
+    #     args.heterogeneous_group = [1.0]
+    #     args.gpu_memory_size_for_each_group_in_GB = [8.0]
+    #     args.avg_upload_network_speed_for_each_group_in_Mbps = [7.0]
+    #     args.avg_download_network_speed_for_each_group_in_Mbps = [50.0]
+        
+    #     # Load base model
+    #     base_model = AutoModelForImageClassification.from_pretrained(args.model)
+        
+    #     # Get estimated rank and memory breakdown
+    #     print("Getting estimated rank and memory breakdown...")
+    #     memory_summary_dict = {}
+    #     estimated_rank = self.estimator._get_rank_for_one_client_group(
+    #         args, base_model, 
+    #         args.gpu_memory_size_for_each_group_in_GB[0],
+    #         args.avg_upload_network_speed_for_each_group_in_Mbps[0],
+    #         args.avg_download_network_speed_for_each_group_in_Mbps[0],
+    #         args.desired_uploading_time_for_each_group_in_seconds[0],
+    #         args.desired_downloading_time_for_each_group_in_seconds[0],
+    #         memory_summary_dict
+    #     )
+        
+    #     # Calculate total estimated memory components (same as in get_rank_for_all_client_groups)
+    #     memory_summary_dict['total_parameters_in_MB'] = memory_summary_dict.get('base_model_parameter_memory_size_in_MB', 0) + \
+    #                                                    memory_summary_dict.get('lora_portion_parameter_size_in_MB', 0)
+    #     memory_summary_dict['total_activations_gradients_and_with_safety_margin_in_MB'] = memory_summary_dict.get('base_model_activations_gradients_and_safety_margin_memory_size_in_MB', 0) + \
+    #                                                                                       memory_summary_dict.get('lora_portion_activations_gradients_and_workspace_margin_in_MB', 0)
+    #     memory_summary_dict['total_optimizer_states_in_MB'] = memory_summary_dict.get('base_model_optimizer_states_memory_size_in_MB', 0) + \
+    #                                                           memory_summary_dict.get('lora_portion_optimizer_states_size_in_MB', 0)
+    #     memory_summary_dict['total_memory_in_MB'] = round(memory_summary_dict['total_parameters_in_MB'] + 
+    #                                                      memory_summary_dict['total_activations_gradients_and_with_safety_margin_in_MB'] + 
+    #                                                      memory_summary_dict['total_optimizer_states_in_MB'], 2)
+        
+    #     # Extract values for comparison
+    #     estimated_total_params = memory_summary_dict['total_parameters_in_MB']
+    #     estimated_total_activations = memory_summary_dict['total_activations_gradients_and_with_safety_margin_in_MB']
+    #     estimated_total_optimizer = memory_summary_dict['total_optimizer_states_in_MB']
+    #     estimated_total = memory_summary_dict['total_memory_in_MB']
+        
+    #     print(f"Estimated rank: {estimated_rank}")
+    #     print(f"Estimated memory breakdown:")
+    #     print(f"  Parameters: {estimated_total_params:.2f} MB")
+    #     print(f"  Activations: {estimated_total_activations:.2f} MB")
+    #     print(f"  Optimizer: {estimated_total_optimizer:.2f} MB")
+    #     print(f"  Total: {estimated_total:.2f} MB")
+        
+    #     # Create model with estimated rank and profile actual memory
+    #     print(f"\nCreating model with rank {estimated_rank} and profiling actual memory...")
+    #     config = LoraConfig(
+    #         r=estimated_rank,
+    #         lora_alpha=estimated_rank,
+    #         target_modules=args.lora_target_modules,
+    #         lora_dropout=0.1,
+    #         bias="none",
+    #     )
+    #     model = get_peft_model(AutoModelForImageClassification.from_pretrained(args.model), config)
+    #     optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
+        
+    #     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    #     model = model.to(device)
+        
+    #     # Create batch
+    #     batch = {
+    #         'pixel_values': torch.randn(args.batch_size, 3, args.image_height, args.image_width).to(device),
+    #         'labels': torch.randint(0, 1000, (args.batch_size,)).to(device)
+    #     }
+        
+    #     def loss_fn(outputs, labels):
+    #         return outputs.loss if hasattr(outputs, 'loss') else torch.nn.functional.cross_entropy(outputs, labels)
+        
+    #     # Profile actual memory (run 10 times and take average for accuracy)
+    #     num_profiling_runs = 1
+    #     print(f"\nProfiling actual memory {num_profiling_runs} times to get average...")
+        
+    #     tracker = MemoryTracker()
+    #     all_profiled_params = []
+    #     all_profiled_optimizer = []
+    #     all_profiled_activations = []
+    #     all_profiled_total = []
+        
+    #     # Check if using GPU
+    #     is_cuda = device.type == 'cuda'
+    #     import gc
+    #     import time
+        
+    #     for run in range(num_profiling_runs):
+    #         print(f"  Run {run + 1}/{num_profiling_runs}...", end=' ', flush=True)
+            
+    #         # Clear memory before each run to avoid interference
+    #         if is_cuda:
+    #             torch.cuda.empty_cache()  # Clear GPU cache
+    #             torch.cuda.reset_peak_memory_stats()  # Reset peak memory stats
+    #         gc.collect()  # Force Python garbage collection
+            
+    #         # Small sleep to ensure cleanup completes (only for first few runs or if needed)
+    #         #if run < 5 or run % 100 == 0:
+    #         time.sleep(3)  # 10ms sleep for cleanup
+            
+    #         profiled_results = tracker.profile_total_memory(
+    #             model=model,
+    #             optimizer=optimizer,
+    #             loss_fn=loss_fn,
+    #             batch=batch,
+    #             precision=args.precision
+    #         )
+            
+    #         # Collect values from this run
+    #         all_profiled_params.append(profiled_results['parameters']['total_memory_MB'])
+    #         all_profiled_optimizer.append(profiled_results['optimizer_states']['optimizer_memory_MB'])
+    #         all_profiled_activations.append(profiled_results['breakdown']['activation_memory_MB'])
+    #         all_profiled_total.append(profiled_results['total']['peak_memory_MB'])
+    #         print(f"Done (Total: {profiled_results['total']['peak_memory_MB']:.2f} MB)")
+            
+    #         # Clear memory after each run
+    #         if is_cuda:
+    #             torch.cuda.empty_cache()
+    #         gc.collect()
+        
+    #     # Calculate averages
+    #     profiled_params = sum(all_profiled_params) / len(all_profiled_params)
+    #     profiled_optimizer = sum(all_profiled_optimizer) / len(all_profiled_optimizer)
+    #     profiled_activations = sum(all_profiled_activations) / len(all_profiled_activations)
+    #     profiled_total = sum(all_profiled_total) / len(all_profiled_total)
+        
+    #     # Calculate standard deviations for reporting
+    #     import statistics
+    #     profiled_params_std = statistics.stdev(all_profiled_params) if len(all_profiled_params) > 1 else 0.0
+    #     profiled_optimizer_std = statistics.stdev(all_profiled_optimizer) if len(all_profiled_optimizer) > 1 else 0.0
+    #     profiled_activations_std = statistics.stdev(all_profiled_activations) if len(all_profiled_activations) > 1 else 0.0
+    #     profiled_total_std = statistics.stdev(all_profiled_total) if len(all_profiled_total) > 1 else 0.0
+        
+    #     print(f"\nProfiled memory breakdown (average over {num_profiling_runs} runs):")
+    #     print(f"  Parameters: {profiled_params:.2f} MB (std: {profiled_params_std:.2f} MB)")
+    #     print(f"  Activations: {profiled_activations:.2f} MB (std: {profiled_activations_std:.2f} MB)")
+    #     print(f"  Optimizer: {profiled_optimizer:.2f} MB (std: {profiled_optimizer_std:.2f} MB)")
+    #     print(f"  Total: {profiled_total:.2f} MB (std: {profiled_total_std:.2f} MB)")
+        
+    #     # Calculate errors
+    #     def calculate_error(estimated, profiled):
+    #         if profiled == 0:
+    #             return float('inf') if estimated > 0 else 0.0
+    #         return abs(estimated - profiled) / profiled * 100
+        
+    #     param_error = calculate_error(estimated_total_params, profiled_params)
+    #     activation_error = calculate_error(estimated_total_activations, profiled_activations)
+    #     optimizer_error = calculate_error(estimated_total_optimizer, profiled_optimizer)
+    #     total_error = calculate_error(estimated_total, profiled_total)
+        
+    #     # Create comparison table
+    #     comparison_data = {
+    #         'Component': ['Parameters', 'Activations', 'Optimizer States', 'Total Peak'],
+    #         'Estimated (MB)': [
+    #             f'{estimated_total_params:.2f}',
+    #             f'{estimated_total_activations:.2f}',
+    #             f'{estimated_total_optimizer:.2f}',
+    #             f'{estimated_total:.2f}'
+    #         ],
+    #         'Profiled (MB)': [
+    #             f'{profiled_params:.2f} ± {profiled_params_std:.2f}',
+    #             f'{profiled_activations:.2f} ± {profiled_activations_std:.2f}',
+    #             f'{profiled_optimizer:.2f} ± {profiled_optimizer_std:.2f}',
+    #             f'{profiled_total:.2f} ± {profiled_total_std:.2f}'
+    #         ],
+    #         'Error (%)': [
+    #             f'{param_error:.2f}',
+    #             f'{activation_error:.2f}',
+    #             f'{optimizer_error:.2f}',
+    #             f'{total_error:.2f}'
+    #         ]
+    #     }
+        
+    #     df = pd.DataFrame(comparison_data)
+        
+    #     # Print table
+    #     print("\n" + "="*80)
+    #     print("MEMORY BREAKDOWN COMPARISON TABLE")
+    #     print("="*80)
+    #     print(df.to_string(index=False))
+    #     print("="*80)
+        
+    #     # Save to CSV
+    #     output_dir = os.path.join(os.path.dirname(__file__), '..', 'results', 'diagrams')
+    #     os.makedirs(output_dir, exist_ok=True)
+    #     csv_path = os.path.join(output_dir, 'memory_breakdown_comparison.csv')
+    #     df.to_csv(csv_path, index=False)
+    #     print(f"\nTable saved to: {csv_path}")
+        
+    #     # Generate LaTeX table
+    #     latex_table = df.to_latex(index=False, float_format="%.2f", escape=False)
+    #     latex_path = os.path.join(output_dir, 'memory_breakdown_comparison.tex')
+    #     with open(latex_path, 'w') as f:
+    #         f.write(latex_table)
+    #     print(f"LaTeX table saved to: {latex_path}")
+        
+    #     # Print summary statistics
+    #     print(f"\nSummary Statistics:")
+    #     print(f"  Mean Absolute Percentage Error (MAPE): {(param_error + activation_error + optimizer_error + total_error) / 4:.2f}%")
+    #     print(f"  Rank used: {estimated_rank}")
+    #     print(f"  Available memory: {args.gpu_memory_size_for_each_group_in_GB[0]} GB ({args.gpu_memory_size_for_each_group_in_GB[0] * 1024:.2f} MB)")
+    #     print(f"  Memory utilization: {profiled_total / (args.gpu_memory_size_for_each_group_in_GB[0] * 1024) * 100:.2f}%")
+        
+    #     return df
+
+    def test_memory_breakdown_comparison_table2(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
         import torch
         import pandas as pd
         
@@ -222,12 +447,12 @@ class TestRankEstimator(unittest.TestCase):
         args.optimizer = 'adamw'
         args.num_of_layers_to_allocate_LoRA = 12
         args.lora_target_modules = ["query", "value"]
-        args.image_height = 244
+        args.image_height = 224
         args.image_width = 224
         args.patch_size = 16
         args.batch_size = 32
-        args.percentage_of_layers_in_memory = 1 / 12
-        args.overhead_and_safety_margin_factor = 0.05
+        args.percentage_of_layers_in_memory = 9 / 12
+        args.overhead_and_safety_margin_factor = 0.2
         args.desired_uploading_time_for_each_group_in_seconds = [60]
         args.desired_downloading_time_for_each_group_in_seconds = [60]
         args.heterogeneous_group = [1.0]
@@ -300,10 +525,9 @@ class TestRankEstimator(unittest.TestCase):
             return outputs.loss if hasattr(outputs, 'loss') else torch.nn.functional.cross_entropy(outputs, labels)
         
         # Profile actual memory (run 10 times and take average for accuracy)
-        num_profiling_runs = 1
+        num_profiling_runs = 10
         print(f"\nProfiling actual memory {num_profiling_runs} times to get average...")
         
-        tracker = MemoryTracker()
         all_profiled_params = []
         all_profiled_optimizer = []
         all_profiled_activations = []
@@ -327,13 +551,71 @@ class TestRankEstimator(unittest.TestCase):
             #if run < 5 or run % 100 == 0:
             time.sleep(3)  # 10ms sleep for cleanup
             
-            profiled_results = tracker.profile_total_memory(
-                model=model,
-                optimizer=optimizer,
-                loss_fn=loss_fn,
-                batch=batch,
-                precision=args.precision
-            )
+            # Use PyTorch profiler directly (like ResNet example)
+            model.train()
+            activities = [ProfilerActivity.CPU]
+            if is_cuda:
+                activities.append(ProfilerActivity.CUDA)
+            
+            # Get parameter and optimizer memory (static values)
+            tracker = MemoryTracker()
+            
+            # Get parameter memory using MemoryTracker method
+            param_memory_dict = tracker.get_parameter_memory(model, args.precision)
+            param_memory_MB = param_memory_dict['total_memory_MB']
+            
+            # Get optimizer memory using MemoryTracker method
+            optimizer_memory_dict = tracker.get_optimizer_state_memory(optimizer, args.precision)
+            optimizer_memory_MB = optimizer_memory_dict['optimizer_memory_MB']
+            
+            # Profile forward and backward pass to get activation memory
+            with profile(
+                activities=activities,
+                profile_memory=True,
+                record_shapes=True
+            ) as prof:
+                # Forward pass
+                outputs = model(**batch)
+                loss = loss_fn(outputs, batch['labels'])
+                # Backward pass
+                loss.backward()
+                # Optimizer step (to include optimizer state allocations)
+                optimizer.step()
+                optimizer.zero_grad()
+            
+            # Extract memory information from profiler
+            # Get peak memory from profiler
+            if is_cuda:
+                peak_memory_bytes = torch.cuda.max_memory_allocated()
+                peak_memory_MB = peak_memory_bytes / (1024 * 1024)
+            else:
+                # For CPU, sum up self CPU memory usage from profiler
+                key_averages = prof.key_averages()
+                peak_memory_bytes = sum(event.self_cpu_memory_usage() for event in key_averages)
+                peak_memory_MB = peak_memory_bytes / (1024 * 1024)
+            
+            # Activation memory is peak memory minus parameters and optimizer states
+            # (approximation, as activations are temporary)
+            activation_memory_MB = max(0, peak_memory_MB - param_memory_MB - optimizer_memory_MB)
+            
+            # Structure results in the same format as before
+            profiled_results = {
+                'parameters': {
+                    'total_memory_MB': param_memory_MB
+                },
+                'optimizer_states': {
+                    'optimizer_memory_MB': optimizer_memory_MB
+                },
+                'breakdown': {
+                    'activation_memory_MB': activation_memory_MB
+                },
+                'total': {
+                    'peak_memory_MB': peak_memory_MB
+                }
+            }
+            
+            # Print profiler table for debugging (optional)
+            # print(prof.key_averages().table(sort_by="self_cpu_memory_usage", row_limit=10))
             
             # Collect values from this run
             all_profiled_params.append(profiled_results['parameters']['total_memory_MB'])
@@ -431,7 +713,6 @@ class TestRankEstimator(unittest.TestCase):
         print(f"  Memory utilization: {profiled_total / (args.gpu_memory_size_for_each_group_in_GB[0] * 1024) * 100:.2f}%")
         
         return df
-
 
 class TestRankEstimatorVisualization(unittest.TestCase):
     """Test class for visualizing rank size vs memory with fixed network speeds"""
