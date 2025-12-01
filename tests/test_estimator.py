@@ -451,7 +451,7 @@ class TestRankEstimator(unittest.TestCase):
         args.image_width = 224
         args.patch_size = 16
         args.batch_size = 32
-        args.percentage_of_layers_in_memory = 9 / 12
+        args.percentage_of_layers_in_memory = 11 / 12
         args.overhead_and_safety_margin_factor = 0.2
         args.desired_uploading_time_for_each_group_in_seconds = [60]
         args.desired_downloading_time_for_each_group_in_seconds = [60]
@@ -771,7 +771,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         args.image_width = 224
         args.patch_size = 16
         args.batch_size = 32
-        args.percentage_of_layers_in_memory = 2 / 3
+        args.percentage_of_layers_in_memory = 9 / 12
         args.overhead_and_safety_margin_factor = 0.2
         args.desired_uploading_time_for_each_group_in_seconds = [60]
         args.desired_downloading_time_for_each_group_in_seconds = [60]
@@ -930,7 +930,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         args.image_width = 224
         args.patch_size = 16
         args.batch_size = 32
-        args.percentage_of_layers_in_memory = 2 / 3
+        args.percentage_of_layers_in_memory = 9 / 12
         args.overhead_and_safety_margin_factor = 0.2
         args.desired_uploading_time_for_each_group_in_seconds = [60]
         args.desired_downloading_time_for_each_group_in_seconds = [60]
