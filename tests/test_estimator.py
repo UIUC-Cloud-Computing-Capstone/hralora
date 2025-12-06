@@ -526,17 +526,8 @@ class TestRankEstimatorVisualization(unittest.TestCase):
     def setUp(self):
         """Set up test fixtures before each test method."""
         self.estimator = RankEstimator()
-    
-    def test_rank_vs_memory_diagram(self):
-        """Generate a diagram showing rank size vs memory with fixed network speeds"""
-        # Fixed network speeds
-        fixed_upload_speed_Mbps = 7
-        fixed_download_speed_Mbps = 50.0
-        
-        # Vary memory sizes (realistic range: 4GB to 16GB)
-        memory_sizes_GB = [1.5, 1.8, 1.9, 2, 4, 8]
-        
-        # Model and training configuration
+
+    def _init_args(self):
         args = argparse.Namespace()
         args.rank_estimator_method = 'Ours'
         args.model = 'facebook/deit-small-patch16-224'
@@ -553,6 +544,19 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         args.desired_uploading_time_for_each_group_in_seconds = [60]
         args.desired_downloading_time_for_each_group_in_seconds = [60]
         args.heterogeneous_group = [1.0]  # Single group for simplicity
+        return args
+    
+    def test_rank_vs_memory_diagram(self):
+        """Generate a diagram showing rank size vs memory with fixed network speeds"""
+        # Fixed network speeds
+        fixed_upload_speed_Mbps = 7
+        fixed_download_speed_Mbps = 50.0
+        
+        # Vary memory sizes (realistic range: 4GB to 16GB)
+        memory_sizes_GB = [1.5, 1.8, 1.9, 2, 4, 8]
+        
+        # Model and training configuration
+        args = self._init_args()
         
         # Load model once
         model = AutoModelForImageClassification.from_pretrained(args.model)
@@ -627,22 +631,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         network_speeds_Mbps = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 7.0, 10.0]
         
         # Model and training configuration
-        args = argparse.Namespace()
-        args.rank_estimator_method = 'Ours'
-        args.model = 'facebook/deit-small-patch16-224'
-        args.precision = 'fp32'
-        args.optimizer = 'adam'
-        args.num_of_layers_to_allocate_LoRA = 12
-        args.lora_target_modules = ["query", "value"]
-        args.image_height = 224
-        args.image_width = 224
-        args.patch_size = 16
-        args.batch_size = 32
-        args.percentage_of_layers_in_memory = 12 / 12
-        args.overhead_and_safety_margin_factor = 0.1
-        args.desired_uploading_time_for_each_group_in_seconds = [60]
-        args.desired_downloading_time_for_each_group_in_seconds = [60]
-        args.heterogeneous_group = [1.0]  # Single group for simplicity
+        args = self._init_args()
         args.gpu_memory_size_for_each_group_in_GB = [fixed_memory_GB]
         
         # Load model once
@@ -689,6 +678,9 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         
         plt.close()
 
+    def test_rank_vs_memory_and_network_speed_combined(self):
+        pass
+
     def test_rank_3d_diagram(self):
         """Generate a 3D diagram showing rank size vs memory and network speed"""
         # Define ranges for memory and network speeds
@@ -696,22 +688,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         network_speeds_Mbps = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 7.0, 10.0]
         
         # Model and training configuration
-        args = argparse.Namespace()
-        args.rank_estimator_method = 'Ours'
-        args.model = 'facebook/deit-small-patch16-224'
-        args.precision = 'fp32'
-        args.optimizer = 'adam'
-        args.num_of_layers_to_allocate_LoRA = 12
-        args.lora_target_modules = ["query", "value"]
-        args.image_height = 224
-        args.image_width = 224
-        args.patch_size = 16
-        args.batch_size = 32
-        args.percentage_of_layers_in_memory = 12 / 12
-        args.overhead_and_safety_margin_factor = 0.1
-        args.desired_uploading_time_for_each_group_in_seconds = [60]
-        args.desired_downloading_time_for_each_group_in_seconds = [60]
-        args.heterogeneous_group = [1.0]  # Single group for simplicity
+        args = self._init_args()
         
         # Load model once
         model = AutoModelForImageClassification.from_pretrained(args.model)
