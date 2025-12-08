@@ -831,8 +831,8 @@ class TestRankEstimatorVisualization(unittest.TestCase):
     def test_rank_3d_diagram(self):
         """Generate a 3D diagram showing rank size vs memory and network speed"""
         # Define ranges for memory and network speeds
-        memory_sizes_GB = [1.9, 2, 2.1, 2.2, 2.3, 2.4]
-        network_speeds_Mbps = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 7.0, 10.0]
+        memory_sizes_GB = [1.9, 1.95, 2, 2.05, 2.1, 2.15, 2.2, 2.25, 2.3, 2.35, 2.4]
+        network_speeds_Mbps = [0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0, 4.0, 5.0, 7.0, 10.0]
         
         # Model and training configuration
         args = self._init_args()
