@@ -687,7 +687,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         fixed_memory_GB = 8.0
         
         # Vary memory sizes (realistic range: 4GB to 16GB)
-        memory_sizes_GB = [1.5, 1.8, 1.9, 2, 4, 8]
+        memory_sizes_GB = [1.5, 1.8, 1.9, 2, 2.1, 2.2, 2.5, 4, 8]
         
         # Vary network speeds (realistic range: 0.5 Mbps to 10 Mbps)
         network_speeds_Mbps = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 7.0, 10.0]
@@ -742,7 +742,8 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         # Set bottom X-axis for memory sizes - use less rotation for better readability
         ax.set_xlabel('GPU Memory Size (GB)', fontsize=26, color='blue', labelpad=15)
         ax.set_xticks(x_positions_memory)
-        ax.set_xticklabels([f'{mem:.2f}' if mem < 1 else f'{mem:.1f}' if mem < 2 else f'{int(mem)}' 
+        # Format labels: show 2 decimals for < 1, 1 decimal for < 3, integer for >= 3
+        ax.set_xticklabels([f'{mem:.2f}' if mem < 1 else f'{mem:.1f}' if mem < 3 else f'{int(mem)}' 
                             for mem in memory_sizes_GB], rotation=30, ha='right', fontsize=24, color='blue')
         ax.tick_params(axis='x', labelsize=24, colors='blue', pad=12)
         
