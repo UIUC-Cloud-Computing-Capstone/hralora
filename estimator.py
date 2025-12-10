@@ -4,6 +4,10 @@ OURS = 'Ours'
 class RankEstimator:
 
     def get_rank_for_all_client_groups(self, args, model):
+
+        if args.model != 'facebook/deit-small-patch16-224':
+            raise NotImplementedError(f'Invalid model: {args.model}. Only facebook/deit-small-patch16-224 is supported.')
+
         rank_for_all_client_groups = []
         for i in range(len(args.heterogeneous_group)):
             print(f"client group {i}")
@@ -58,7 +62,6 @@ class RankEstimator:
         return self._get_final_rank(rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed)
 
     def _get_final_rank(self, rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed):
-        # TODO Liam: add penalty? how?
         return min(rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed)
     
     def _get_rank_based_on_gpu_memory(self, args, model, total_gpu_memory_size_in_GB, memory_summary_dict):
@@ -74,23 +77,11 @@ class RankEstimator:
         
         base_model_parameter_memory_size_in_bytes = self._get_base_model_parameter_memory_size_in_bytes(args, model)
 
-        # During backprop, gradients are computed layer-by-layer in reverse
-        # For conservative estimate, assume all gradients stored simultaneously
-        # In practice, only a subset exists at any time (typically 1-2 layers)
-        # Option 1: Conservative (all gradients)
-        #gradient_memory_bytes = base_model_parameter_memory_size_in_bytes
-
-        # Option 2: More realistic (only gradients for layers being processed)
-        # Typically 1-2 layers' gradients exist at peak during backprop
-        # But this is harder to estimate, so conservative approach is safer
-        # gradient_memory_bytes = base_model_parameter_memory_bytes * 0.2  # 20% if only 1-2 layers
-        total_num_of_layers = 12
         gradient_memory_bytes = base_model_parameter_memory_size_in_bytes * args.percentage_of_layers_in_memory
 
         base_model_activations_and_safety_margin_memory_size_in_bytes = self._get_base_model_activations_and_safety_margin_memory_size_in_bytes(args)
-        #base_model_optimizer_states_memory_size_in_bytes = self._get_base_model_optimizer_states_memory_size_in_bytes(args, base_model_parameter_memory_size_in_bytes)
-        result = base_model_parameter_memory_size_in_bytes + base_model_activations_and_safety_margin_memory_size_in_bytes + gradient_memory_bytes
-        #+ base_model_optimizer_states_memory_size_in_bytes
+        base_model_optimizer_states_memory_size_in_bytes = self._get_base_model_optimizer_states_memory_size_in_bytes(args, base_model_parameter_memory_size_in_bytes)
+        result = base_model_parameter_memory_size_in_bytes + base_model_activations_and_safety_margin_memory_size_in_bytes + gradient_memory_bytes + base_model_optimizer_states_memory_size_in_bytes
         
         if memory_summary_dict is not None:
             memory_summary_dict['base_model_parameter_memory_size_in_MB'] = self._bytes_to_mb(base_model_parameter_memory_size_in_bytes)
@@ -101,12 +92,16 @@ class RankEstimator:
     def _bytes_to_mb(self, bytes_value):
         return round(bytes_value / 1024 / 1024, 2)
 
+    def _get_num_of_adapted_matrices(self, args):
+        return 2 # A and B matrices
+
+    def _get_num_of_modules_per_layer(self, args):
+        return len(args.lora_target_modules)
+
     def _get_rank_based_on_lora_portion(self, args, model, lora_portion, memory_summary_dict):
-        #print(f"lora_portion_in_MB: {self._bytes_to_mb(lora_portion)}")
         if lora_portion <= 0:
             print(f'Warning: GPU memory is too small to train the model')
             return 0
-            #raise ValueError('GPU memory is too small to train the model')
         
         # get rank based on lora_portion
         # lora_portion includes (1) parameter size, (2) activations and safety margin size, and (3) optimizer states size.
@@ -125,10 +120,10 @@ class RankEstimator:
         # Let total_dimension_size = C  * m * H * L * bytes per parameter.
         # Parameter memory size is r * total_dimension_size.
 
-        num_modules_per_layer = 2
-        H = self._get_hidden_dimension(args, model)
+        num_modules_per_layer = self._get_num_of_modules_per_layer(args)
+        H = self._get_hidden_dimension(args)
         def get_total_dimension_size(args, model):
-            C = 2
+            C = self._get_num_of_adapted_matrices(args)
             bytes_per_parameter = self._get_byte_per_parameter(args.precision)
             return C * num_modules_per_layer * H * args.num_of_layers_to_allocate_LoRA * bytes_per_parameter
 
@@ -160,17 +155,23 @@ class RankEstimator:
         # (3) optimizer states memory size = 2 * (1) parameter memory size if model is trained in fp32, 4 * (1) parameter memory size if model is trained in fp16.
         # multiplier is 2 for fp32, 4 for fp16.
         # optimizer states memory size = multiplier * total_dimension_size * r.
-
+        def get_multiplier(args):
+            if args.precision == 'fp32':
+                return 2
+            elif args.precision == 'fp16':
+                return 4
+            else:
+                raise ValueError(f'Invalid precision: {args.precision}')
         # (4) gradient memory size
         gradient_percentage = args.percentage_of_layers_in_memory
-        #gradient_memory_size = r * total_dimension_size * gradient_percentage
+        # gradient_memory_size = r * total_dimension_size * gradient_percentage
 
         # (5) total memory size
         # total memory size = (1) + (2) + (3) + (4)
         # total memory size = r * total_dimension_size * (1 + gradient_percentage) + (h + r) * total_sequence_length_with_margin + multiplier * r * total_dimension_size
         # r = (total memory size - h * total_sequence_length_with_margin) / (total_dimension_size + total_sequence_length_with_margin + multiplier * total_dimension_size)
         
-        multiplier = 2
+        multiplier = get_multiplier(args)
         result = int((lora_portion - H * total_sequence_length_with_margin) / (total_dimension_size * (1 + gradient_percentage) + total_sequence_length_with_margin + multiplier * total_dimension_size))
         result = min(result, H) # cap the rank by the hidden dimension
         
@@ -186,8 +187,7 @@ class RankEstimator:
         lora_portion_activations_size_in_MB = self._bytes_to_mb(lora_portion_activations_size)
         if memory_summary_dict is not None:
             memory_summary_dict['lora_portion_activations_size_in_MB_with_workspace_margin'] = lora_portion_activations_size_in_MB
-        lora_portion_activations_size_in_MB /= (1 + workspace_margin) # 20% workspace margin
-        #gradient_percentage = 0.2
+        lora_portion_activations_size_in_MB /= (1 + workspace_margin)
         gradient_memory_size_in_MB = lora_portion_parameter_size_in_MB * gradient_percentage
         if memory_summary_dict is not None:
             memory_summary_dict['lora_portion_gradient_size_in_MB'] = gradient_memory_size_in_MB
@@ -204,10 +204,11 @@ class RankEstimator:
             result = 0
         return result 
     
-    def _get_hidden_dimension(self, args, model):
-        # TODO Liam
-        # return the hidden dimension of the model
-        return 384
+    def _get_hidden_dimension(self, args):
+        if args.model == 'facebook/deit-small-patch16-224':
+            return 384 # TODO Liam read from actual model
+        else:
+            raise NotImplementedError(f'Invalid model: {args.model}. Only facebook/deit-small-patch16-224 is supported.')
 
     def _get_total_gpu_memory_size_in_bytes(self, args, total_gpu_memory_size_in_GB):
         return total_gpu_memory_size_in_GB * 1024 * 1024 * 1024
@@ -217,7 +218,7 @@ class RankEstimator:
         model = AutoModelForImageClassification.from_pretrained('facebook/deit-small-patch16-224')
         '''
         
-        parameter_size = 22_000_000 # TODO Abdul: Please check documentation and only include parameters of base model without LoRA
+        parameter_size = 22_000_000 # TODO Liam: read from actual model
         
         byte_per_parameter = self._get_byte_per_parameter(args.precision)
 
@@ -230,6 +231,18 @@ class RankEstimator:
             return 2
         else:
             raise ValueError(f'Invalid precision: {precision}')
+
+    def _get_num_of_layers(self, args):
+        if args.model == 'facebook/deit-small-patch16-224':
+            return 12
+        else:
+            raise NotImplementedError(f'Invalid model: {args.model}. Only facebook/deit-small-patch16-224 is supported.')
+
+    def _get_num_of_heads(self, args):
+        if args.model == 'facebook/deit-small-patch16-224':
+            return 6
+        else:
+            raise NotImplementedError(f'Invalid model: {args.model}. Only facebook/deit-small-patch16-224 is supported.')
     
     def _get_base_model_activations_and_safety_margin_memory_size_in_bytes(self, args):
 
@@ -247,16 +260,17 @@ class RankEstimator:
         attn_scores = B * num_heads * S * S * dtype_bytes
         peak_activations ≈ (total_forward + attn_scores) * (1 + workspace_margin)
         """
-        batch_size = args.batch_size
-        
-        # we use facebook/deit-small-patch16-224
-        
+
+
+        if args.model != 'facebook/deit-small-patch16-224':
+            raise NotImplementedError(f'Invalid model: {args.model}. Only facebook/deit-small-patch16-224 is supported.')
+
         batch_size = args.batch_size
         sequence_length = self._get_sequence_length(args)  # 197 for deit-small
-        hidden_dimension = 384
-        num_layers = args.percentage_of_layers_in_memory * 12
-        num_heads = 6
-        intermediate_size = hidden_dimension * 4  # 1536
+        hidden_dimension = self._get_hidden_dimension(args)
+        num_layers = args.percentage_of_layers_in_memory * self._get_num_of_layers(args)
+        num_heads = self._get_num_of_heads(args)
+        intermediate_size = hidden_dimension * 4
         dtype_bytes = self._get_byte_per_parameter(args.precision)
         workspace_margin = args.overhead_and_safety_margin_factor
     
@@ -287,22 +301,14 @@ class RankEstimator:
         # Convert to bytes
         peak_activations_bytes = peak_activations_all_layers * dtype_bytes
 
-        
-        
         # Add workspace margin
         #print(f"peak_activations_MB: {self._bytes_to_mb(peak_activations_bytes)}")
         return peak_activations_bytes * (1 + workspace_margin)
 
     def _get_sequence_length(self, args):
-        #if model_name == 'facebook/deit-small-patch16-224':
-        # args.image_height = 224
-        # #H = 224
-        # args.patch_size = 16
-        # # P = 16
-        # # W = 224
-        # args.image_width = 224
+        if args.model != 'facebook/deit-small-patch16-224':
+            raise NotImplementedError(f'Invalid model: {args.model}. Only facebook/deit-small-patch16-224 is supported.')
         CLS_TOKEN = 1
-        # number of patches ((H / P) × (W / P)) + CLS token
         return args.image_height / args.patch_size * args.image_width / args.patch_size + CLS_TOKEN
         
     def _get_base_model_optimizer_states_memory_size_in_bytes(self, args, base_model_memory_size_in_bytes):
@@ -311,41 +317,26 @@ class RankEstimator:
         This function only calculates the memory size for the base model portion.
         '''
 
-        if args.optimizer == 'adamw' or args.optimizer == 'adam':
-            # AdamW keeps 2 extra states (m, v) per parameter.
-            return base_model_memory_size_in_bytes * 2
+        if not args.train_classifier:
+            return 0
+        else:
+            raise NotImplementedError('Not implemented yet.')
     
     def _get_safety_margin_memory_size_in_bytes(self, args, model, base_model_memory_size, activations_memory_size, optimizer_states_memory_size):
-        # if args.alpha is None:
-        #     args.alpha = 0.2
         safety_margin_memory_size = (base_model_memory_size + activations_memory_size + optimizer_states_memory_size) * args.overhead_and_safety_margin_factor
         return safety_margin_memory_size
 
     def _get_rank_based_on_network_speed(self, args, model,network_speed_in_Mbps, desired_communication_time_in_seconds):
-        # TODO Abdul review and add unit test for this function
-
-    
         bytes_per_second = network_speed_in_Mbps * 1_000_000 / 8
         parameter_size_in_bytes = desired_communication_time_in_seconds * bytes_per_second
-        num_modules_per_layer = 2
-        H = self._get_hidden_dimension(args, model)
-        C = 2 # A and B matrices
+        num_modules_per_layer = self._get_num_of_modules_per_layer(args)
+        H = self._get_hidden_dimension(args)
+        C = self._get_num_of_adapted_matrices(args)
         num_layers = args.num_of_layers_to_allocate_LoRA
         bytes_per_parameter = self._get_byte_per_parameter(args.precision)
         total_dimension_size = C * num_modules_per_layer * H * num_layers * bytes_per_parameter
         rank = int(parameter_size_in_bytes / total_dimension_size)
         return rank
-
-# TODO Liam: refactor heterogeneous_group0_lora etc in YAML
-
-# Test cases
-# Group 1: large memory size, extremely bad network -> FedHello will give higher rank, but our method will give lower rank
-# Group 2: large memory size, good network -> both methods will give higher rank
-# Group 3: small memory size, good network -> both methods will give lower rank
-
-
-# For group 1:
-# FedHello, suppose the training time per round is 1 minute, and the communitcation time per round is 1 minute due to bad network
 
 
 
