@@ -30,7 +30,7 @@ method: ffm_fedavg
 attack: None
 defend: None
 # Model
-model: google/vit-base-patch16-224-in21k
+model: facebook/deit-small-patch16-224
 peft: lora
 
 model_heterogeneity: depthfl

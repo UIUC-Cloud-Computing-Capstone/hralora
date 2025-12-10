@@ -1174,7 +1174,7 @@ def update_dataset_fim(args, dataset_fim):
            - Requires tokenizer for proper formatting
     
     Example:
-        >>> args.model = 'google/vit-base-patch16-224-in21k'
+        >>> args.model = 'facebook/deit-small-patch16-224'
         >>> args.dataset = 'cifar100'
         >>> args.batch_size = 32
         >>> fim_loader = update_dataset_fim(args, fim_dataset)
@@ -1243,7 +1243,7 @@ def get_data_loader_list(args, dataset_train, dict_users):
     
     Example:
         >>> args.num_users = 100
-        >>> args.model = 'google/vit-base-patch16-224-in21k'
+        >>> args.model = 'facebook/deit-small-patch16-224'
         >>> args.dataset = 'cifar100'
         >>> args.batch_size = 32
         >>> data_loaders = get_data_loader_list(args, train_dataset, user_dict)
