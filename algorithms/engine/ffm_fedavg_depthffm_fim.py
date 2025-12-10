@@ -904,6 +904,9 @@ def get_rank_list(args, layer_list, fim, id):
     final_rank_list = truncated_rank_list;
     args.rank_list.append(final_rank_list)
 
+    if len(layer_list)==12:
+        args.logger.info(f'layer list: {sorted_layer_list}, fim score: {selected_layer_fim}, rank list: {final_rank_list}')
+
     print(f'group {id}: rank_budget = {rank_budget}, fim = {selected_layer_fim}, rank_list = {final_rank_list}, selected layer = {sorted_layer_list} ')
     #print(f'args.rank_list = {args.rank_list}')
 

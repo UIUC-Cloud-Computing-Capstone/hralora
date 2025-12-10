@@ -48,9 +48,9 @@ layer_prob: [1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1/12, 1
 
 ##### rank variation
 enable_rank_var: true
-var_rank_group0_lora: 96 #24 *6
-var_rank_group1_lora: 144
-var_rank_group2_lora: 192
+var_rank_group0_lora: 144 #24 *6
+var_rank_group1_lora: 216
+var_rank_group2_lora: 288
 
 layer_min_rank: 10
 
@@ -72,26 +72,25 @@ train_classifier: false
 
 ###### train both A and B at the beginning
 warm_start: true
-alternating: true
+alternating: false
 
 # Dataset configure
 data_type: image
 dataset: cifar100
-iid: 1 # whether i.i.d or not
+iid: 0 # whether i.i.d or not
 
 #####################################
 ########## non iid type #############
 #####################################
-# noniid_type: pathological # pathological, dirichlet(#Samples)
+noniid_type: pathological # pathological, dirichlet(#Samples)
 ########## pathological ########
-# pat_num_cls: 8 # 3 for cifar10
+pat_num_cls: 20 # 3 for cifar10
 ########## dirichlet ###########
-# dir_cls_alpha: 0.3 # 1
+# dir_cls_alpha: 0.3 # 1.0 0.3
 ################################
 ##### Parition Distribution ####
 ################################
-# partition_mode: uni # uni, dir
-
+partition_mode: dir # uni, dir
 #####################################
 ########### fim params ##############
 fim_every_iter: 20
