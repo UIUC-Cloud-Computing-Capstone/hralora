@@ -38,6 +38,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         args.desired_uploading_time_for_each_group_in_seconds = [60]
         args.desired_downloading_time_for_each_group_in_seconds = [60]
         args.heterogeneous_group = [1.0]  # Single group for simplicity
+        args.train_classifier = False # do not train classifier in the base model. Only train LoRA matrices.
         return args
     
     def test_rank_vs_memory_diagram(self):
@@ -72,13 +73,14 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         self._create_rank_vs_memory_diagram(fixed_upload_speed_Mbps, fixed_download_speed_Mbps, memory_sizes_GB, rank_values)
         
         # Save the diagram
-        self._save_diagram('rank_vs_memory_diagram.png')
+        self._save_diagram('rank_vs_memory_diagram.pdf')
 
     def _save_diagram(self, diagram_name):
         output_dir = os.path.join(os.path.dirname(__file__), '..', 'results', 'diagrams')
         os.makedirs(output_dir, exist_ok=True)
         output_path = os.path.join(output_dir, diagram_name)
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        # Save as PDF for selectable text labels (dpi parameter not needed for vector format)
+        plt.savefig(output_path, bbox_inches='tight')
         print(f"\nDiagram saved to: {output_path}")
         
         plt.close()
@@ -169,7 +171,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         plt.tight_layout()
         
         # Save the diagram
-        self._save_diagram('rank_vs_network_speed_diagram.png')
+        self._save_diagram('rank_vs_network_speed_diagram.pdf')
 
     def test_rank_vs_memory_and_network_speed_combined(self):
         """Generate a combined diagram with both lines in the same figure, sharing the Y-axis"""
@@ -319,7 +321,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         fig.subplots_adjust(bottom=0.20, top=0.82)
         
         # Save the diagram
-        self._save_diagram('rank_vs_memory_and_network_speed_combined.png')
+        self._save_diagram('rank_vs_memory_and_network_speed_combined.pdf')
 
     def test_rank_3d_diagram(self):
         """Generate a 3D diagram showing rank size vs memory and network speed"""
@@ -359,24 +361,27 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         # Add contour lines on the surface
         ax.contour(X, Y, Z, zdir='z', offset=ax.get_zlim()[0], cmap='viridis', alpha=0.3)
         
+
+        font_size = 32
+        label_pad = 32
         # Set labels
-        ax.set_xlabel('GPU Memory Size (GB)', fontsize=16, labelpad=10)
-        ax.set_ylabel('Network Speed (Mbps)', fontsize=16, labelpad=10)
-        ax.set_zlabel('Rank Size', fontsize=16, labelpad=10)
+        ax.set_xlabel('GPU Memory Size (GB)', fontsize=font_size, labelpad=label_pad)
+        ax.set_ylabel('Network Speed (Mbps)', fontsize=font_size, labelpad=label_pad)
+        ax.set_zlabel('Rank Size', fontsize=font_size, labelpad=label_pad)
         #ax.set_title('Rank Size vs GPU Memory and Network Speed', fontsize=14, fontweight='bold', pad=20)
         
         # Make tick labels larger
-        ax.tick_params(axis='x', labelsize=14)
-        ax.tick_params(axis='y', labelsize=14)
-        ax.tick_params(axis='z', labelsize=14)
+        ax.tick_params(axis='x', labelsize=font_size)
+        ax.tick_params(axis='y', labelsize=font_size)
+        ax.tick_params(axis='z', labelsize=font_size)
         
         # Reverse x-axis
         ax.invert_xaxis()
         
         # Add colorbar with larger label
         cbar = fig.colorbar(surf, ax=ax, shrink=0.5, aspect=20, label='Rank Size')
-        cbar.set_label('Rank Size', fontsize=16)
-        cbar.ax.tick_params(labelsize=14)
+        cbar.set_label('Rank Size', fontsize=font_size)
+        cbar.ax.tick_params(labelsize=font_size)
         
         # Set viewing angle for better visualization - adjust to make slope face reader
         ax.view_init(elev=25, azim=280)
@@ -386,8 +391,9 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         # Save the diagram
         output_dir = os.path.join(os.path.dirname(__file__), '..', 'results', 'diagrams')
         os.makedirs(output_dir, exist_ok=True)
-        output_path = os.path.join(output_dir, 'rank_3d_diagram.png')
-        plt.savefig(output_path, dpi=300, bbox_inches='tight')
+        output_path = os.path.join(output_dir, 'rank_3d_diagram.pdf')
+        # Save as PDF for selectable text labels (dpi parameter not needed for vector format)
+        plt.savefig(output_path, bbox_inches='tight')
         print(f"\n3D Diagram saved to: {output_path}")
         
         plt.close()
