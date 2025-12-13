@@ -51,6 +51,8 @@ if __name__ == '__main__':
     ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
     meta_args.accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
     meta_args.device = meta_args.accelerator.device
+
+    print('##### %s',str(meta_args.device))
     logging.basicConfig(level=logging.INFO)
     meta_args.logger = get_logger(__name__)
     meta_args.log_path = set_log_path(meta_args)
@@ -72,9 +74,9 @@ if __name__ == '__main__':
         
         if meta_args.accelerator.is_local_main_process:
             args.logger.info('############ Case '+ str(r) + ' ############', main_process_only=True)
-        torch.manual_seed(args.seed+r)
+        torch.manual_seed(args.seed*r)
         # torch.cuda.manual_seed(args.seed+args.repeat) # avoid
-        np.random.seed(args.seed+r)
+        np.random.seed(args.seed*r)
         torch.backends.cudnn.deterministic = True
         torch.backends.cudnn.benchmark = False
         
@@ -95,3 +97,7 @@ if __name__ == '__main__':
             args.logger.info('repeated '+ key +' scores: ' + str(score_box[index]), main_process_only=True)
             avg_score = np.average(score_box[index])
             args.logger.info('avg of the '+ key +' scores ' + str(avg_score), main_process_only=True)
+
+    f = open(file_name, 'a+')  # open file in append mode
+    f.write(f"Training ended: {datetime.now()}")
+    f.close()

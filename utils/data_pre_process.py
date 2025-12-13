@@ -70,8 +70,7 @@ class DatasetSplit(Dataset):
             pixel_values = data_item['pixel_values']
             return image, label, pixel_values
         else:
-            image, label = self.dataset[self.idxs[item]]
-            return image, label
+            return self.dataset[int(self.idxs[item])]
 
 def merge_columns(example):
     example["prediction"] = example["quote"] + " ->: " + str(example["labels"])
@@ -94,9 +93,9 @@ def load_partition(args):
             args.label2id[label] = i
             args.id2label[i] = label
 
-        image_processor = AutoImageProcessor.from_pretrained('google/vit-base-patch16-224-in21k')
+        image_processor = AutoImageProcessor.from_pretrained('facebook/deit-small-patch16-224')
         normalize = Normalize(mean=image_processor.image_mean, std=image_processor.image_std)
-        if args.model == 'google/vit-base-patch16-224-in21k':
+        if args.model == 'facebook/deit-small-patch16-224':
             train_transforms = Compose(
                 [
                     RandomResizedCrop(image_processor.size["height"]),

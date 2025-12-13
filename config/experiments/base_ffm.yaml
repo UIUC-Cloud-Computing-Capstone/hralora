@@ -2,6 +2,18 @@
 ############# global argument #############
 ###########################################
 
+LEGEND: false
+LOKR: false
+layer_min_rank: 0
+##### apply SVD for aggregation
+apply_svd_aggregation: false
+weight_decay: 0.01
+proposed_method: false
+
+
+###### Whether to train classifier (default: false)
+train_classifier: false
+
 pub_set: 10 # number of data in validation set
 num_users: 10 # number of users: K
 num_selected_users: 10 # number of selected users: 100, for shakespeare, it is 10
@@ -19,10 +31,10 @@ global_momentum: 1 # global momentum
 
 tau: 1 # number of local epochs
 #batch_size: 256 # local batch size
-# TODO Liam: for dev, change later
+
 batch_size: 1
 #test_batch_size: 64
-# TODO Liam: for dev, change later
+
 test_batch_size: 1
 local_lr: 2e-05 # local learning rate
 
