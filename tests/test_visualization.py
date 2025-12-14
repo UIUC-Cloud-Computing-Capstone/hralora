@@ -162,6 +162,12 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         plt.xticks(network_speeds_Mbps)
         plt.tick_params(axis='both', labelsize=14)
         
+        # Add padding to x-axis to prevent last point from being too close to edge
+        x_min = min(network_speeds_Mbps)
+        x_max = max(network_speeds_Mbps)
+        x_range = x_max - x_min
+        plt.xlim(x_min - 0.1 * x_range, x_max + 0.15 * x_range)  # Add 10% padding on left, 15% on right
+        
         # Add value labels on points (only for upload line to avoid clutter)
         for i, (speed, rank) in enumerate(zip(network_speeds_Mbps, rank_values_upload)):
             if i % 2 == 0:  # Label every other point to avoid clutter
@@ -176,7 +182,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
     def test_rank_vs_memory_and_network_speed_combined(self):
         """Generate a combined diagram with both lines in the same figure, sharing the Y-axis"""
         # Fixed network speeds for memory diagram
-        fixed_upload_speed_Mbps = 7
+        fixed_upload_speed_Mbps = 20
         fixed_download_speed_Mbps = 50.0
         
         # Fixed memory size for network speed diagram
@@ -186,7 +192,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         memory_sizes_GB = [1.5, 1.8, 1.9, 2, 2.1, 2.2, 2.5, 4, 8]
         
         # Vary network speeds (realistic range: 0.5 Mbps to 10 Mbps)
-        network_speeds_Mbps = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 7.0, 10.0]
+        network_speeds_Mbps = [1.0, 2.0, 4.0, 8.0, 12.0, 15.0, 20.0]
         
         # Model and training configuration
         args = self._init_args()
@@ -227,7 +233,8 @@ class TestRankEstimatorVisualization(unittest.TestCase):
                 # Less aggressive for larger values
                 base = 1.0  # Value at mem_val=2
                 return base + 0.3 * np.power(mem_val - 2, 0.5)
-        
+            #return mem_val
+            
         # Transform memory values for x-positions
         x_positions_memory = [transform_memory(mem) for mem in memory_sizes_GB]
         
@@ -248,33 +255,34 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         x_min_transformed = min(x_positions_memory)
         x_max_transformed = max(x_positions_memory)
         x_range = x_max_transformed - x_min_transformed
-        ax.set_xlim(x_min_transformed - 0.2 * x_range, x_max_transformed + 0.2 * x_range)
+        # Increase right padding significantly to accommodate network speed labels
+        left_padding = 0.2 * x_range
+        right_padding = 0.4 * x_range  # Increased from 0.3 to 0.4
+        x_lim_min = x_min_transformed - left_padding
+        x_lim_max = x_max_transformed + right_padding
+        ax.set_xlim(x_lim_min, x_lim_max)
         
         # Create top X-axis for network speeds
         ax2 = ax.twiny()  # Create a second axes that shares the same y-axis
         
         # Map network speeds to the same physical X range as transformed memory values
-        memory_x_min_transformed = min(x_positions_memory)
-        memory_x_max_transformed = max(x_positions_memory)
+        # Use the FULL x-axis range (including padding) to ensure last point has space
         network_min = min(network_speeds_Mbps)
         network_max = max(network_speeds_Mbps)
         
         # Transform network speeds to transformed memory value space for plotting
-        # Shift mapping left so 0.5 is closer to the left edge
         def network_to_x(network_val):
             """Transform network speed value to X position matching transformed memory range"""
             if network_max == network_min:
-                return memory_x_min_transformed
-            # Use a compressed mapping: map from network_min to network_max but shift left
-            # by using a smaller effective range to compress the left side
-            range_size = memory_x_max_transformed - memory_x_min_transformed
-            # Compress the mapping by using only part of the range, shifting everything left
-            # This brings 0.5 closer to the left edge
-            compressed_range = range_size * 0.85  # Use 85% of the range
-            left_offset = range_size * 0.15  # Shift left by 15% of the range
+                return x_lim_min
+            # Map network speeds to the FULL x-axis range, but leave extra space on the right
+            # Use 85% of the available range to ensure last point isn't at the edge
+            available_range = x_lim_max - x_lim_min
+            compressed_range = available_range * 0.85  # Use 85% of available range
+            left_offset = available_range * 0.10  # Start at 10% from left edge
             
             normalized = (network_val - network_min) / (network_max - network_min)
-            return memory_x_min_transformed - left_offset + normalized * compressed_range
+            return x_lim_min + left_offset + normalized * compressed_range
         
         network_x_positions = [network_to_x(speed) for speed in network_speeds_Mbps]
         
@@ -311,7 +319,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         
         # Add value labels on points for network speed plot (every other point to avoid clutter)
         for i, (pos, rank) in enumerate(zip(network_x_positions, rank_values_network)):
-            if i % 2 == 0:
+            #if i % 2 == 0:
                 ax2.annotate(f'{int(rank)}', (pos, rank), textcoords="offset points", 
                            xytext=(0,30), ha='center', fontsize=24, color='green')
         
