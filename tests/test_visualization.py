@@ -381,7 +381,7 @@ class TestRankEstimatorVisualization(unittest.TestCase):
                 # Use a combination of base offset and percentage of z value
                 label_z = z + base_offset + z * 0.05  # + 5% of z value
                 ax.text(min_x_for_each_z[z], min_y_for_each_z[z], label_z, f'{int(z)}', 
-                       fontsize=16, color='black', zorder=100,  # High zorder to ensure it's on top
+                       fontsize=20, color='black', zorder=100,  # High zorder to ensure it's on top
                        bbox=dict(boxstyle='round,pad=0.4', facecolor='white', alpha=0.9, edgecolor='none'))
         
         # Add contour lines on the surface
