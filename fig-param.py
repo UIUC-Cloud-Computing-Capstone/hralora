@@ -3,7 +3,7 @@ import numpy as np
 
 # ===== Data =====
 methods = [
-    "FedLR", "Straggler", "Exclusive", "LoKr",
+    "FedIT", "Straggler", "Exclusive", "LoKr",
     "FFA-LoRA", "LEGEND", "Fed-HeLLo", "HRALoRA"
 ]
 
@@ -58,7 +58,7 @@ for i, name in enumerate(methods):
     )
 
     # Custom label placement by method
-    if name == "FedLR":
+    if name == "FedIT":
         # Under the marker, centered
         ax.text(
             x,

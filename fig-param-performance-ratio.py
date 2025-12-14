@@ -3,7 +3,7 @@ import numpy as np
 
 # Methods
 methods = [
-    "FedLR", "Straggler", "Exclusive", 
+    "FedIT", "Straggler", "Exclusive", 
     "FFA-LoRA", "LEGEND", "Fed-HeLLo", "HRALoRA"
 ]
 
