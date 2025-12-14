@@ -390,16 +390,17 @@ class TestRankEstimatorVisualization(unittest.TestCase):
 
         font_size = 26
         label_pad = 32
+        z_label_pad = 50  # Increased padding for z-axis to avoid grid overlap
         # Set labels
         ax.set_xlabel('GPU Memory Size (GB)', fontsize=font_size, labelpad=label_pad)
         ax.set_ylabel('Network Speed (Mbps)', fontsize=font_size, labelpad=label_pad)
-        ax.set_zlabel('Rank Size', fontsize=font_size, labelpad=label_pad)
+        ax.set_zlabel('Rank Size', fontsize=font_size, labelpad=z_label_pad)
         #ax.set_title('Rank Size vs GPU Memory and Network Speed', fontsize=14, fontweight='bold', pad=20)
         
         # Make tick labels larger
         ax.tick_params(axis='x', labelsize=font_size)
         ax.tick_params(axis='y', labelsize=font_size)
-        ax.tick_params(axis='z', labelsize=font_size)
+        ax.tick_params(axis='z', labelsize=font_size, pad=15)  # Add padding to z-axis ticks to avoid overlap
         
         # Reverse x-axis
         ax.invert_xaxis()
