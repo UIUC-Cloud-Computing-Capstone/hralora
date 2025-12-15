@@ -92,9 +92,9 @@ class TestRankEstimator(unittest.TestCase):
         # all clients belong to 3 heterogeneous groups. Each group has different resource limitation.
         args.gpu_memory_size_for_each_group_in_GB = [2, 4, 8]
         args.avg_upload_network_speed_for_each_group_in_Mbps = [1, 1.5, 2]
-        args.avg_download_network_speed_for_each_group_in_Mbps = [10, 50, 50]
+        args.avg_download_network_speed_for_each_group_in_Mbps = [10, 10, 10]
         args.desired_uploading_time_for_each_group_in_seconds = [15, 15, 15]
-        args.desired_downloading_time_for_each_group_in_seconds = [30, 30, 30]
+        args.desired_downloading_time_for_each_group_in_seconds = [15, 15, 15]
         args.heterogeneous_group = [1/3, 1/3, 1/3] # 1/3 of clients belong to each group.
 
         # model
