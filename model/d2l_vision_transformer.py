@@ -203,7 +203,7 @@ class Classifier(Module):
         Y_hat = d2l.reshape(Y_hat, (-1, Y_hat.shape[-1]))
         preds = d2l.astype(d2l.argmax(Y_hat, axis=1), Y.dtype)
         compare = d2l.astype(preds == d2l.reshape(Y, -1), d2l.float32)
-        return d2l.reduce_mean(compare) if averaged else compare
+        return compare.mean() if averaged else compare
 
     def loss(self, Y_hat, Y, averaged=True):
         """Defined in :numref:`sec_softmax_concise`"""
@@ -408,6 +408,6 @@ emb_dropout, blk_dropout, lr = 0.1, 0.1, 0.1
 model = ViT(img_size, patch_size, num_hiddens, mlp_num_hiddens, num_heads,
             num_blks, emb_dropout, blk_dropout, lr)
 trainer = Trainer(max_epochs=1, num_gpus=0)
-data = FashionMNIST(batch_size=32, resize=(img_size, img_size))
+data = FashionMNIST(batch_size=1, resize=(img_size, img_size))
 trainer.fit(model, data)
 print('finished')
