@@ -143,8 +143,8 @@ class TransformerDecoder(d2l.AttentionDecoder):
         return self._attention_weights
 
 # training
-data = d2l.MTFraEng(batch_size=128)
-num_hiddens, num_blks, dropout = 256, 2, 0.2
+data = d2l.MTFraEng(batch_size=32)
+num_hiddens, num_blks, dropout = 384, 12, 0.2
 ffn_num_hiddens, num_heads = 64, 4
 encoder = TransformerEncoder(
     len(data.src_vocab), num_hiddens, ffn_num_hiddens, num_heads,
@@ -154,5 +154,6 @@ decoder = TransformerDecoder(
     num_blks, dropout)
 model = d2l.Seq2Seq(encoder, decoder, tgt_pad=data.tgt_vocab['<pad>'],
                     lr=0.001)
+# model = encoder
 trainer = d2l.Trainer(max_epochs=30, gradient_clip_val=1, num_gpus=1)
 trainer.fit(model, data)
