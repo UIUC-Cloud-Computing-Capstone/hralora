@@ -65,6 +65,42 @@ class TransformerEncoder(d2l.Encoder):  #@save
                 i] = blk.attention.attention.attention_weights
         return X
 
+
+class MultiHeadAttention(d2l.Module):  #@save
+    """Multi-head attention."""
+    def __init__(self, num_hiddens, num_heads, dropout, bias=False, **kwargs):
+        super().__init__()
+        self.num_heads = num_heads
+        self.attention = d2l.DotProductAttention(dropout)
+        self.W_q = nn.LazyLinear(num_hiddens, bias=bias)
+        self.W_k = nn.LazyLinear(num_hiddens, bias=bias)
+        self.W_v = nn.LazyLinear(num_hiddens, bias=bias)
+        self.W_o = nn.LazyLinear(num_hiddens, bias=bias)
+
+    def forward(self, queries, keys, values, valid_lens):
+        # Shape of queries, keys, or values:
+        # (batch_size, no. of queries or key-value pairs, num_hiddens)
+        # Shape of valid_lens: (batch_size,) or (batch_size, no. of queries)
+        # After transposing, shape of output queries, keys, or values:
+        # (batch_size * num_heads, no. of queries or key-value pairs,
+        # num_hiddens / num_heads)
+        queries = self.transpose_qkv(self.W_q(queries))
+        keys = self.transpose_qkv(self.W_k(keys))
+        values = self.transpose_qkv(self.W_v(values))
+
+        if valid_lens is not None:
+            # On axis 0, copy the first item (scalar or vector) for num_heads
+            # times, then copy the next item, and so on
+            valid_lens = torch.repeat_interleave(
+                valid_lens, repeats=self.num_heads, dim=0)
+
+        # Shape of output: (batch_size * num_heads, no. of queries,
+        # num_hiddens / num_heads)
+        output = self.attention(queries, keys, values, valid_lens)
+        # Shape of output_concat: (batch_size, no. of queries, num_hiddens)
+        output_concat = self.transpose_output(output)
+        return self.W_o(output_concat)
+
 class TransformerDecoderBlock(nn.Module):
     # The i-th block in the Transformer decoder
     def __init__(self, num_hiddens, ffn_num_hiddens, num_heads, dropout, i):
