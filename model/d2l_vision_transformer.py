@@ -410,3 +410,4 @@ model = ViT(img_size, patch_size, num_hiddens, mlp_num_hiddens, num_heads,
 trainer = Trainer(max_epochs=1, num_gpus=0)
 data = FashionMNIST(batch_size=32, resize=(img_size, img_size))
 trainer.fit(model, data)
+print('finished')
