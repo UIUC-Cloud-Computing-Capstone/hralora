@@ -547,7 +547,12 @@ class TestRankEstimator(unittest.TestCase):
 
     def test_bsh(self):
         
-        print(self._bytes_to_mb(32 * 197 * 384 * 4)) # 9.23
+        r = 178
+        val1 = self._bytes_to_mb(32 * 197 * 384 * 4)
+        val2 = self._bytes_to_mb(32 * 197 * r * 4)
+        print(val1) # 9.23
+        print(val2)
+        print(val1 + val2)
 
     def _bytes_to_mb(self, bytes_value):
         return round(bytes_value / 1024 / 1024, 2)
