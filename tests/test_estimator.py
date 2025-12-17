@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from transformers import AutoModelForImageClassification
 from torch.profiler import profile, ProfilerActivity
+import torch
+import pandas as pd
 
 # Add parent directory to path to import the module
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -122,36 +124,7 @@ class TestRankEstimator(unittest.TestCase):
         rank_budgets_for_all_heterogeneous_groups = self.estimator.get_rank_for_all_client_groups(args, model)
         print(rank_budgets_for_all_heterogeneous_groups)
 
-    def test_memory_breakdown_comparison_table(self):
-        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
-        import torch
-        import pandas as pd
-        
-        # Configuration
-        args = argparse.Namespace()
-        args.rank_estimator_method = 'Ours'
-        args.model = 'facebook/deit-small-patch16-224'
-        args.precision = 'fp32'
-        args.optimizer = 'adam'
-        args.num_of_layers_to_allocate_LoRA = 12
-        args.lora_target_modules = ["query", "value"]
-        args.train_classifier = False # do not train classifier in the base model. Only train LoRA matrices.
-        args.image_height = 224
-        args.image_width = 224
-        args.patch_size = 16
-        args.batch_size = 32
-        args.percentage_of_layers_in_memory = 12 / 12
-        args.overhead_and_safety_margin_factor = 0.1
-        args.desired_uploading_time_for_each_group_in_seconds = [15]
-        args.desired_downloading_time_for_each_group_in_seconds = [15]
-        args.heterogeneous_group = [1.0]
-        args.gpu_memory_size_for_each_group_in_GB = [8.0]
-        args.avg_upload_network_speed_for_each_group_in_Mbps = [7.0]
-        args.avg_download_network_speed_for_each_group_in_Mbps = [50.0]
-        
-        # Load base model
-        base_model = AutoModelForImageClassification.from_pretrained(args.model)
-        
+    def profile(self, args, base_model, output_file_path):
         # Get estimated rank and memory breakdown
         print("Getting estimated rank and memory breakdown...")
         memory_summary_dict = {}
@@ -408,7 +381,7 @@ class TestRankEstimator(unittest.TestCase):
         latex_table += "\\end{tabular}\n"
         latex_table += "\\end{table}\n"
         
-        latex_path = os.path.join(output_dir, 'memory_breakdown_comparison.tex')
+        latex_path = os.path.join(output_dir, output_file_path)
         with open(latex_path, 'w') as f:
             f.write(latex_table)
         print(f"LaTeX table saved to: {latex_path}")
@@ -422,6 +395,41 @@ class TestRankEstimator(unittest.TestCase):
         
         return df
 
+    def _init_args(self):
+        args = argparse.Namespace()
+        args.rank_estimator_method = 'Ours'
+        args.model = 'facebook/deit-small-patch16-224'
+        args.precision = 'fp32'
+        args.optimizer = 'adam'
+        args.num_of_layers_to_allocate_LoRA = 12
+        args.lora_target_modules = ["query", "value"]
+        args.train_classifier = False # do not train classifier in the base model. Only train LoRA matrices.
+        args.image_height = 224
+        args.image_width = 224
+        args.patch_size = 16
+        args.batch_size = 32
+        args.percentage_of_layers_in_memory = 12 / 12
+        args.overhead_and_safety_margin_factor = 0.1
+        args.desired_uploading_time_for_each_group_in_seconds = [15]
+        args.desired_downloading_time_for_each_group_in_seconds = [15]
+        args.heterogeneous_group = [1.0]
+        args.gpu_memory_size_for_each_group_in_GB = [8.0]
+        args.avg_upload_network_speed_for_each_group_in_Mbps = [7.0]
+        args.avg_download_network_speed_for_each_group_in_Mbps = [50.0]
+        return args
+
+    def test_memory_breakdown_comparison_table_lora_qv(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.lora_target_modules = ["query", "value"]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_qv.tex')
 if __name__ == '__main__':
     unittest.main()
 
