@@ -465,6 +465,45 @@ class TestRankEstimator(unittest.TestCase):
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
         self.profile(args, base_model, 'memory_breakdown_comparison_lora_q.tex', self.estimator)
+
+    def test_memory_breakdown_comparison_table_lora_q_1(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.lora_target_modules = ["0.attention.attention.query"]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_q_1.tex', self.estimator)
+    
+    def test_memory_breakdown_comparison_table_lora_q_2(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.lora_target_modules = ["0.attention.attention.query", "1.attention.attention.query"]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_q_2.tex', self.estimator)
+    
+    def test_memory_breakdown_comparison_table_lora_q_0_and_11(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.lora_target_modules = ["0.attention.attention.query", "11.attention.attention.query"]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_q_0_and_11.tex', self.estimator)
     
     def test_memory_breakdown_comparison_table_lora_attn_output_dense(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
