@@ -26,46 +26,7 @@ class AddNorm(nn.Module):  #@save
 
     def forward(self, X, Y):
         return self.ln(self.dropout(Y) + X)
-
-class TransformerEncoderBlock(nn.Module):  #@save
-    """The Transformer encoder block."""
-    def __init__(self, num_hiddens, ffn_num_hiddens, num_heads, dropout,
-                 use_bias=False):
-        super().__init__()
-        self.attention = MultiHeadAttention(num_hiddens, num_heads,
-                                                dropout, use_bias)
-        self.addnorm1 = AddNorm(num_hiddens, dropout)
-        self.ffn = PositionWiseFFN(ffn_num_hiddens, num_hiddens)
-        self.addnorm2 = AddNorm(num_hiddens, dropout)
-
-    def forward(self, X, valid_lens):
-        Y = self.addnorm1(X, self.attention(X, X, X, valid_lens))
-        return self.addnorm2(Y, self.ffn(Y))
-
-class TransformerEncoder(d2l.Encoder):  #@save
-    """The Transformer encoder."""
-    def __init__(self, vocab_size, num_hiddens, ffn_num_hiddens,
-                 num_heads, num_blks, dropout, use_bias=False):
-        super().__init__()
-        self.num_hiddens = num_hiddens
-        self.embedding = nn.Embedding(vocab_size, num_hiddens)
-        self.pos_encoding = d2l.PositionalEncoding(num_hiddens, dropout)
-        self.blks = nn.Sequential()
-        for i in range(num_blks):
-            self.blks.add_module("block"+str(i), TransformerEncoderBlock(
-                num_hiddens, ffn_num_hiddens, num_heads, dropout, use_bias))
-
-    def forward(self, X, valid_lens):
-        # Since positional encoding values are between -1 and 1, the embedding
-        # values are multiplied by the square root of the embedding dimension
-        # to rescale before they are summed up
-        X = self.pos_encoding(self.embedding(X) * math.sqrt(self.num_hiddens))
-        self.attention_weights = [None] * len(self.blks)
-        for i, blk in enumerate(self.blks):
-            X = blk(X, valid_lens)
-            self.attention_weights[
-                i] = blk.attention.attention.attention_weights
-        return X
+        
 
 
 #@save
@@ -167,6 +128,67 @@ class MultiHeadAttention(nn.Module):  #@save
         # Shape of output_concat: (batch_size, no. of queries, num_hiddens)
         output_concat = self.transpose_output(output)
         return self.W_o(output_concat)
+class TransformerEncoderBlock(nn.Module):  #@save
+    """The Transformer encoder block."""
+    def __init__(self, num_hiddens, ffn_num_hiddens, num_heads, dropout,
+                 use_bias=False):
+        super().__init__()
+        self.attention = MultiHeadAttention(num_hiddens, num_heads,
+                                                dropout, use_bias)
+        self.addnorm1 = AddNorm(num_hiddens, dropout)
+        self.ffn = PositionWiseFFN(ffn_num_hiddens, num_hiddens)
+        self.addnorm2 = AddNorm(num_hiddens, dropout)
+
+    def forward(self, X, valid_lens):
+        Y = self.addnorm1(X, self.attention(X, X, X, valid_lens))
+        return self.addnorm2(Y, self.ffn(Y))
+
+# command to run in terminal: python model/d2l_transformer.py
+B = 2 # batch size
+S = 3 # sequence length
+H = 4 # hidden dimension
+F = 8 # feedforward dimension
+NH = 4 # number of heads
+dropout = 0.5   
+# X = torch.ones((B, S, H))
+# valid_lens = torch.tensor([2, 3])
+# transformer_encoder_block = TransformerEncoderBlock(H, F, NH, dropout)
+# print(transformer_encoder_block(X, valid_lens))
+
+class TransformerEncoder(d2l.Encoder):  #@save
+    """The Transformer encoder."""
+    def __init__(self, vocab_size, num_hiddens, ffn_num_hiddens,
+                 num_heads, num_blks, dropout, use_bias=False):
+        super().__init__()
+        self.num_hiddens = num_hiddens
+        self.embedding = nn.Embedding(vocab_size, num_hiddens)
+        self.pos_encoding = d2l.PositionalEncoding(num_hiddens, dropout)
+        self.blks = nn.Sequential()
+        for i in range(num_blks):
+            self.blks.add_module("block"+str(i), TransformerEncoderBlock(
+                num_hiddens, ffn_num_hiddens, num_heads, dropout, use_bias))
+
+    def forward(self, X, valid_lens):
+        # Since positional encoding values are between -1 and 1, the embedding
+        # values are multiplied by the square root of the embedding dimension
+        # to rescale before they are summed up
+        X = self.pos_encoding(self.embedding(X) * math.sqrt(self.num_hiddens))
+        self.attention_weights = [None] * len(self.blks)
+        for i, blk in enumerate(self.blks):
+            X = blk(X, valid_lens)
+            self.attention_weights[
+                i] = blk.attention.attention.attention_weights
+        return X
+
+src_vocab_size = 10
+num_blks = 2
+# https://docs.pytorch.org/docs/stable/generated/torch.nn.Embedding.html
+X = torch.ones((B, S), dtype=torch.long)
+# 第 1 条序列：只有 前 2 个 token 是有效的
+#第 2 条序列：3 个 token 全部有效
+valid_lens = torch.tensor([2, 3])
+transformer_encoder = TransformerEncoder(src_vocab_size, H, F, NH, num_blks, dropout)
+print(transformer_encoder(X, valid_lens))
 
 class TransformerDecoderBlock(nn.Module):
     # The i-th block in the Transformer decoder
@@ -306,6 +328,6 @@ def train_seq2seq(net, data_iter, lr, num_epochs, tgt_vocab, device):
     print(f'loss {metric[0] / metric[1]:.3f}, {metric[1] / timer.stop():.1f} '
           f'tokens/sec on {str(device)}')
 
-device = d2l.try_gpu()
-train_seq2seq(model, data.data_iter, lr=0.001, num_epochs=1, 
-              tgt_vocab=data.tgt_vocab, device=device)
+# device = d2l.try_gpu()
+# train_seq2seq(model, data.data_iter, lr=0.001, num_epochs=1, 
+#               tgt_vocab=data.tgt_vocab, device=device)
