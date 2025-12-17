@@ -197,7 +197,7 @@ class TestRankEstimator(unittest.TestCase):
             return outputs.loss if hasattr(outputs, 'loss') else torch.nn.functional.cross_entropy(outputs, labels)
         
         # Profile actual memory (run 10 times and take average for accuracy)
-        num_profiling_runs = 10
+        num_profiling_runs = 11
         print(f"\nProfiling actual memory {num_profiling_runs} times to get average...")
         
         all_profiled_params = []
@@ -281,11 +281,15 @@ class TestRankEstimator(unittest.TestCase):
             }
             
             # Collect values from this run
-            all_profiled_params.append(profiled_results['parameters']['total_memory_MB'])
-            all_profiled_optimizer.append(profiled_results['optimizer_states']['optimizer_memory_MB'])
-            all_profiled_activations.append(profiled_results['breakdown']['activation_memory_MB'])
-            all_profiled_total.append(profiled_results['total']['peak_memory_MB'])
-            print(f"Done (Total: {profiled_results['total']['peak_memory_MB']:.2f} MB)")
+            # skip first run, to warm up
+            if run > 0:
+                all_profiled_params.append(profiled_results['parameters']['total_memory_MB'])
+                all_profiled_optimizer.append(profiled_results['optimizer_states']['optimizer_memory_MB'])
+                all_profiled_activations.append(profiled_results['breakdown']['activation_memory_MB'])
+                all_profiled_total.append(profiled_results['total']['peak_memory_MB'])
+                print(f"Done (Total: {profiled_results['total']['peak_memory_MB']:.2f} MB)")
+            else:
+                print(f"Warm-up Done (Total: {profiled_results['total']['peak_memory_MB']:.2f} MB)")
             
             # Clear memory after each run
             if is_cuda:
