@@ -188,37 +188,37 @@ def product_average(args, global_model, loc_updates, num_samples):
     return global_model
     # update_weights = []
     # svd_dict = []
+    # model_update_avg_dict = {}
     # for updates in loc_updates:
     #     svd_weights = []
     #     keys = list(updates.keys())
+    #     keys = sorted(keys)
     #     # print('$$$$$$$$$$$$')
     #     # print(keys)
     #     # keys from layer 0 -> 11
     #     client_svd = {}
-    #     for i in range(0, len(keys), 2):
-    #         keyA = keys[i]
-    #         keyB = keys[i+1]
+    #     for k in updates:
+    #         if 'lora_B' not in k:
+    #             continue
+    #         keyA = k.replace('lora_B', 'lora_A')
+    #         keyB = k
     #         tensorA = global_model[keyA].detach().cpu() + updates[keyA]
     #         tensorB = global_model[keyB].detach().cpu() + updates[keyB]
     #         # if 'layer.11.' in keyA:
     #         #     print(f'{keyA} = {tensorA}')
     #         #     print(f'{keyB} = {tensorB}')
     #         tensorSVD = torch.matmul(tensorB, tensorA)
-    #         client_svd[keyA] = tensorSVD
-    #         client_svd[keyB] = tensorSVD
-    #     svd_dict.append(client_svd) # list of dictionary consisting of B@A, same size as loc_updates
+    #         if keyA in model_update_avg_dict:
+    #             model_update_avg_dict[keyA].append(tensorSVD)
+    #         else:
+    #             model_update_avg_dict[keyA] = []
+    #             model_update_avg_dict[keyA].append(tensorSVD)
 
-    # model_update_avg_dict = {}
-    # for k in global_model.keys():
-    #     if 'lora' in k or 'classifier' in k:
-    #         for svd in svd_dict:
-    #             if k in svd:
-    #                 if k in model_update_avg_dict:
-    #                     model_update_avg_dict[k].append(svd[k])
-    #                 else:
-    #                     model_update_avg_dict[k] = []
-    #                     model_update_avg_dict[k].append(svd[k])
-
+    #         if keyB in model_update_avg_dict:
+    #             model_update_avg_dict[keyB].append(tensorSVD)
+    #         else:
+    #             model_update_avg_dict[keyB] = []
+    #             model_update_avg_dict[keyB].append(tensorSVD)
     # # average of the product
     # for key, value in model_update_avg_dict.items():
     #     model_update_avg_dict[key] = torch.mean(torch.stack(value), dim=0)
