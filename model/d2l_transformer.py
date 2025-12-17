@@ -22,7 +22,8 @@ class AddNorm(nn.Module):  #@save
     def __init__(self, norm_shape, dropout):
         super().__init__()
         self.dropout = nn.Dropout(dropout)
-        self.ln = nn.LayerNorm(norm_shape)
+        self.ln = nn.LayerNorm(norm_shape) # weight shape: H
+        #print('self.ln.weight.shape:', self.ln.weight.shape)
 
     def forward(self, X, Y):
         return self.ln(self.dropout(Y) + X)

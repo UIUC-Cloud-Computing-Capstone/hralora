@@ -105,14 +105,13 @@ class MemoryTracker:
         
         if isinstance(optimizer, (torch.optim.Adam, torch.optim.AdamW)):
             # Adam/AdamW: 2 states per parameter (momentum m and variance v)
-            states_per_param = 2
+            states_per_param = 3
         elif isinstance(optimizer, torch.optim.SGD):
             # SGD: 1 state per parameter (momentum) if momentum > 0
             momentum = optimizer.param_groups[0].get('momentum', 0)
-            states_per_param = 1 if momentum > 0 else 0
+            states_per_param = 2 if momentum > 0 else 0
         else:
-            # For other optimizers, conservative estimate: 1 state per parameter
-            states_per_param = 1
+            raise NotImplementedError(f'Invalid optimizer: {optimizer}')
         
         for group in optimizer.param_groups:
             for p in group['params']:
