@@ -442,6 +442,23 @@ class TestRankEstimator(unittest.TestCase):
         for name, module in model.named_modules():
             print(name)
 
+    def test_lora_shapes(self):
+        args = self._init_args()
+        model = AutoModelForImageClassification.from_pretrained(args.model)
+        r = self._get_rank()
+        config = LoraConfig(
+            r=r,
+            lora_alpha=r,
+            target_modules=['query', 'value', 'attention.output.dense', 'intermediate.dense', 'output.dense'],
+            lora_dropout=0.1,
+            bias="none",
+        )
+        model = get_peft_model(model, config)
+        print("All module names in the model:")
+        for name, module in model.named_modules():
+            if hasattr(module, 'weight') and module.weight is not None:
+                print(f"{name:<50} | {list(module.weight.shape)}")
+
     def test_memory_breakdown_comparison_table_lora_qv(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
 
