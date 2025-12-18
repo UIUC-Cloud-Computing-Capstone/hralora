@@ -157,6 +157,7 @@ class RankEstimator:
             return (beta1 * B * sequence_length * H + beta2 * B * sequence_length * r) * bytes_per_parameter
 
         
+        
         D = H * C * bytes_per_parameter
         mD = mlp_ratio * D
         opt = get_optimizer_state_count(args.optimizer) * D
@@ -164,7 +165,19 @@ class RankEstimator:
         beta1, beta2 = get_fwd_betas(module_name)
         b2BSb =  beta2 * B * sequence_length * bytes_per_parameter
         # TODO wrong: D + mD
-        total_dim = D + mD + opt + grad + grad + b2BSb
+        #total_dim = D + mD + opt + grad + grad + b2BSb
+        total_dim = 0
+        total_layers = 12
+        # currently it does not support regex TODO
+        # need to support layer.0.query
+        # query
+        
+        for module in args.lora_target_modules:
+            if is_normal_mod(module_name):
+                total_dim += D + opt + grad
+            else:
+                total_dim += mD + opt + grad
+        
         
         b1BSHb = beta1 * B * sequence_length * H * bytes_per_parameter
         return (lora_portion - b1BSHb) / (total_dim)
