@@ -224,7 +224,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_qv.tex', self.estimator)
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_qv.tex', self.estimator)
 
     def test_memory_breakdown_comparison_table_lora_q(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -239,7 +239,7 @@ class TestRankEstimator(unittest.TestCase):
 
         memory_summary_dict = {}
         estimated_rank = 178
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_q.tex', estimated_rank, memory_summary_dict)
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_q.tex', estimated_rank, memory_summary_dict)
 
     def test_memory_breakdown_comparison_table_lora_q_1(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -255,7 +255,7 @@ class TestRankEstimator(unittest.TestCase):
         memory_summary_dict = {}
         #estimated_rank = self.estimate(args, base_model, estimator, memory_summary_dict)
         estimated_rank = self._get_rank()
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_q_1.tex', estimated_rank, memory_summary_dict)
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_q_1.tex', estimated_rank, memory_summary_dict)
     
     def test_memory_breakdown_comparison_table_lora_q_1_rank2(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -268,7 +268,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
         
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_q_1_rank2.tex', self._get_rank2(), {})
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_q_1_rank2.tex', self._get_rank2(), {})
 
     def test_memory_breakdown_comparison_table_lora_q_2(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -281,7 +281,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_q_2.tex', self._get_rank(), {})
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_q_2.tex', self._get_rank(), {})
 
     def test_memory_breakdown_comparison_table_lora_q_2_rank2(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -294,7 +294,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_q_2_rank2.tex', self._get_rank2(), {})
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_q_2_rank2.tex', self._get_rank2(), {})
 
     def test_memory_breakdown_comparison_table_lora_q_1_head_12(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -311,7 +311,7 @@ class TestRankEstimator(unittest.TestCase):
         memory_summary_dict = {}
         #estimated_rank = self.estimate(args, base_model, estimator, memory_summary_dict)
         estimated_rank = self._get_rank()
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_q_1_head_12.tex', estimated_rank, memory_summary_dict)
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_q_1_head_12.tex', estimated_rank, memory_summary_dict)
 
     def test_memory_breakdown_comparison_table_lora_q_2_head_12(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -328,7 +328,7 @@ class TestRankEstimator(unittest.TestCase):
         memory_summary_dict = {}
         #estimated_rank = self.estimate(args, base_model, estimator, memory_summary_dict)
         estimated_rank = self._get_rank()
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_q_2_head_12.tex', estimated_rank, memory_summary_dict)
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_q_2_head_12.tex', estimated_rank, memory_summary_dict)
 
 
     
@@ -350,7 +350,7 @@ class TestRankEstimator(unittest.TestCase):
 
         memory_summary_dict = {}
         estimated_rank = self._get_rank()
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_q_6.tex', estimated_rank, memory_summary_dict)
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_q_6.tex', estimated_rank, memory_summary_dict)
 
     def test_memory_breakdown_comparison_table_lora_q_7(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -368,7 +368,7 @@ class TestRankEstimator(unittest.TestCase):
 
         memory_summary_dict = {}
         estimated_rank = self._get_rank()
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_q_7.tex', estimated_rank, memory_summary_dict)
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_q_7.tex', estimated_rank, memory_summary_dict)
 
     def test_memory_breakdown_comparison_table_lora_v_1(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -385,7 +385,7 @@ class TestRankEstimator(unittest.TestCase):
         memory_summary_dict = {}
         #estimated_rank = self.estimate(args, base_model, estimator, memory_summary_dict)
         estimated_rank = self._get_rank()
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_v_1.tex', estimated_rank, memory_summary_dict)
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_v_1.tex', estimated_rank, memory_summary_dict)
     
     def test_memory_breakdown_comparison_table_lora_v_2(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -400,7 +400,7 @@ class TestRankEstimator(unittest.TestCase):
 
         memory_summary_dict = {}
         estimated_rank = self._get_rank()
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_v_2.tex', estimated_rank, memory_summary_dict)
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_v_2.tex', estimated_rank, memory_summary_dict)
     
     def test_memory_breakdown_comparison_table_lora_q_0_and_11(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -413,7 +413,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_q_0_and_11.tex', self._get_rank(), {})
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_q_0_and_11.tex', self._get_rank(), {})
     
     def test_memory_breakdown_comparison_table_lora_attn_output_dense_1(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -426,7 +426,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_attn_output_dense_1.tex', self._get_rank(), {})
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_attn_output_dense_1.tex', self._get_rank(), {})
 
     def test_memory_breakdown_comparison_table_lora_attn_output_dense_2(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -439,7 +439,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_attn_output_dense_2.tex', self._get_rank(), {})
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_attn_output_dense_2.tex', self._get_rank(), {})
 
     def test_memory_breakdown_comparison_table_lora_mlp_int_dense_1(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -452,7 +452,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense_1.tex', self._get_rank(), {})
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense_1.tex', self._get_rank(), {})
 
     def test_memory_breakdown_comparison_table_lora_mlp_int_dense_2(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -465,7 +465,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense_2.tex', self._get_rank(), {})
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense_2.tex', self._get_rank(), {})
 
     def test_memory_breakdown_comparison_table_lora_mlp_output_dense(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -478,7 +478,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense.tex', self._get_rank(), {})
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense.tex', self._get_rank(), {})
 
     def test_memory_breakdown_comparison_table_lora_mlp_output_dense_1(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -491,7 +491,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense.tex', self._get_rank(), {})
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense.tex', self._get_rank(), {})
 
     def test_memory_breakdown_comparison_table_lora_mlp_output_dense_2(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -504,7 +504,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense.tex', self._get_rank(), {})
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense.tex', self._get_rank(), {})
 
     def test_memory_breakdown_comparison_table_lora_mlp_output_dense_1_rank2(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -517,7 +517,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense_1_rank2.tex', self._get_rank2(), {})
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense_1_rank2.tex', self._get_rank2(), {})
 
     def test_memory_breakdown_comparison_table_lora_mlp_output_dense_2_rank2(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -530,7 +530,7 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        MemoryTracker().profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense_2_rank2.tex', self._get_rank2(), {})
+        MemoryTracker().profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense_2_rank2.tex', self._get_rank2(), {})
 
 
     def test_formula1(self):

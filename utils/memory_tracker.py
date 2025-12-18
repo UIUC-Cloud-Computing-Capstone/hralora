@@ -179,9 +179,13 @@ class MemoryTracker:
         if not is_cuda:
             raise ValueError('CPU memory profiling is not supported yet.')
         
-        profiled_info = self.create_statistics_of_all_runs(args, is_cuda, model, optimizer, batch)
+        return self.create_statistics_of_all_runs(args, is_cuda, model, optimizer, batch)
+        #self.create_comparison(args, memory_summary_dict, profiled_info, output_file_path, rank)
+
+
+    def profile_and_compare(self, args, base_model, output_file_path, rank, memory_summary_dict):
+        profiled_info = self.profile(args, base_model, output_file_path, rank, memory_summary_dict)
         self.create_comparison(args, memory_summary_dict, profiled_info, output_file_path, rank)
-        
 
     def get_profiled_data_for_all_runs(self, args, is_cuda, model, optimizer, batch):
         print(f"\nProfiling actual memory {args.num_profiling_actual_runs} times...")
