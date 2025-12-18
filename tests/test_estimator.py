@@ -124,9 +124,9 @@ class TestRankEstimator(unittest.TestCase):
         args.percentage_of_layers_in_memory = 12 / 12 # not all layers are in memory at the same time during forward pass and backward pass.
         args.overhead_and_safety_margin_factor = 0.1 # assume 10% of activations and gradients
 
-        model = AutoModelForImageClassification.from_pretrained(args.model)
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
         
-        rank_budgets_for_all_heterogeneous_groups = self.estimator.get_rank_for_all_client_groups(args, model)
+        rank_budgets_for_all_heterogeneous_groups = self.estimator.get_rank_for_all_client_groups(args, base_model)
         print(rank_budgets_for_all_heterogeneous_groups)
 
     def estimate(self, args, base_model, estimator, memory_summary_dict):

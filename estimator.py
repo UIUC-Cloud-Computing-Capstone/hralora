@@ -3,7 +3,7 @@ OURS = 'Ours'
 
 class RankEstimator:
 
-    def get_rank_for_all_client_groups(self, args, model):
+    def get_rank_for_all_client_groups(self, args, base_model):
 
         # TODO Liam: maybe remove this
         if args.model != 'facebook/deit-small-patch16-224':
@@ -18,7 +18,7 @@ class RankEstimator:
             desired_uploading_time_in_seconds_for_one_client_group = args.desired_uploading_time_for_each_group_in_seconds[i]
             desired_downloading_time_in_seconds_for_one_client_group = args.desired_downloading_time_for_each_group_in_seconds[i]
             memory_summary_dict = {}
-            rank_for_one_client_group = self._get_rank_for_one_client_group(args, model, total_gpu_memory_size_in_GB_for_one_client_group, upload_network_speed_in_Mbps_for_one_client_group, download_network_speed_in_Mbps_for_one_client_group, desired_uploading_time_in_seconds_for_one_client_group, desired_downloading_time_in_seconds_for_one_client_group, memory_summary_dict)
+            rank_for_one_client_group = self._get_rank_for_one_client_group(args, base_model, total_gpu_memory_size_in_GB_for_one_client_group, upload_network_speed_in_Mbps_for_one_client_group, download_network_speed_in_Mbps_for_one_client_group, desired_uploading_time_in_seconds_for_one_client_group, desired_downloading_time_in_seconds_for_one_client_group, memory_summary_dict)
             rank_for_all_client_groups.append(rank_for_one_client_group)
             
             
@@ -169,9 +169,9 @@ class RankEstimator:
         total_dim = 0
         total_layers = 12
         # currently it does not support regex TODO
-        # need to support layer.0.query
-        # query
+        # need to support layer.0.query, query
         
+
         for module in args.lora_target_modules:
             if is_normal_mod(module_name):
                 total_dim += D + opt + grad
