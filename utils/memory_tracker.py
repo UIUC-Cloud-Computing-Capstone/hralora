@@ -139,6 +139,33 @@ class MemoryTracker:
             'param_count': param_count,
             'optimizer_memory_MB': self._bytes_to_mb(total_optimizer_memory),
         }
+
+    def get_grads_memory(self, optimizer: torch.optim.Optimizer, precision: str = 'fp32') -> Dict[str, Union[int, float]]:
+        """
+        Calculate grads memory usage.
+        
+        Args:
+            optimizer: PyTorch optimizer
+            precision: 'fp32' or 'fp16' (optimizer states are typically fp32)
+        
+        Returns:
+            Dictionary with parameter count and optimizer state memory in MB
+        """
+        
+        param_count = 0
+        total_grads_memory = 0
+        
+        for group in optimizer.param_groups:
+            for p in group['params']:
+                if p.requires_grad:
+                    num_params = p.numel()
+                    total_grads_memory += num_params * OPTIMIZER_STATE_BYTES_PER_PARAM
+                    param_count += num_params
+        
+        return {
+            'grads_count': param_count,
+            'grads_memory_MB': self._bytes_to_mb(total_grads_memory),
+        }
     
     def loss_fn(self, outputs, labels):
         return outputs.loss if hasattr(outputs, 'loss') else torch.nn.functional.cross_entropy(outputs, labels)
@@ -185,8 +212,7 @@ class MemoryTracker:
             optimizer_memory_dict = self.get_optimizer_state_memory(optimizer, args.precision)
             optimizer_memory_MB = optimizer_memory_dict['optimizer_memory_MB']
 
-            # TODO
-            grad_memory_MB = param_memory_MB
+            grad_memory_MB = self.get_grads_memory(optimizer, args.precision)['grads_memory_MB']
             
             # Profile forward and backward pass to get activation memory
             with profile(
