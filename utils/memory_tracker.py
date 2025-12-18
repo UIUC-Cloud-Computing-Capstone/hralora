@@ -173,7 +173,7 @@ class MemoryTracker:
     def profile(self, args, base_model, output_file_path, rank, memory_summary_dict):
         
 
-        model, optimizer, batch, device = self._init_profiling(args, rank)
+        model, optimizer, batch, device = self._init_profiling(args, rank, base_model)
         
         is_cuda = device.type == 'cuda'
         if not is_cuda:
@@ -394,7 +394,7 @@ class MemoryTracker:
             f.write(latex_table)
         print(f"LaTeX table saved to: {latex_path}")
 
-    def _init_profiling(self, args, r):
+    def _init_profiling(self, args, r, base_model):
         print(f"\nCreating model with rank {r} and profiling actual memory...")
         config = LoraConfig(
             r=r,
@@ -403,7 +403,7 @@ class MemoryTracker:
             lora_dropout=0.1,
             bias="none",
         )
-        model = get_peft_model(AutoModelForImageClassification.from_pretrained(args.model), config)
+        model = get_peft_model(base_model, config)
         optimizer = torch.optim.AdamW(model.parameters(), lr=0.001)
         
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
