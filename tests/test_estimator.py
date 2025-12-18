@@ -278,7 +278,11 @@ class TestRankEstimator(unittest.TestCase):
             gc.collect()
         
 
-        # statistics
+        profiled_info = self.create_statistics(all_profiled_params, all_profiled_optimizer, all_profiled_fwds, all_profiled_grads, all_profiled_total)
+        self.create_comparison(args, memory_summary_dict, profiled_info, output_file_path, estimated_rank)
+        
+
+    def create_statistics(self, all_profiled_params, all_profiled_optimizer, all_profiled_fwds, all_profiled_grads, all_profiled_total):
         profiled_info = {}
         profiled_info['avg_profiled_params'] = sum(all_profiled_params) / len(all_profiled_params)
         profiled_info['avg_profiled_optimizer'] = sum(all_profiled_optimizer) / len(all_profiled_optimizer)
@@ -290,10 +294,7 @@ class TestRankEstimator(unittest.TestCase):
         profiled_info['profiled_activations_std'] = statistics.stdev(all_profiled_fwds) if len(all_profiled_fwds) > 1 else 0.0
         profiled_info['profiled_grads_std'] = statistics.stdev(all_profiled_grads) if len(all_profiled_grads) > 1 else 0.0
         profiled_info['profiled_total_std'] = statistics.stdev(all_profiled_total) if len(all_profiled_total) > 1 else 0.0
-        
-        # comparison
-        self.create_comparison(args, memory_summary_dict, profiled_info, output_file_path, estimated_rank)
-        
+        return profiled_info
 
     def create_comparison(self, args, memory_summary_dict, profiled_info, output_file_path, estimated_rank):
         estimated_total_params = memory_summary_dict.get('total_parameters_in_MB', 0)
