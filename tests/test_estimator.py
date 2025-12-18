@@ -11,6 +11,8 @@ from transformers import AutoModelForImageClassification
 from torch.profiler import profile, ProfilerActivity
 import torch
 import pandas as pd
+import gc
+import time
 #import timm
 
 # Add parent directory to path to import the module
@@ -163,20 +165,12 @@ class TestRankEstimator(unittest.TestCase):
 
         return estimated_rank
 
-    
-    def profile(self, args, base_model, output_file_path, estimated_rank, memory_summary_dict):
-        # Get parameter and optimizer memory (static values)
-        tracker = MemoryTracker()
 
-        # Get estimated rank and memory breakdown
-        print("Getting estimated rank and memory breakdown...")
-        
-        
-        # Create model with estimated rank and profile actual memory
-        print(f"\nCreating model with rank {estimated_rank} and profiling actual memory...")
+    def init_model(self, args, r):
+        print(f"\nCreating model with rank {r} and profiling actual memory...")
         config = LoraConfig(
-            r=estimated_rank,
-            lora_alpha=estimated_rank,
+            r=r,
+            lora_alpha=r,
             target_modules=args.lora_target_modules,
             lora_dropout=0.1,
             bias="none",
@@ -186,34 +180,41 @@ class TestRankEstimator(unittest.TestCase):
         
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model = model.to(device)
-        
-        # Create batch
         batch = {
             'pixel_values': torch.randn(args.batch_size, 3, args.image_height, args.image_width).to(device),
             'labels': torch.randint(0, 1000, (args.batch_size,)).to(device)
         }
+        return model, optimizer, batch, device
+    
+    def profile(self, args, base_model, output_file_path, estimated_rank, memory_summary_dict):
+        
+        tracker = MemoryTracker()
+
+
+        print("Getting memory breakdown...")
+        model, optimizer, batch, device = self.init_model(args, estimated_rank)
         
         def loss_fn(outputs, labels):
             return outputs.loss if hasattr(outputs, 'loss') else torch.nn.functional.cross_entropy(outputs, labels)
         
         # Profile actual memory (run 10 times and take average for accuracy)
-        num_profiling_runs = 2
+        num_warmup_runs = 1
+        num_profiling_runs = 1
         print(f"\nProfiling actual memory {num_profiling_runs} times to get average...")
         
-        all_profiled_params = []
-        all_profiled_optimizer = []
-        all_profiled_activations = []
-        all_profiled_total = []
+        all_profiled_params, all_profiled_optimizer, all_profiled_activations, all_profiled_total = [], [], [], []
         
         # Check if using GPU
         is_cuda = device.type == 'cuda'
         if not is_cuda:
             raise ValueError('CPU memory profiling is not supported yet.')
-        import gc
-        import time
+
         
-        for run in range(num_profiling_runs):
-            print(f"  Run {run + 1}/{num_profiling_runs}...", end=' ', flush=True)
+        for run in range(num_warmup_runs + num_profiling_runs):
+            if run < num_warmup_runs:
+                print('warm up')
+            else:
+                print(f"  Run {run}/{num_profiling_runs - 1}...", end=' ', flush=True)
             
             # Clear memory before each run to avoid interference
             if is_cuda:
@@ -282,14 +283,15 @@ class TestRankEstimator(unittest.TestCase):
             
             # Collect values from this run
             # skip first run, to warm up
-            if run > 0:
+            if run < num_warmup_runs:
+                print(f"Warm-up {run + 1} Done (Total: {profiled_results['total']['peak_memory_MB']:.2f} MB)")
+            else:
                 all_profiled_params.append(profiled_results['parameters']['total_memory_MB'])
                 all_profiled_optimizer.append(profiled_results['optimizer_states']['optimizer_memory_MB'])
                 all_profiled_activations.append(profiled_results['breakdown']['activation_memory_MB'])
                 all_profiled_total.append(profiled_results['total']['peak_memory_MB'])
                 print(f"Done (Total: {profiled_results['total']['peak_memory_MB']:.2f} MB)")
-            else:
-                print(f"Warm-up Done (Total: {profiled_results['total']['peak_memory_MB']:.2f} MB)")
+                
             
             # Clear memory after each run
             if is_cuda:
@@ -309,23 +311,17 @@ class TestRankEstimator(unittest.TestCase):
         profiled_activations_std = statistics.stdev(all_profiled_activations) if len(all_profiled_activations) > 1 else 0.0
         profiled_total_std = statistics.stdev(all_profiled_total) if len(all_profiled_total) > 1 else 0.0
         
-        print(f"\nProfiled memory breakdown (average over {num_profiling_runs} runs):")
-        print(f"  Parameters: {profiled_params:.2f} MB (std: {profiled_params_std:.2f} MB)")
-        print(f"  Activations: {profiled_activations:.2f} MB (std: {profiled_activations_std:.2f} MB)")
-        print(f"  Optimizer: {profiled_optimizer:.2f} MB (std: {profiled_optimizer_std:.2f} MB)")
-        print(f"  Total: {profiled_total:.2f} MB (std: {profiled_total_std:.2f} MB)")
-        
-        # Calculate errors
-        def calculate_error(estimated, profiled):
-            if profiled == 0:
-                return float('inf') if estimated > 0 else 0.0
-            return abs(estimated - profiled) / profiled * 100
-        
+        # comparison
         estimated_total_params = memory_summary_dict.get('total_parameters_in_MB', 0)
         estimated_total_activations = memory_summary_dict.get('total_activations_gradients_and_with_safety_margin_in_MB', 0)
         estimated_total_optimizer = memory_summary_dict.get('total_optimizer_states_in_MB', 0)
         estimated_total = memory_summary_dict.get('total_memory_in_MB', 0)
 
+        # Calculate errors
+        def calculate_error(estimated, profiled):
+            if profiled == 0:
+                return float('inf') if estimated > 0 else 0.0
+            return abs(estimated - profiled) / profiled * 100
         param_error = calculate_error(estimated_total_params, profiled_params)
         activation_error = calculate_error(estimated_total_activations, profiled_activations)
         optimizer_error = calculate_error(estimated_total_optimizer, profiled_optimizer)
@@ -364,6 +360,18 @@ class TestRankEstimator(unittest.TestCase):
         print("="*80)
         
         
+        self.create_latex(args, comparison_data, output_file_path)
+        
+        # Print summary statistics
+        print(f"\nSummary Statistics:")
+        print(f"  Mean Absolute Percentage Error (MAPE): {(param_error + activation_error + optimizer_error + total_error) / 4:.2f}%")
+        print(f"  Rank used: {estimated_rank}")
+        print(f"  Available memory: {args.gpu_memory_size_for_each_group_in_GB[0]} GB ({args.gpu_memory_size_for_each_group_in_GB[0] * 1024:.2f} MB)")
+        print(f"  Memory utilization: {profiled_total / (args.gpu_memory_size_for_each_group_in_GB[0] * 1024) * 100:.2f}%")
+        
+        return df
+
+    def create_latex(self, args, comparison_data, output_file_path):
         output_dir = os.path.join(os.path.dirname(__file__), '..', 'results', 'diagrams')
         
         # Generate LaTeX table with custom formatting
@@ -402,15 +410,7 @@ class TestRankEstimator(unittest.TestCase):
         with open(latex_path, 'w') as f:
             f.write(latex_table)
         print(f"LaTeX table saved to: {latex_path}")
-        
-        # Print summary statistics
-        print(f"\nSummary Statistics:")
-        print(f"  Mean Absolute Percentage Error (MAPE): {(param_error + activation_error + optimizer_error + total_error) / 4:.2f}%")
-        print(f"  Rank used: {estimated_rank}")
-        print(f"  Available memory: {args.gpu_memory_size_for_each_group_in_GB[0]} GB ({args.gpu_memory_size_for_each_group_in_GB[0] * 1024:.2f} MB)")
-        print(f"  Memory utilization: {profiled_total / (args.gpu_memory_size_for_each_group_in_GB[0] * 1024) * 100:.2f}%")
-        
-        return df
+
 
     def _init_args(self):
         args = argparse.Namespace()
