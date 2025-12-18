@@ -5,6 +5,7 @@ class RankEstimator:
 
     def get_rank_for_all_client_groups(self, args, model):
 
+        # TODO Liam: maybe remove this
         if args.model != 'facebook/deit-small-patch16-224':
             raise NotImplementedError(f'Invalid model: {args.model}. Only facebook/deit-small-patch16-224 is supported.')
 
@@ -21,6 +22,7 @@ class RankEstimator:
             rank_for_all_client_groups.append(rank_for_one_client_group)
             
             
+            # TODO Liam: change
             memory_summary_dict['total_parameters_in_MB'] = memory_summary_dict['base_model_parameter_memory_size_in_MB'] + memory_summary_dict.get('lora_portion_parameter_size_in_MB', 0)
             memory_summary_dict['total_activations_gradients_and_with_safety_margin_in_MB'] = memory_summary_dict['base_model_activations_gradients_and_safety_margin_memory_size_in_MB'] + memory_summary_dict.get('lora_portion_activations_gradients_and_workspace_margin_in_MB', 0)
             memory_summary_dict['total_optimizer_states_in_MB'] = memory_summary_dict.get('base_model_optimizer_states_memory_size_in_MB', 0) + memory_summary_dict.get('lora_portion_optimizer_states_size_in_MB', 0)
@@ -42,6 +44,7 @@ class RankEstimator:
         total_activations_gradients_and_with_safety_margin_in_MB = memory_summary_dict['total_activations_gradients_and_with_safety_margin_in_MB']
         total_optimizer_states_in_MB = memory_summary_dict['total_optimizer_states_in_MB']
         total_memory_in_MB = memory_summary_dict['total_memory_in_MB']
+        # TODO Liam
         print(f"Parameters: {total_parameters_in_MB} MB ({total_parameters_in_MB / total_memory_in_MB * 100:.2f}%)")
         print(f"Optimizer States: {total_optimizer_states_in_MB} MB ({total_optimizer_states_in_MB / total_memory_in_MB * 100:.2f}%)")
         print(f"Activations, Gradients and Safety Margin: {total_activations_gradients_and_with_safety_margin_in_MB} MB ({total_activations_gradients_and_with_safety_margin_in_MB / total_memory_in_MB * 100:.2f}%)")
@@ -62,6 +65,7 @@ class RankEstimator:
         return self._get_final_rank(rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed)
 
     def _get_final_rank(self, rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed):
+        # TODO Liam
         return min(rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed)
     
     def _get_rank_based_on_gpu_memory(self, args, model, total_gpu_memory_size_in_GB, memory_summary_dict):
@@ -73,8 +77,9 @@ class RankEstimator:
         return self._get_rank_based_on_lora_portion(args, model, lora_portion, memory_summary_dict)
 
     def _get_base_model_portion(self, args, model, memory_summary_dict):
-        # parameter + activations + safety margin + optimizer states
         
+        
+        # TODO Liam
         base_model_parameter_memory_size_in_bytes = self._get_base_model_parameter_memory_size_in_bytes(args, model)
 
         gradient_memory_bytes = base_model_parameter_memory_size_in_bytes * args.percentage_of_layers_in_memory
@@ -98,6 +103,7 @@ class RankEstimator:
     def _get_num_of_modules_per_layer(self, args):
         return len(args.lora_target_modules)
 
+    # TODO Liam
     def _get_rank_based_on_lora_portion(self, args, model, lora_portion, memory_summary_dict):
         if lora_portion <= 0:
             print(f'Warning: GPU memory is too small to train the model')
@@ -271,6 +277,7 @@ class RankEstimator:
             result = 0
         return result 
     
+    # TODO Liam refactor
     def _get_hidden_dimension(self, args):
         if args.model == 'facebook/deit-small-patch16-224':
             return 384 # TODO Liam read from actual model
@@ -280,6 +287,7 @@ class RankEstimator:
     def _get_total_gpu_memory_size_in_bytes(self, args, total_gpu_memory_size_in_GB):
         return total_gpu_memory_size_in_GB * 1024 * 1024 * 1024
 
+    # TODO Liam refactor
     def _get_base_model_parameter_memory_size_in_bytes(self, args, model):
         '''
         model = AutoModelForImageClassification.from_pretrained('facebook/deit-small-patch16-224')
@@ -311,6 +319,7 @@ class RankEstimator:
         else:
             raise NotImplementedError(f'Invalid model: {args.model}. Only facebook/deit-small-patch16-224 is supported.')
     
+    # TODO Liam
     def _get_base_model_activations_and_safety_margin_memory_size_in_bytes(self, args):
 
         """
@@ -361,6 +370,7 @@ class RankEstimator:
         else:
             raise NotImplementedError('Not implemented yet.')
     
+    # TODO Liam
     def _get_safety_margin_memory_size_in_bytes(self, args, model, base_model_memory_size, activations_memory_size, optimizer_states_memory_size):
         safety_margin_memory_size = (base_model_memory_size + activations_memory_size + optimizer_states_memory_size) * args.overhead_and_safety_margin_factor
         return safety_margin_memory_size
