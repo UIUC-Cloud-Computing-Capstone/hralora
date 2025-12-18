@@ -11,6 +11,7 @@ from transformers import AutoModelForImageClassification
 from torch.profiler import profile, ProfilerActivity
 import torch
 import pandas as pd
+#import timm
 
 # Add parent directory to path to import the module
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -465,7 +466,9 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        self.profile(args, base_model, 'memory_breakdown_comparison_lora_q.tex', self.estimator)
+        memory_summary_dict = {}
+        estimated_rank = 178
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_q.tex', estimated_rank, memory_summary_dict)
 
     def test_memory_breakdown_comparison_table_lora_q_1(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -480,8 +483,44 @@ class TestRankEstimator(unittest.TestCase):
 
         memory_summary_dict = {}
         #estimated_rank = self.estimate(args, base_model, estimator, memory_summary_dict)
-        estimated_rank = 178
+        estimated_rank = self._get_rank()
         self.profile(args, base_model, 'memory_breakdown_comparison_lora_q_1.tex', estimated_rank, memory_summary_dict)
+
+    def test_memory_breakdown_comparison_table_lora_q_1_head_12(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.model = 'facebook/deit-base-patch16-224'
+        args.lora_target_modules = ["0.attention.attention.query"]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        memory_summary_dict = {}
+        #estimated_rank = self.estimate(args, base_model, estimator, memory_summary_dict)
+        estimated_rank = self._get_rank()
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_q_1_head_12.tex', estimated_rank, memory_summary_dict)
+
+    def test_memory_breakdown_comparison_table_lora_q_2_head_12(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.model = 'facebook/deit-base-patch16-224'
+        args.lora_target_modules = ["0.attention.attention.query", "1.attention.attention.query"]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        memory_summary_dict = {}
+        #estimated_rank = self.estimate(args, base_model, estimator, memory_summary_dict)
+        estimated_rank = self._get_rank()
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_q_2_head_12.tex', estimated_rank, memory_summary_dict)
+
+
     
     def test_memory_breakdown_comparison_table_lora_q_2(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -495,8 +534,44 @@ class TestRankEstimator(unittest.TestCase):
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
         memory_summary_dict = {}
-        estimated_rank = 178
+        estimated_rank = self._get_rank()
         self.profile(args, base_model, 'memory_breakdown_comparison_lora_q_2.tex', estimated_rank, memory_summary_dict)
+
+    def test_memory_breakdown_comparison_table_lora_q_6(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.lora_target_modules = [
+            "0.attention.attention.query", "1.attention.attention.query", "4.attention.attention.query",
+            "8.attention.attention.query", "10.attention.attention.query", "11.attention.attention.query",
+        ]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        memory_summary_dict = {}
+        estimated_rank = self._get_rank()
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_q_6.tex', estimated_rank, memory_summary_dict)
+
+    def test_memory_breakdown_comparison_table_lora_q_7(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.lora_target_modules = [
+            "0.attention.attention.query", "1.attention.attention.query", "4.attention.attention.query", "5.attention.attention.query",
+            "8.attention.attention.query", "10.attention.attention.query", "11.attention.attention.query",
+        ]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        memory_summary_dict = {}
+        estimated_rank = self._get_rank()
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_q_7.tex', estimated_rank, memory_summary_dict)
 
     def test_memory_breakdown_comparison_table_lora_v_1(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -512,7 +587,7 @@ class TestRankEstimator(unittest.TestCase):
 
         memory_summary_dict = {}
         #estimated_rank = self.estimate(args, base_model, estimator, memory_summary_dict)
-        estimated_rank = 178
+        estimated_rank = self._get_rank()
         self.profile(args, base_model, 'memory_breakdown_comparison_lora_v_1.tex', estimated_rank, memory_summary_dict)
     
     def test_memory_breakdown_comparison_table_lora_v_2(self):
@@ -527,7 +602,7 @@ class TestRankEstimator(unittest.TestCase):
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
         memory_summary_dict = {}
-        estimated_rank = 178
+        estimated_rank = self._get_rank()
         self.profile(args, base_model, 'memory_breakdown_comparison_lora_v_2.tex', estimated_rank, memory_summary_dict)
     
     def test_memory_breakdown_comparison_table_lora_q_0_and_11(self):
@@ -541,33 +616,59 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        self.profile(args, base_model, 'memory_breakdown_comparison_lora_q_0_and_11.tex', self.estimator)
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_q_0_and_11.tex', self._get_rank(), {})
     
-    def test_memory_breakdown_comparison_table_lora_attn_output_dense(self):
+    def test_memory_breakdown_comparison_table_lora_attn_output_dense_1(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
 
         
         # Configuration
         args = self._init_args()
-        args.lora_target_modules = ["attention.output.dense"]
+        args.lora_target_modules = ["0.attention.output.dense"]
         
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        self.profile(args, base_model, 'memory_breakdown_comparison_lora_attn_output_dense.tex', self.estimator)
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_attn_output_dense_1.tex', self._get_rank(), {})
 
-    def test_memory_breakdown_comparison_table_lora_mlp_int_dense(self):
+    def test_memory_breakdown_comparison_table_lora_attn_output_dense_2(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
 
         
         # Configuration
         args = self._init_args()
-        args.lora_target_modules = ["intermediate.dense"]
+        args.lora_target_modules = ["0.attention.output.dense", "1.attention.output.dense"]
         
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        self.profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense.tex', self.estimator)
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_attn_output_dense_2.tex', self._get_rank(), {})
+
+    def test_memory_breakdown_comparison_table_lora_mlp_int_dense_1(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.lora_target_modules = ["0.intermediate.dense"]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense_1.tex', self._get_rank(), {})
+
+    def test_memory_breakdown_comparison_table_lora_mlp_int_dense_2(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.lora_target_modules = ["0.intermediate.dense", "1.intermediate.dense"]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense_2.tex', self._get_rank(), {})
 
     def test_memory_breakdown_comparison_table_lora_mlp_output_dense(self):
         """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
@@ -580,26 +681,204 @@ class TestRankEstimator(unittest.TestCase):
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
 
-        self.profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense.tex', self.estimator)
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense.tex', self._get_rank(), {})
+
+    def test_memory_breakdown_comparison_table_lora_mlp_output_dense_1(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.lora_target_modules = ["0.output.dense"]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense.tex', self._get_rank(), {})
+
+    def test_memory_breakdown_comparison_table_lora_mlp_output_dense_2(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.lora_target_modules = ["0.output.dense", "1.output.dense"]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense.tex', self._get_rank(), {})
+
+    def test_memory_breakdown_comparison_table_lora_mlp_output_dense_1_rank2(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.lora_target_modules = ["0.output.dense"]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense_1_rank2.tex', self._get_rank2(), {})
+
+    def test_memory_breakdown_comparison_table_lora_mlp_output_dense_2_rank2(self):
+        """Generate a comparison table using PyTorch profiler dire  ctly (like ResNet example)"""
+
+        
+        # Configuration
+        args = self._init_args()
+        args.lora_target_modules = ["0.output.dense", "1.output.dense"]
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+
+        self.profile(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense_2_rank2.tex', self._get_rank2(), {})
 
 
-    def test_formula(self):
+    def test_formula1(self):
         
 
         # activation for q/k/v: BSH + 1.5 * BSr
-        r = 178
+        # mlp output dense: 5BSH + BSr
+        r = self._get_rank()
         args = self._init_args()
         B = args.batch_size
         precision_bytes = 4
         S = 197
         H = 384
+        C_head = 6
+        M = 4
+
         val1 = self._bytes_to_mb(B * S * H * precision_bytes)
         m = 1.5
         val2 = self._bytes_to_mb(B * S * r * precision_bytes * m)
         print('batch size: ', B)
-        print(val1) # 9.23
+        print(val1)
         print(val2)
         print(val1 + val2)
+
+        val3 = self._bytes_to_mb(B * S * H * precision_bytes * M)
+
+    def test_formula2(self):
+        r = self._get_rank()
+        args = self._init_args()
+        B = args.batch_size
+        precision_bytes = 4
+        S = 197
+        H = 384
+        C_head = 6
+        M = 4
+        L = 12
+
+        val1 = self._bytes_to_mb(B * S * H * precision_bytes)     
+        val2 = self._bytes_to_mb(B * C_head * S * S * precision_bytes)
+        val3 = self._bytes_to_mb(B * S * H * M * precision_bytes)
+        m = 1.5
+        val4 = self._bytes_to_mb(B * S * r * precision_bytes)
+
+
+        lora_layer = 2
+        #print(val1 + val4)
+        print('BSH', val1)
+        print('BSSCh', val2)
+        #print(val3)
+        print('BSr', val4)
+        base_total = self._get_base_total(val1, val2)
+        print(base_total)
+        print('total: ', (base_total + lora_layer * (val1 + val4 * m)) * 1)
+        #print((val1 * 6 + val2 + val3 + val4) * L)
+
+    def test_formula3(self):
+        
+
+        
+        r = self._get_rank()
+        args = self._init_args()
+        B = args.batch_size
+        precision_bytes = 4
+        S = 197
+        H = 384
+        C_head = 12
+        M = 4
+        L = 12
+
+        val1 = self._bytes_to_mb(B * S * H * precision_bytes)     
+        val2 = self._bytes_to_mb(B * C_head * S * S * precision_bytes)
+        val3 = self._bytes_to_mb(B * S * H * M * precision_bytes)
+        m = 1.5
+        val4 = self._bytes_to_mb(B * S * r * precision_bytes * m)
+
+
+        lora_layer = 2
+        print(val1 + val4)
+        print(val1)
+        print(val2)
+        print(val3)
+        base_total = self._get_base_total(val1, val2)
+        print(base_total)
+        print('total: ', (base_total + lora_layer * (val1 + val4)) * 1)
+        #print((val1 * 6 + val2 + val3 + val4) * L)
+
+
+    def test_formula4(self):
+        r = self._get_rank()
+        args = self._init_args()
+        B = args.batch_size
+        precision_bytes = 4
+        S = 197
+        H = 384
+        C_head = 12
+        M = 4
+        L = 12
+
+        val1 = self._bytes_to_mb(B * S * H * precision_bytes)
+        m = 1.5
+        val2 = self._bytes_to_mb(B * S * r * precision_bytes * m)
+        print('batch size: ', B)
+        print(val1)
+        print(val2)
+        print(val1 + val2)
+
+        val3 = self._bytes_to_mb(B * S * H * precision_bytes * M)
+
+    def test_formula5(self):
+        r = self._get_rank2()
+        args = self._init_args()
+        B = args.batch_size
+        precision_bytes = 4
+        S = 197
+        H = 384
+        C_head = 6
+        M = 4
+        L = 12
+
+        val1 = self._bytes_to_mb(B * S * H * precision_bytes)     
+        val2 = self._bytes_to_mb(B * C_head * S * S * precision_bytes)
+        val3 = self._bytes_to_mb(B * S * H * M * precision_bytes)
+        m = 1.5
+        val4 = self._bytes_to_mb(B * S * r * precision_bytes)
+
+
+        lora_layer = 2
+        #print(val1 + val4)
+        print('BSH', val1)
+        print('BSSCh', val2)
+        #print(val3)
+        print('BSr', val4)
+        base_total = self._get_base_total(val1, val2)
+        print(base_total)
+        print('total: ', (base_total + lora_layer * (val1 + val4 * m)) * 1)
+        #print((val1 * 6 + val2 + val3 + val4) * L)
+
+    def _get_base_total(self, bsh, bchss):
+        return 8 * bsh + 49 * bchss
+
+    def _get_rank(self):
+        return 178
+
+    def _get_rank2(self):
+        return 64    
 
     def _bytes_to_mb(self, bytes_value):
         return round(bytes_value / 1024 / 1024, 2)
