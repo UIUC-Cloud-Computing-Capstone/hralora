@@ -7,7 +7,7 @@ import sys
 import os
 import matplotlib.pyplot as plt
 import numpy as np
-from transformers import AutoModelForImageClassification
+from transformers import AutoModelForImageClassification, AutoConfig
 from torch.profiler import profile, ProfilerActivity
 import torch
 import pandas as pd
@@ -76,21 +76,6 @@ class TestRankEstimator(unittest.TestCase):
 
 
 
-    def test_get_base_model_activations_and_safety_margin_memory_size_in_bytes(self):
-        args = argparse.Namespace()
-        args.batch_size = 32
-        args.precision = "fp16"
-        args.image_height = 224
-        args.image_width = 224
-        args.patch_size = 16
-        args.percentage_of_layers_in_memory = 12 / 12
-        args.overhead_and_safety_margin_factor = 0.1
-        args.train_classifier = False # do not train classifier in the base model. Only train LoRA matrices.
-        result = self.estimator._get_base_model_activations_and_safety_margin_memory_size_in_bytes(args)
-        result_in_MB = result / 1024 / 1024
-        print(result_in_MB)
-
-
     def test_get_rank_for_all_client_groups_ours(self):
         args = argparse.Namespace()
         args.rank_estimator_method = 'Ours'
@@ -115,10 +100,12 @@ class TestRankEstimator(unittest.TestCase):
         args.train_classifier = False # do not train classifier in the base model. Only train LoRA matrices.
 
         # input data sizes
-        args.image_height = 224
-        args.image_width = 224
-        args.patch_size = 16 # each image is split into 16 × 16 pixel patches.
+        # args.image_height = 224
+        # args.image_width = 224
+        # args.patch_size = 16 # each image is split into 16 × 16 pixel patches.
         args.batch_size = 32
+        args.sequence_length = 197
+        args.hidden_dimension = 384
         
         # estimation parameters
         args.percentage_of_layers_in_memory = 12 / 12 # not all layers are in memory at the same time during forward pass and backward pass.
@@ -142,9 +129,9 @@ class TestRankEstimator(unittest.TestCase):
         )
         
         # Calculate total estimated memory components (same as in get_rank_for_all_client_groups)
-        memory_summary_dict['total_parameters_in_MB'] = memory_summary_dict.get('base_model_parameter_memory_size_in_MB', 0) + \
+        memory_summary_dict['total_parameters_in_MB'] = memory_summary_dict.get('base_model_para_in_MB', 0) + \
                                                        memory_summary_dict.get('lora_portion_parameter_size_in_MB', 0)
-        memory_summary_dict['total_activations_gradients_and_with_safety_margin_in_MB'] = memory_summary_dict.get('base_model_activations_gradients_and_safety_margin_memory_size_in_MB', 0) + \
+        memory_summary_dict['total_activations_gradients_and_with_safety_margin_in_MB'] = memory_summary_dict.get('base_model_fwd_in_MB', 0) + \
                                                                                           memory_summary_dict.get('lora_portion_activations_gradients_and_workspace_margin_in_MB', 0)
         memory_summary_dict['total_optimizer_states_in_MB'] = memory_summary_dict.get('base_model_optimizer_states_memory_size_in_MB', 0) + \
                                                               memory_summary_dict.get('lora_portion_optimizer_states_size_in_MB', 0)
@@ -188,6 +175,8 @@ class TestRankEstimator(unittest.TestCase):
         args.gpu_memory_size_for_each_group_in_GB = [8.0]
         args.avg_upload_network_speed_for_each_group_in_Mbps = [7.0]
         args.avg_download_network_speed_for_each_group_in_Mbps = [50.0]
+        args.CLS_TOKEN = 1
+        args.lora_target_modules_per_layer = 2
         return args
 
     def test_get_all_named_modules(self):
@@ -530,6 +519,9 @@ class TestRankEstimator(unittest.TestCase):
         
         # Load base model
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
+        config = AutoConfig.from_pretrained(args.model)
+        total_layers = config.num_hidden_layers
+        print(total_layers, config.hidden_size, config.intermediate_size / config.hidden_size, sum(p.numel() for p in base_model.parameters()))
 
         self.tracker.profile_and_compare(args, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense_2_rank2.tex', self._get_rank2(), {})
 
