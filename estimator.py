@@ -66,13 +66,13 @@ class RankEstimator:
 
     def _get_base_model_portion(self, args, config, base_model, memory_summary_dict):
         base_model_para_bytes = self._get_base_model_para_in_bytes(args, base_model)
-        base_model_fwd_in_bytes, overhead_bytes = self._get_base_model_fwd_in_bytes(args, config, base_model)
-        base_model_portion_bytes = base_model_para_bytes + base_model_fwd_in_bytes
+        base_model_fwd_bytes, overhead_bytes = self._tracker.get_base_model_fwd_in_bytes_for_estimator(args, config, base_model)
+        base_model_portion_bytes = base_model_para_bytes + base_model_fwd_bytes
         
         # TODO Liam: constant
         if memory_summary_dict is not None:
             memory_summary_dict['base_model_para_bytes'] = self._bytes_to_mb(base_model_para_bytes)
-            memory_summary_dict['base_model_fwd_bytes'] = base_model_fwd_in_bytes
+            memory_summary_dict['base_model_fwd_bytes'] = base_model_fwd_bytes
             memory_summary_dict['base_model_portion_bytes'] = base_model_portion_bytes
             memory_summary_dict['overhead_bytes'] = overhead_bytes
         return base_model_portion_bytes
@@ -199,8 +199,7 @@ class RankEstimator:
     
     def _get_base_model_fwd_in_bytes(self, args, config, base_model):
         # TODO
-        base_model_fwd_MB, overhead_MB = self._tracker.get_base_model_fwd_in_bytes_for_estimator(args, config, base_model)
-        return base_model_fwd_MB * 1024 * 1024, overhead_MB * 1024 * 1024
+         
 
     def _get_sequence_length(self, args, config):
         config = AutoConfig.from_pretrained(args.model)
