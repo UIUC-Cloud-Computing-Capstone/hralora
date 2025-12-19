@@ -24,6 +24,7 @@ class RankEstimator:
             rank_for_one_client_group = self._get_rank_for_one_client_group(args, config, base_model, total_gpu_memory_size_in_GB_for_one_client_group, upload_network_speed_in_Mbps_for_one_client_group, download_network_speed_in_Mbps_for_one_client_group, desired_uploading_time_in_seconds_for_one_client_group, desired_downloading_time_in_seconds_for_one_client_group, memory_summary_dict)
             rank_for_all_client_groups.append(rank_for_one_client_group)
             
+            # TODO Liam
             memory_summary_dict['total_para_bytes'] = memory_summary_dict['base_model_para_bytes'] + memory_summary_dict.get('lora_portion_parameter_size_in_bytes', 0)
             memory_summary_dict['total_fwd_bytes'] = memory_summary_dict['base_model_fwd_bytes'] + memory_summary_dict.get('lora_portion_activations_gradients_and_workspace_margin_in_bytes', 0)
             memory_summary_dict['total_optimizer_states_bytes'] = memory_summary_dict.get('base_model_optimizer_states_memory_size_in_bytes', 0) + memory_summary_dict.get('lora_portion_optimizer_states_size_in_bytes', 0)
@@ -68,7 +69,7 @@ class RankEstimator:
         base_model_fwd_in_bytes, overhead_bytes = self._get_base_model_fwd_in_bytes(args, config, base_model)
         base_model_portion_bytes = base_model_para_bytes + base_model_fwd_in_bytes
         
-        # TODO constant
+        # TODO Liam: constant
         if memory_summary_dict is not None:
             memory_summary_dict['base_model_para_bytes'] = self._bytes_to_mb(base_model_para_bytes)
             memory_summary_dict['base_model_fwd_bytes'] = base_model_fwd_in_bytes
