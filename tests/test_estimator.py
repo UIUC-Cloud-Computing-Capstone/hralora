@@ -111,44 +111,6 @@ class TestRankEstimator(unittest.TestCase):
         rank_budgets_for_all_heterogeneous_groups = self.estimator.get_rank_for_all_client_groups(args, base_model)
         print(rank_budgets_for_all_heterogeneous_groups)
 
-    def estimate(self, args, base_model, estimator, memory_summary_dict):
-        print("Getting estimated rank and memory breakdown...")
-        estimated_rank = estimator._get_rank_for_one_client_group(
-            args, base_model, 
-            args.gpu_memory_size_for_each_group_in_GB[0],
-            args.avg_upload_network_speed_for_each_group_in_Mbps[0],
-            args.avg_download_network_speed_for_each_group_in_Mbps[0],
-            args.desired_uploading_time_for_each_group_in_seconds[0],
-            args.desired_downloading_time_for_each_group_in_seconds[0],
-            memory_summary_dict
-        )
-        
-        # Calculate total estimated memory components (same as in get_rank_for_all_client_groups)
-        memory_summary_dict['total_parameters_in_MB'] = memory_summary_dict.get('base_model_para_in_MB', 0) + \
-                                                       memory_summary_dict.get('lora_portion_parameter_size_in_MB', 0)
-        memory_summary_dict['total_activations_gradients_and_with_safety_margin_in_MB'] = memory_summary_dict.get('base_model_fwd_in_MB', 0) + \
-                                                                                          memory_summary_dict.get('lora_portion_activations_gradients_and_workspace_margin_in_MB', 0)
-        memory_summary_dict['total_optimizer_states_in_MB'] = memory_summary_dict.get('base_model_optimizer_states_memory_size_in_MB', 0) + \
-                                                              memory_summary_dict.get('lora_portion_optimizer_states_size_in_MB', 0)
-        memory_summary_dict['total_memory_in_MB'] = round(memory_summary_dict['total_parameters_in_MB'] + 
-                                                         memory_summary_dict['total_activations_gradients_and_with_safety_margin_in_MB'] + 
-                                                         memory_summary_dict['total_optimizer_states_in_MB'], 2)
-        
-        # Extract values for comparison
-        estimated_total_params = memory_summary_dict['total_parameters_in_MB']
-        estimated_total_activations = memory_summary_dict['total_activations_gradients_and_with_safety_margin_in_MB']
-        estimated_total_optimizer = memory_summary_dict['total_optimizer_states_in_MB']
-        estimated_total = memory_summary_dict['total_memory_in_MB']
-        
-        print(f"Estimated rank: {estimated_rank}")
-        print(f"Estimated memory breakdown:")
-        print(f"  Parameters: {estimated_total_params:.2f} MB")
-        print(f"  Activations: {estimated_total_activations:.2f} MB")
-        print(f"  Optimizer: {estimated_total_optimizer:.2f} MB")
-        print(f"  Total: {estimated_total:.2f} MB")
-
-        return estimated_rank
-
     def _init_args(self):
         args = argparse.Namespace()
         args.rank_estimator_method = 'Ours'

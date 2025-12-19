@@ -167,13 +167,12 @@ class MemoryTracker:
         return profiled_info
 
     def _create_comparison(self, args, memory_summary_dict, profiled_info, output_file_path, estimated_rank):
-        # TODO bytes
-        estimated_total_params = memory_summary_dict.get('total_parameters_in_MB', 0)
-        estimated_total_activations = memory_summary_dict.get('total_activations_gradients_and_with_safety_margin_in_MB', 0)
-        estimated_total_optimizer = memory_summary_dict.get('total_optimizer_states_in_MB', 0)
-        estimated_total_grads = memory_summary_dict.get('total_grads_in_MB', 0) # TODO
-        estimated_overhead = memory_summary_dict.get('overhead_in_MB', 0) # TODO
-        estimated_total = memory_summary_dict.get('total_memory_in_MB', 0)
+        estimated_total_params = memory_summary_dict['total_para_bytes']
+        estimated_total_activations = memory_summary_dict['total_fwd_bytes']
+        estimated_total_optimizer = memory_summary_dict['total_optimizer_states_bytes']
+        estimated_total_grads = memory_summary_dict['total_grads_bytes']
+        estimated_overhead = memory_summary_dict['overhead_bytes']
+        estimated_total = memory_summary_dict['total_memory_bytes']
 
         profiled_params = profiled_info['avg_profiled_params']
         profiled_optimizer = profiled_info['avg_profiled_optimizer']

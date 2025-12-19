@@ -24,11 +24,11 @@ class RankEstimator:
             rank_for_one_client_group = self._get_rank_for_one_client_group(args, config, base_model, total_gpu_memory_size_in_GB_for_one_client_group, upload_network_speed_in_Mbps_for_one_client_group, download_network_speed_in_Mbps_for_one_client_group, desired_uploading_time_in_seconds_for_one_client_group, desired_downloading_time_in_seconds_for_one_client_group, memory_summary_dict)
             rank_for_all_client_groups.append(rank_for_one_client_group)
             
-            memory_summary_dict['total_parameters_in_MB'] = memory_summary_dict['base_model_para_in_MB'] + memory_summary_dict.get('lora_portion_parameter_size_in_MB', 0)
-            memory_summary_dict['total_fwd_in_MB'] = memory_summary_dict['base_model_fwd_in_MB'] + memory_summary_dict.get('lora_portion_activations_gradients_and_workspace_margin_in_MB', 0)
-            memory_summary_dict['total_optimizer_states_in_MB'] = memory_summary_dict.get('base_model_optimizer_states_memory_size_in_MB', 0) + memory_summary_dict.get('lora_portion_optimizer_states_size_in_MB', 0)
-            memory_summary_dict['total_grads_in_MB'] = memory_summary_dict.get('base_model_grads_memory_size_in_MB', 0) + memory_summary_dict.get('lora_portion_grads_size_in_MB', 0)
-            memory_summary_dict['total_memory_in_MB'] = round(memory_summary_dict['total_parameters_in_MB'] + memory_summary_dict['total_fwd_in_MB'] + memory_summary_dict['total_optimizer_states_in_MB'], 2)
+            memory_summary_dict['total_para_bytes'] = memory_summary_dict['base_model_para_bytes'] + memory_summary_dict.get('lora_portion_parameter_size_in_bytes', 0)
+            memory_summary_dict['total_fwd_bytes'] = memory_summary_dict['base_model_fwd_bytes'] + memory_summary_dict.get('lora_portion_activations_gradients_and_workspace_margin_in_bytes', 0)
+            memory_summary_dict['total_optimizer_states_bytes'] = memory_summary_dict.get('base_model_optimizer_states_memory_size_in_bytes', 0) + memory_summary_dict.get('lora_portion_optimizer_states_size_in_bytes', 0)
+            memory_summary_dict['total_grads_bytes'] = memory_summary_dict.get('base_model_grads_memory_size_in_bytes', 0) + memory_summary_dict.get('lora_portion_grads_size_in_bytes', 0)
+            memory_summary_dict['total_memory_bytes'] = round(memory_summary_dict['total_para_bytes'] + memory_summary_dict['total_fwd_bytes'] + memory_summary_dict['total_optimizer_states_bytes'], 2)
             
             
 
@@ -64,15 +64,17 @@ class RankEstimator:
         return self._get_rank_based_on_lora_portion(args, config, base_model, lora_portion, memory_summary_dict)
 
     def _get_base_model_portion(self, args, config, base_model, memory_summary_dict):
-        base_model_para_in_MB = self._get_base_model_para_in_MB(args, base_model)
+        base_model_para_bytes = self._get_base_model_para_in_bytes(args, base_model)
         base_model_fwd_in_bytes, overhead_bytes = self._get_base_model_fwd_in_bytes(args, config, base_model)
-        result = base_model_para_in_MB + base_model_fwd_in_bytes
+        base_model_portion_bytes = base_model_para_bytes + base_model_fwd_in_bytes
         
+        # TODO constant
         if memory_summary_dict is not None:
-            memory_summary_dict['base_model_para_in_MB'] = self._bytes_to_mb(base_model_para_in_MB)
-            memory_summary_dict['base_model_fwd_in_MB'] = self._bytes_to_mb(base_model_fwd_in_bytes)
-            memory_summary_dict['base_model_portion_in_MB'] = self._bytes_to_mb(result)
-        return result
+            memory_summary_dict['base_model_para_bytes'] = self._bytes_to_mb(base_model_para_bytes)
+            memory_summary_dict['base_model_fwd_bytes'] = base_model_fwd_in_bytes
+            memory_summary_dict['base_model_portion_bytes'] = base_model_portion_bytes
+            memory_summary_dict['overhead_bytes'] = overhead_bytes
+        return base_model_portion_bytes
 
     def _bytes_to_mb(self, bytes_value):
         return round(bytes_value / 1024 / 1024, 2)
@@ -175,7 +177,7 @@ class RankEstimator:
     def _get_total_gpu_memory_size_in_bytes(self, args, total_gpu_memory_size_in_GB):
         return total_gpu_memory_size_in_GB * 1024 * 1024 * 1024
 
-    def _get_base_model_para_in_MB(self, args, base_model):
+    def _get_base_model_para_in_bytes(self, args, base_model):
         '''
         base_model = AutoModelForImageClassification.from_pretrained('facebook/deit-small-patch16-224')
         '''
