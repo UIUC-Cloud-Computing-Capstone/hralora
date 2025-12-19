@@ -204,6 +204,8 @@ class MemoryTracker:
         grads_perc = profiled_grads / profiled_total * 100
         opt_perc = profiled_optimizer / profiled_total * 100
         overhead_perc = profiled_overhead / profiled_total * 100
+        if overhead_perc > 0:
+            print('overhead perc', overhead_perc)
         total_perc = param_perc + fwd_perc + grads_perc + opt_perc + overhead_perc 
 
         

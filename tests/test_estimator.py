@@ -102,7 +102,7 @@ class TestRankEstimator(unittest.TestCase):
         args.train_classifier = False # do not train classifier in the base model. Only train LoRA matrices.
 
         # input data sizes
-        args.batch_size = 32 * 17
+        args.batch_size = 32
         
         # estimation parameters
         args.overhead_and_safety_margin_factor = 0.1 # assume 10% of activations and gradients
