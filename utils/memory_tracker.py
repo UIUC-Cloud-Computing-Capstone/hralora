@@ -209,10 +209,20 @@ class MemoryTracker:
         
         total_perc = param_perc + fwd_perc + grads_perc + opt_perc + overhead_perc 
 
-        
-        # TODO Liam
+        # convert bytes to MB
         estimated_total_params = self._bytes_to_mb(estimated_total_params)
+        estimated_total_activations = self._bytes_to_mb(estimated_total_activations)
+        estimated_total_grads = self._bytes_to_mb(estimated_total_grads)
+        estimated_total_optimizer = self._bytes_to_mb(estimated_total_optimizer)
+        estimated_overhead = self._bytes_to_mb(estimated_overhead)
+        estimated_total = self._bytes_to_mb(estimated_total)
 
+        profiled_params = self._bytes_to_mb(profiled_params)
+        profiled_activations = self._bytes_to_mb(profiled_activations)
+        profiled_grads = self._bytes_to_mb(profiled_grads)
+        profiled_optimizer = self._bytes_to_mb(profiled_optimizer)
+        profiled_overhead = self._bytes_to_mb(profiled_overhead)
+        profiled_total = self._bytes_to_mb(profiled_total)
 
         # Create comparison table
         comparison_data = {
