@@ -449,6 +449,9 @@ class MemoryTracker:
         return base_fwd_bytes, overhead_bytes
 
     def get_lora_betas(self, args, config, base_model, module_name, B, S, H, bytes_per_parameter):
+        '''
+        betas for for one module (two matrices) on one layer 
+        '''
         H = config.hidden_size
         r1 = int(H / 2)
         r2 = int(H / 3)
@@ -462,8 +465,8 @@ class MemoryTracker:
         bsr1  = bs * r1
         bsr2  = bs * r2
         fwd_key= 'avg_profiled_fwd'
-        info_r1_fwd = info_r1[fwd_key] / bytes_per_parameter
-        info_r2_fwd = info_r2[fwd_key] / bytes_per_parameter
+        info_r1_fwd = info_r1[fwd_key] 
+        info_r2_fwd = info_r2[fwd_key]
         # beta1 * bsh + beta2 * bsr1 = info_r1_fwd
         # beta1 * bsh + beta2 * bsr2 = info_r2_fwd
         # Solve the linear equations:
@@ -477,6 +480,8 @@ class MemoryTracker:
             raise ValueError(f"Cannot solve: bsr1 ({bsr1}) and bsr2 ({bsr2}) are too close, making the system singular")
         beta2 = (info_r1_fwd - info_r2_fwd) / denominator
         beta1 = (info_r1_fwd - beta2 * bsr1) / bsh
+        beta2 = beta2 / bytes_per_parameter / config.num_hidden_layers
+        beta1 = beta1 / bytes_per_parameter / config.num_hidden_layers
         return beta1, beta2
         
     def _get_base_model_fwd_in_bytes_for_estimator_helper(self, args, config, base_model, r, target_modules, device):

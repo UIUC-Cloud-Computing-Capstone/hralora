@@ -69,7 +69,6 @@ class RankEstimator:
         base_model_fwd_bytes, overhead_bytes = self._tracker.get_base_model_fwd_in_bytes_for_estimator(args, config, base_model)
         base_model_portion_bytes = base_model_para_bytes + base_model_fwd_bytes
         
-        # TODO Liam: constant
         if memory_summary_dict is not None:
             memory_summary_dict['base_model_para_bytes'] = self._bytes_to_mb(base_model_para_bytes)
             memory_summary_dict['base_model_fwd_bytes'] = base_model_fwd_bytes
@@ -86,8 +85,7 @@ class RankEstimator:
     def _get_num_of_modules_per_layer(self, args):
         return len(args.lora_target_modules)
 
-    # TODO Liam
-    def _get_rank_based_on_lora_portion(self, args, config, model, lora_portion, memory_summary_dict):
+    def _get_rank_based_on_lora_portion(self, args, config, base_model, lora_portion, memory_summary_dict):
         if lora_portion <= 0:
             print(f'Warning: GPU memory is too small to train the model')
             return 0
@@ -115,7 +113,7 @@ class RankEstimator:
         def get_optimizer_state_count(optim_type):
             if optim_type == 'adam' or optim_type == 'adamw':
                 return 2
-            elif optim_type == 'SGD':
+            elif optim_type == 'sgd':
                 return 1
             raise NotImplementedError('unsupported optimizer type')
 
@@ -124,56 +122,35 @@ class RankEstimator:
             
         def get_gradient_mem(r, module_name, bytes_per_parameter):
             return get_param_mem(r, module_name, bytes_per_parameter)
-        
-        # TODO Liam
-        def get_fwd_betas(module_name):
-            if is_normal_mod(module_name):
-                return 1, 1.25 
-            elif 'output.dense' in module_name:
-                return 5, 1
 
-        # TODO Liam
-        def get_forward_mem(r, module_name, bytes_per_parameter):
-            
-            beta1, beta2 = get_fwd_betas(module_name)
-            return (beta1 * B * sequence_length * H + beta2 * B * sequence_length * r) * bytes_per_parameter
+
+        # (beta1 * B * sequence_length * H + beta2 * B * sequence_length * r) * bytes_per_parameter = lora_portion_per_layer   
 
         
+
+        module_name_to_betas = {}
+        for module_name in args.lora_target_modules:
+            module_name_to_betas[module_name] = self._tracker.get_lora_betas(args, config, base_model, module_name, B, sequence_length, H, bytes_per_parameter)
+        
+
+        lora_portion_per_layer = lora_portion / config.num_hidden_layers
+
         
         D = H * C * bytes_per_parameter
-       
+
         total_dim = 0
-        total_layers = config.num_hidden_layers
-        # currently it does not support regex TODO
-        # need to support layer.0.query, query
+        sum_of_b1BSHbytes = 0
+        for lora_target_module in args.lora_target_modules:
+            ratio = 1 if is_normal_mod(lora_target_module) else mlp_ratio
+            beta1, beta2 = module_name_to_betas[lora_target_module]
+            total_dim += ratio * D * (2 + get_optimizer_state_count(args.optimizer)) + beta2 * B * sequence_length * bytes_per_parameter
+            sum_of_b1BSHbytes += beta1 * B * sequence_length * H * bytes_per_parameter
 
-        b1BSHb_sum = 0
-        module_count = 0
-        for name, module in model.named_modules():
-            # TODO test
-            matched_lora_target_module = None
-            for lora_target_module in args.lora_target_modules:
-                if lora_target_module in name:
-                    matched_lora_target_module = lora_target_module
-                    break
-            
-            if matched_lora_target_module is None:
-                continue
 
-            module_count += 1
+        lora_portion_per_layer -= sum_of_b1BSHbytes
+        rank = int(lora_portion_per_layer / total_dim)
 
-            beta1, beta2 = get_fwd_betas(matched_lora_target_module)
-            b2BSb =  beta2 * B * sequence_length * bytes_per_parameter
-            if is_normal_mod(matched_lora_target_module):
-                total_dim += (get_optimizer_state_count(args.optimizer) + 2) * D + b2BSb
-            else:
-                total_dim += (get_optimizer_state_count(args.optimizer) + 2) * D * mlp_ratio + b2BSb
-            b1BSHb_sum += beta1 * B * sequence_length * H * bytes_per_parameter
-
-        
-        
-        b1BSHb = beta1 * B * sequence_length * H * bytes_per_parameter
-        return (lora_portion - b1BSHb * module_count) / (total_dim)
+        return rank
     
     def _get_total_gpu_memory_size_in_bytes(self, args, total_gpu_memory_size_in_GB):
         return total_gpu_memory_size_in_GB * 1024 * 1024 * 1024
