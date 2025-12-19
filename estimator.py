@@ -199,7 +199,7 @@ class RankEstimator:
     
     def _get_base_model_fwd_in_bytes(self, args, config, base_model):
         # TODO
-        base_model_fwd_MB, overhead_MB = self._tracker.get_base_model_fwd_in_MB_for_estimator(args, config, base_model)
+        base_model_fwd_MB, overhead_MB = self._tracker.get_base_model_fwd_in_bytes_for_estimator(args, config, base_model)
         return base_model_fwd_MB * 1024 * 1024, overhead_MB * 1024 * 1024
 
     def _get_sequence_length(self, args, config):

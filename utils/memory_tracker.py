@@ -9,14 +9,9 @@ Supports both GPU and CPU memory profiling including:
 import os
 import torch
 from typing import Dict, Optional, Union, Tuple
-from torch.profiler import profile, ProfilerActivity, record_function
-import argparse
-import unittest
-import sys
+from torch.profiler import profile, ProfilerActivity
+import statistics
 import os
-import matplotlib.pyplot as plt
-import numpy as np
-from transformers import AutoModelForImageClassification
 from torch.profiler import profile, ProfilerActivity
 import torch
 import pandas as pd
@@ -436,50 +431,24 @@ class MemoryTracker:
 
         return model, optimizer, batch
 
-    def get_base_model_fwd_in_MB_for_estimator(self, args, config, base_model):
+    def get_base_model_fwd_in_bytes_for_estimator(self, args, config, base_model):
 
         H = config.hidden_size
         r = H
-        
-        config_0qk = LoraConfig(
-            r=r,
-            lora_alpha=r,
-            target_modules=["0.attention.attention.query", "0.attention.attention.key"],
-            lora_dropout=0.1,
-            bias="none",
-        )
-        
-        config_0k = LoraConfig(
-            r=r,
-            lora_alpha=r,
-            target_modules=["0.attention.attention.key"],
-            lora_dropout=0.1,
-            bias="none",
-        )
-
-        config_0q = LoraConfig(
-            r=r,
-            lora_alpha=r,
-            target_modules=["0.attention.attention.query"],
-            lora_dropout=0.1,
-            bias="none",
-        )
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-        memory_summary_dict_q = {}
-        
-        info_q = self._get_base_model_fwd_in_MB_for_estimator_helper(args, config, copy.deepcopy(base_model), r, ["attention.attention.query"], device)
-        info_k = self._get_base_model_fwd_in_MB_for_estimator_helper(args, config, copy.deepcopy(base_model), r, ["attention.attention.key"], device)
-        info_qk = self._get_base_model_fwd_in_MB_for_estimator_helper(args, config, copy.deepcopy(base_model), r, ["attention.attention.query", "attention.attention.key"], device)
+        info_q = self._get_base_model_fwd_in_bytes_for_estimator_helper(args, config, copy.deepcopy(base_model), r, ["attention.attention.query"], device)
+        info_k = self._get_base_model_fwd_in_bytes_for_estimator_helper(args, config, copy.deepcopy(base_model), r, ["attention.attention.key"], device)
+        info_qk = self._get_base_model_fwd_in_bytes_for_estimator_helper(args, config, copy.deepcopy(base_model), r, ["attention.attention.query", "attention.attention.key"], device)
 
         fwd_key, overhead_key = 'avg_profiled_fwd', 'avg_profiled_overhead'
-        print('q', info_q[fwd], 'qk', info_qk[fwd], 'k', info_k[fwd])
-        base_fwd_MB = info_q[fwd] - (info_qk[fwd] - info_k[fwd])
-        overhead_MB = avg(info_q[overhead_key], info_qk[overhead_key], info_k[overhead_key])
+        print('q', info_q[fwd_key], 'qk', info_qk[fwd_key], 'k', info_k[fwd_key])
+        base_fwd_MB = info_q[fwd_key] - (info_qk[fwd_key] - info_k[fwd_key])
+        overhead_MB = statistics.mean([info_q[overhead_key], info_qk[overhead_key], info_k[overhead_key]])
         return base_fwd_MB, overhead_MB
         
-    def _get_base_model_fwd_in_MB_for_estimator_helper(self, args, config, base_model, r, target_modules, device):
+    def _get_base_model_fwd_in_bytes_for_estimator_helper(self, args, config, base_model, r, target_modules, device):
         def clear_mem(device):
             is_cuda = device.type == 'cuda'
             if is_cuda:

@@ -168,11 +168,11 @@ class TestRankEstimator(unittest.TestCase):
         config = AutoConfig.from_pretrained(args.model)
         self.tracker.profile_and_compare(args, config, base_model, 'memory_breakdown_comparison_lora_mlp_int_dense.tex', self._get_rank(), {})
 
-    def test_get_base_model_fwd_in_MB_for_estimator(self):
+    def test_get_base_model_fwd_in_bytes_for_estimator(self):
         args = self._init_args()
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
         config = AutoConfig.from_pretrained(args.model)
-        result = self.tracker.get_base_model_fwd_in_MB_for_estimator(args, config, base_model)
+        result = self.tracker.get_base_model_fwd_in_bytes_for_estimator(args, config, base_model)
         print(result)
 
     def _get_base_total(self, bsh, bchss):
