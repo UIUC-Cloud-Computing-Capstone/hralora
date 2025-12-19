@@ -98,7 +98,6 @@ class TestRankEstimator(unittest.TestCase):
         args.optimizer = 'adam'
         args.num_of_layers_to_allocate_LoRA = 12
         args.lora_target_modules = ["query", "value"]
-        args.lora_target_modules_per_layer = 2
         args.train_classifier = False # do not train classifier in the base model. Only train LoRA matrices.
 
         # input data sizes
@@ -171,7 +170,6 @@ class TestRankEstimator(unittest.TestCase):
         args.avg_upload_network_speed_for_each_group_in_Mbps = [7.0]
         args.avg_download_network_speed_for_each_group_in_Mbps = [50.0]
         args.CLS_TOKEN = 1
-        args.lora_target_modules_per_layer = 2
         return args
 
     def test_get_all_named_modules(self):

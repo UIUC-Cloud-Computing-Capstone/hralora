@@ -66,7 +66,7 @@ class RankEstimator:
         return self._get_final_rank(args, config, rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed)
 
     def _get_final_rank(self, args, config, rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed):
-        return min(rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed) * config.num_hidden_layers * args.lora_target_modules_per_layer
+        return min(rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed) * config.num_hidden_layers * len(args.lora_target_modules)
     
     def _get_rank_based_on_gpu_memory(self, args, config, base_model, total_gpu_memory_size_in_GB, memory_summary_dict):
 
@@ -78,7 +78,7 @@ class RankEstimator:
 
     def _get_base_model_portion(self, args, config, base_model, memory_summary_dict):
         base_model_para_in_MB = self._get_base_model_para_in_MB(args, base_model)
-        base_model_fwd_in_bytes = self._get_base_model_fwd_in_bytes(args, config, base_model)
+        base_model_fwd_in_bytes, overhead_bytes = self._get_base_model_fwd_in_bytes(args, config, base_model)
         result = base_model_para_in_MB + base_model_fwd_in_bytes
         
         if memory_summary_dict is not None:
@@ -115,8 +115,6 @@ class RankEstimator:
         C = 2 # two matrices A and B
         
         def get_param_mem(r, module_name, bytes_per_parameter):
-            
-            
             if is_normal_mod(module_name):
                 return H * r * C * bytes_per_parameter
             elif 'output.dense' in module_name:
@@ -134,16 +132,17 @@ class RankEstimator:
         def get_optimizer_state_mem(r, module_name, bytes_per_parameter, optim_type):
             return get_optimizer_state_count(optim_type) * get_param_mem(r, module_name, bytes_per_parameter)
             
-
         def get_gradient_mem(r, module_name, bytes_per_parameter):
             return get_param_mem(r, module_name, bytes_per_parameter)
         
+        # TODO Liam
         def get_fwd_betas(module_name):
             if is_normal_mod(module_name):
                 return 1, 1.25 
             elif 'output.dense' in module_name:
                 return 5, 1
 
+        # TODO Liam
         def get_forward_mem(r, module_name, bytes_per_parameter):
             
             beta1, beta2 = get_fwd_betas(module_name)
@@ -209,12 +208,13 @@ class RankEstimator:
             raise ValueError(f'Invalid precision: {precision}')
     
     def _get_base_model_fwd_in_bytes(self, args, config, base_model):
-        return self._tracker.get_base_model_fwd_in_MB_for_estimator(args, config, base_model) * 1024 * 1024
+        # TODO
+        base_model_fwd_MB, overhead_MB = self._tracker.get_base_model_fwd_in_MB_for_estimator(args, config, base_model)
+        return base_model_fwd_MB * 1024 * 1024, overhead_MB * 1024 * 1024
 
     def _get_sequence_length(self, args, config):
         config = AutoConfig.from_pretrained(args.model)
         CLS_TOKEN = args.CLS_TOKEN
-        print(config.image_size)
         
         return config.image_size / config.patch_size * config.image_size / config.patch_size + CLS_TOKEN
         
