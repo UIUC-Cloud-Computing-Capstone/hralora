@@ -76,9 +76,9 @@ class RankEstimator:
 
         return self._get_rank_based_on_lora_portion(args, config, base_model, lora_portion, memory_summary_dict)
 
-    def _get_base_model_portion(self, args, config, model, memory_summary_dict):
-        base_model_para_in_MB = self._get_base_model_para_in_MB(args, model)
-        base_model_fwd_in_bytes = self._get_base_model_fwd_in_bytes(args, config)
+    def _get_base_model_portion(self, args, config, base_model, memory_summary_dict):
+        base_model_para_in_MB = self._get_base_model_para_in_MB(args, base_model)
+        base_model_fwd_in_bytes = self._get_base_model_fwd_in_bytes(args, config, base_model)
         result = base_model_para_in_MB + base_model_fwd_in_bytes
         
         if memory_summary_dict is not None:
@@ -208,38 +208,8 @@ class RankEstimator:
         else:
             raise ValueError(f'Invalid precision: {precision}')
     
-    # TODO Liam
-    def _get_base_model_fwd_in_bytes(self, args, config):
-
-        """
-        B: batch size
-        S: sequence length. number of tokens per image (patches + special tokens)
-        D: hidden dimension
-        dtype_bytes: bytes per parameter
-        num_blocks: number of blocks
-        num_heads: number of heads
-        workspace_margin: workspace margin, 20% by default
-        
-        bytes_per_block = B * S * D * dtype_bytes
-        total_forward = bytes_per_block * num_blocks
-        attn_scores = B * num_heads * S * S * dtype_bytes
-        peak_activations ≈ (total_forward + attn_scores) * (1 + workspace_margin)
-        """
-
-
-
-
-        batch_size = args.batch_size
-        sequence_length = self._get_sequence_length(args, config)
-        hidden_dimension = config.hidden_size
-        num_layers = config.num_hidden_layers
-        num_heads = config.num_attention_heads
-        intermediate_size = config.intermediate_size
-        dtype_bytes = self._get_byte_per_parameter(args.precision)
-        workspace_margin = args.overhead_and_safety_margin_factor
-
-        base_beta1, base_beta2 = 8, 49
-        return (base_beta1 * batch_size * sequence_length * hidden_dimension + base_beta2 * batch_size * sequence_length * sequence_length * num_heads) * dtype_bytes
+    def _get_base_model_fwd_in_bytes(self, args, config, base_model):
+        return self._tracker.get_base_model_fwd_in_MB_for_estimator(args, config, base_model) * 1024 * 1024
 
     def _get_sequence_length(self, args, config):
         config = AutoConfig.from_pretrained(args.model)
