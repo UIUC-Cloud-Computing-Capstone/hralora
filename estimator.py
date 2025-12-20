@@ -161,6 +161,8 @@ class RankEstimator:
         lora_portion_per_layer -= sum_of_b1BSHbytes
         # TODO Liam: wrong
         rank = int(lora_portion_per_layer / total_dim)
+        rank = min(rank, H)
+        rank = max(rank, 0)
         print('est rank:', rank)
 
         print('sum_of_ratio_D', sum_of_ratio_D, rank, layers, sum_of_ratio_D * rank * layers)
