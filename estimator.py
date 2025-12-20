@@ -183,7 +183,8 @@ class RankEstimator:
         print(memory_summary_dict['lora_param_bytes'], self._bytes_to_mb(memory_summary_dict['lora_param_bytes']))
         memory_summary_dict['lora_optimizer_states_bytes'] = memory_summary_dict['lora_param_bytes'] * get_optimizer_state_count(args.optimizer)
         memory_summary_dict['lora_grads_bytes'] = memory_summary_dict['lora_param_bytes']
-        memory_summary_dict['lora_fwd_bytes'] = (sum_of_b1BSHbytes + sum_of_b2BSbytes * rank) * layers
+        avg_of_b1BSHbytes = sum_of_b1BSHbytes / len(args.lora_target_modules)
+        memory_summary_dict['lora_fwd_bytes'] = (avg_of_b1BSHbytes + sum_of_b2BSbytes * rank) * layers / C
         memory_summary_dict['lora_total_bytes'] = memory_summary_dict['lora_param_bytes'] + memory_summary_dict['lora_fwd_bytes'] + memory_summary_dict['lora_optimizer_states_bytes'] + memory_summary_dict['lora_grads_bytes']
 
         return rank

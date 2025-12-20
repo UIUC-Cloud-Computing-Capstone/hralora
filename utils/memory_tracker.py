@@ -434,7 +434,7 @@ class MemoryTracker:
     def get_base_model_fwd_in_bytes_for_estimator(self, args, config, base_model):
 
         H = config.hidden_size
-        r = int(H)
+        r = int(H / 2)
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
