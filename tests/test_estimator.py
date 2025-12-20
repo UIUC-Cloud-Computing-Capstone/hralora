@@ -167,17 +167,14 @@ class TestRankEstimator(unittest.TestCase):
         args.gpu_memory_size_for_each_group_in_GB = [3]
         args.lora_target_modules = ['query', 'value']
         
-        # Load base model
+        
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
         config = AutoConfig.from_pretrained(args.model)
         memory_summary_dict = {}
         args.rank_estimator_method = MEM_ONLY
-        # 
         base_model1 = copy.copy(base_model)
         rank = self.estimator.get_rank_for_one_client_group(args, config, base_model1, memory_summary_dict)[0]
-        #rank = 384
         del base_model1
-        print('est rank', rank)
         self.tracker.profile_and_compare(args, config, copy.copy(base_model), 'memory_breakdown_comparison_lora_qv.tex', rank, memory_summary_dict)
 
     def test_memory_breakdown_comparison_table_lora_mlp_output_dense(self):

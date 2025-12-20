@@ -282,7 +282,8 @@ class MemoryTracker:
         output_dir = os.path.join(os.path.dirname(__file__), '..', 'results', 'diagrams')
         
         # Generate LaTeX table with custom formatting
-        latex_table = "% batch size: " + str(args.batch_size) + "\n"
+        latex_table = f"% Profiling runs to solve betas: {args.beta_profiling_run:d}\n"
+        latex_table += f"% batch size: {args.batch_size:.2f}\n"
         latex_table += "% Summary Statistics:\n"
         latex_table += f"%   Mean Absolute Percentage Error (MAPE): {mape:.2f}%\n"
         latex_table += f"%   Rank used: {rank}\n"
@@ -513,15 +514,19 @@ class MemoryTracker:
         r1 = int(H / 2)
         r2 = int(H / 3)
 
-        run = 100 # at least 2
+        if not hasattr(args, 'beta_profiling_run') or not args.beta_profiling_run:
+            args.beta_profiling_run = 2
+        beta_profiling_run = args.beta_profiling_run
+        if beta_profiling_run < 2:
+            raise ValueError('beta_profiling_run should be at least 2')
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         fwd_key= 'avg_profiled_fwd'
         # generate random r values
-        rs = [random.randint(1, H) for _ in range(run)]
+        rs = [random.randint(1, H) for _ in range(beta_profiling_run)]
         ys = []
         bsrs = [B * S * r for r in rs]
     
-        for i in range(run):
+        for i in range(beta_profiling_run):
             y = self._get_base_model_fwd_in_bytes_for_estimator_helper(args, config, copy.deepcopy(base_model), rs[i], module_names, device)[fwd_key]
             y -= memory_summary_dict['base_model_fwd_bytes']
             ys.append(y / 4)
