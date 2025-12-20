@@ -178,15 +178,16 @@ class RankEstimator:
             b2BSbytes = beta2 * B * sequence_length * bytes_per_parameter * C
             #sum_of_b2BSbytes += b2BSbytes
             #total_dim += ratio * D * (2 + get_optimizer_state_count(args.optimizer)) + b2BSbytes
-            total_dim += ratio * D * (2 + get_optimizer_state_count(args.optimizer))
+            total_dim += ratio * D * (2 + get_optimizer_state_count(args.optimizer)) * layers
             sum_of_b1BSHbytes += beta1 * B * sequence_length * H * bytes_per_parameter
         
         #avg_of_b1BSHbytes = sum_of_b1BSHbytes / len(args.lora_target_modules)
         #lora_portion_per_layer -= sum_of_b1BSHbytes
-        lora_portion_per_layer -= beta1 * B * sequence_length * H * bytes_per_parameter
+        lora_portion -= beta1 * B * sequence_length * H * bytes_per_parameter
         total_dim += b2BSbytes
         rank = int(lora_portion_per_layer / total_dim)
         rank = min(rank, H)
+        print(rank)
         rank = max(rank, 0)
         print('est rank by memory:', rank)
 
@@ -197,7 +198,7 @@ class RankEstimator:
         memory_summary_dict['lora_grads_bytes'] = memory_summary_dict['lora_param_bytes']
         
         #memory_summary_dict['lora_fwd_bytes'] = (avg_of_b1BSHbytes + sum_of_b2BSbytes * rank) * layers / C
-        memory_summary_dict['lora_fwd_bytes'] = (beta1 * B * sequence_length * H * bytes_per_parameter + b2BSbytes * rank) * layers
+        memory_summary_dict['lora_fwd_bytes'] = (beta1 * B * sequence_length * H * bytes_per_parameter + b2BSbytes * rank)
         memory_summary_dict['lora_total_bytes'] = memory_summary_dict['lora_param_bytes'] + memory_summary_dict['lora_fwd_bytes'] + memory_summary_dict['lora_optimizer_states_bytes'] + memory_summary_dict['lora_grads_bytes']
 
         return rank

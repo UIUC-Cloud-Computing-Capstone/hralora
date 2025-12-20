@@ -507,9 +507,9 @@ class MemoryTracker:
         bsr1  = bs * r1
         bsr2  = bs * r2
         
-        
-        info_r1_fwd = info_r1 / bytes_per_parameter / config.num_hidden_layers
-        info_r2_fwd = info_r2 / bytes_per_parameter / config.num_hidden_layers
+        matrix_count = 2
+        info_r1_fwd = info_r1 / bytes_per_parameter
+        info_r2_fwd = info_r2 / bytes_per_parameter
         # beta1 * bsh + beta2 * bsr1 = info_r1_fwd
         # beta1 * bsh + beta2 * bsr2 = info_r2_fwd
         # Solve the linear equations:
