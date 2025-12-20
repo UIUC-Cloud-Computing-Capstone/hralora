@@ -69,7 +69,7 @@ class RankEstimator:
         base_model_portion_bytes = base_model_para_bytes + base_model_fwd_bytes
         
         if memory_summary_dict is not None:
-            memory_summary_dict['base_model_para_bytes'] = self._bytes_to_mb(base_model_para_bytes)
+            memory_summary_dict['base_model_para_bytes'] = base_model_para_bytes
             memory_summary_dict['base_model_fwd_bytes'] = base_model_fwd_bytes
             memory_summary_dict['base_model_portion_bytes'] = base_model_portion_bytes
             memory_summary_dict['overhead_bytes'] = overhead_bytes
@@ -172,6 +172,7 @@ class RankEstimator:
         '''
         
         parameter_size = sum(p.numel() for p in base_model.parameters())
+        print('parameter_size', parameter_size)
         
         byte_per_parameter = self._get_byte_per_parameter(args.precision)
 
