@@ -112,9 +112,9 @@ class TestRankEstimator(unittest.TestCase):
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
         
         config = AutoConfig.from_pretrained(args.model)
-        module_rank_budgets_for_all_heterogeneous_groups = self.estimator.get_rank_for_all_client_groups(args, config, base_model, {})
-        print('one module: ', module_rank_budgets_for_all_heterogeneous_groups)
-        
+        rank_budgets_for_all_heterogeneous_groups = self.estimator.get_rank_for_all_client_groups(args, config, base_model, {})
+        print(rank_budgets_for_all_heterogeneous_groups)
+
     def _init_args(self):
         args = argparse.Namespace()
         args.rank_estimator_method = 'Ours'
