@@ -9,9 +9,9 @@ class RankEstimator:
     def __init__(self):
         self._tracker = MemoryTracker()
 
-    def get_rank_for_all_client_groups(self, args, base_model):
+    def get_rank_for_all_client_groups(self, args, config, base_model, memory_summary_dict):
 
-        config = AutoConfig.from_pretrained(args.model)
+        #config = AutoConfig.from_pretrained(args.model)
         rank_for_all_client_groups = []
         for i in range(len(args.heterogeneous_group)):
             print(f"client group {i}")
@@ -20,7 +20,7 @@ class RankEstimator:
             download_network_speed_in_Mbps_for_one_client_group = args.avg_download_network_speed_for_each_group_in_Mbps[i]
             desired_uploading_time_in_seconds_for_one_client_group = args.desired_uploading_time_for_each_group_in_seconds[i]
             desired_downloading_time_in_seconds_for_one_client_group = args.desired_downloading_time_for_each_group_in_seconds[i]
-            memory_summary_dict = {}
+            #memory_summary_dict = {}
             rank_for_one_client_group = self._get_rank_for_one_client_group(args, config, base_model, total_gpu_memory_size_in_GB_for_one_client_group, upload_network_speed_in_Mbps_for_one_client_group, download_network_speed_in_Mbps_for_one_client_group, desired_uploading_time_in_seconds_for_one_client_group, desired_downloading_time_in_seconds_for_one_client_group, memory_summary_dict)
             rank_for_all_client_groups.append(rank_for_one_client_group)
             
@@ -33,6 +33,7 @@ class RankEstimator:
             
             print('------------------------------------------------------------------------------------------------')
             print(memory_summary_dict)
+            print('total_memory_bytes', memory_summary_dict['total_memory_bytes'])
         
         
         print(f'rank budget per module for all client groups respectively: {str(rank_for_all_client_groups)}')

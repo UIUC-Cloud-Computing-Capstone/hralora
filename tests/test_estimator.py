@@ -108,7 +108,8 @@ class TestRankEstimator(unittest.TestCase):
 
         base_model = AutoModelForImageClassification.from_pretrained(args.model)
         
-        rank_budgets_for_all_heterogeneous_groups = self.estimator.get_rank_for_all_client_groups(args, base_model)
+        config = AutoConfig.from_pretrained(args.model)
+        rank_budgets_for_all_heterogeneous_groups = self.estimator.get_rank_for_all_client_groups(args, config, base_model, {})
         print(rank_budgets_for_all_heterogeneous_groups)
 
     def _init_args(self):
@@ -158,6 +159,15 @@ class TestRankEstimator(unittest.TestCase):
             if hasattr(module, 'weight') and module.weight is not None:
                 print(f"{name:<50} | {list(module.weight.shape)}")
 
+    def test_memory_breakdown_comparison_table_qv(self):
+        args = self._init_args()
+        args.lora_target_modules = ['query', 'value']
+        
+        # Load base model
+        base_model = AutoModelForImageClassification.from_pretrained(args.model)
+        config = AutoConfig.from_pretrained(args.model)
+        memory_summary_dict = {}
+        self.tracker.profile_and_compare(args, config, base_model, 'memory_breakdown_comparison_lora_qv.tex', self.estimator.get_rank_for_all_client_groups(args, config, base_model, memory_summary_dict)[0], memory_summary_dict)
 
     def test_memory_breakdown_comparison_table_lora_mlp_output_dense(self):
         args = self._init_args()
