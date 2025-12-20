@@ -43,7 +43,7 @@ class RankEstimator:
             
             # TODO Liam
             memory_summary_dict['total_para_bytes'] = memory_summary_dict['base_model_para_bytes'] + memory_summary_dict['lora_param_bytes']
-            memory_summary_dict['total_fwd_bytes'] = memory_summary_dict['base_model_fwd_bytes'] + memory_summary_dict['lora_optimizer_states_bytes']
+            memory_summary_dict['total_fwd_bytes'] = memory_summary_dict['base_model_fwd_bytes'] + memory_summary_dict['lora_fwd_bytes']
             memory_summary_dict['total_optimizer_states_bytes'] = memory_summary_dict['lora_optimizer_states_bytes']
             memory_summary_dict['total_grads_bytes'] = memory_summary_dict['lora_grads_bytes']
             memory_summary_dict['total_memory_bytes'] = round(memory_summary_dict['total_para_bytes'] + memory_summary_dict['total_fwd_bytes'] + memory_summary_dict['total_optimizer_states_bytes'] + memory_summary_dict['total_grads_bytes'], 2)
@@ -166,10 +166,10 @@ class RankEstimator:
             ratio = 1 if is_normal_mod(lora_target_module) else mlp_ratio
             beta1, beta2 = module_name_to_betas[lora_target_module]
             sum_of_ratio_D += ratio * D
-            b2BSbytes = beta2 * B * sequence_length * bytes_per_parameter
+            b2BSbytes = beta2 * B * sequence_length * bytes_per_parameter * C
             sum_of_b2BSbytes += b2BSbytes
             total_dim += ratio * D * (2 + get_optimizer_state_count(args.optimizer)) + b2BSbytes
-            sum_of_b1BSHbytes += beta1 * B * sequence_length * H * bytes_per_parameter
+            sum_of_b1BSHbytes += beta1 * B * sequence_length * H * bytes_per_parameter * C
 
         lora_portion_per_layer -= sum_of_b1BSHbytes
         # TODO Liam: wrong

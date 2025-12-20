@@ -331,16 +331,16 @@ class MemoryTracker:
     def _get_profiled_data_for_all_runs(self, args, is_cuda, model, optimizer, batch):
         print(f"\nProfiling actual memory {args.num_profiling_actual_runs} times...")
         all_profiled_params, all_profiled_optimizer, all_profiled_fwds, all_profiled_grads, all_profiled_overhead, all_profiled_total = [], [], [], [], [], []
+    
+        activities = [ProfilerActivity.CPU]
+        if is_cuda:
+            activities.append(ProfilerActivity.CUDA)
         
         if is_cuda:
             torch.cuda.empty_cache()  # Clear GPU cache
             torch.cuda.reset_peak_memory_stats()  # Reset peak memory stats
         gc.collect()  # Force Python garbage collection
-        
-        activities = [ProfilerActivity.CPU]
-        if is_cuda:
-            activities.append(ProfilerActivity.CUDA)
-        
+
         model.train()
         with profile(
                 activities=activities,
@@ -434,7 +434,7 @@ class MemoryTracker:
     def get_base_model_fwd_in_bytes_for_estimator(self, args, config, base_model):
 
         H = config.hidden_size
-        r = int(H / 2)
+        r = int(H)
 
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -482,6 +482,7 @@ class MemoryTracker:
             raise ValueError(f"Cannot solve: bsr1 ({bsr1}) and bsr2 ({bsr2}) are too close, making the system singular")
         beta2 = (info_r1_fwd - info_r2_fwd) / denominator
         beta1 = (info_r1_fwd - beta2 * bsr1) / bsh
+        print('betas: ', beta1, beta2)
         return beta1, beta2
         
     def _get_base_model_fwd_in_bytes_for_estimator_helper(self, args, config, base_model, r, target_modules, device):
