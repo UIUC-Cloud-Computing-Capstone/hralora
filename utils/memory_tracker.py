@@ -317,12 +317,6 @@ class MemoryTracker:
         latex_table += "\n"
         latex_table += "\\bottomrule\n"
         latex_table += "\\end{tabular}\n"
-        # latex_table += "\n"
-        # latex_table += "% Summary Statistics:\n"
-        # latex_table += f"%   Mean Absolute Percentage Error (MAPE): {mape:.2f}%\n"
-        # latex_table += f"%   Rank used: {rank}\n"
-        # latex_table += f"%   Available memory: {available_memory_gb} GB ({available_memory_mb:.2f} MB)\n"
-        # latex_table += f"%   Memory utilization: {memory_utilization:.2f}%\n"
         latex_table += "\\end{table}\n"
         
         latex_path = os.path.join(output_dir, output_file_path)
@@ -555,34 +549,12 @@ class MemoryTracker:
         # plt.scatter(bsrs, ys)
         # plt.xlabel('bsrs')
         # plt.ylabel('ys')
-        # plt.title('data')
+        # plt.title('beta regression EDA')
         # plt.show()
-        # plt.savefig('data.png')
-
-        
+        # plt.savefig('beta_regression_eda.png')
 
         print('betas: ', beta1, beta2)
         return beta1, beta2
-        
-        
-        # regression analysis to get beta1 and beta2
-        
-        # info_r1_fwd = info_r1 / bytes_per_parameter
-        # info_r2_fwd = info_r2 / bytes_per_parameter
-        # # beta1 * bsh + beta2 * bsr1 = info_r1_fwd
-        # # beta1 * bsh + beta2 * bsr2 = info_r2_fwd
-        # # Solve the linear equations:
-        # # Subtract equation 2 from equation 1:
-        # # beta2 * (bsr1 - bsr2) = info_r1_fwd - info_r2_fwd
-        # # beta2 = (info_r1_fwd - info_r2_fwd) / (bsr1 - bsr2)
-        # # Then from equation 1:
-        # # beta1 = (info_r1_fwd - beta2 * bsr1) / bsh
-        # denominator = bsr1 - bsr2
-        # if abs(denominator) < 1e-10:
-        #     raise ValueError(f"Cannot solve: bsr1 ({bsr1}) and bsr2 ({bsr2}) are too close, making the system singular")
-        # beta2 = (info_r1_fwd - info_r2_fwd) / denominator
-        # beta1 = (info_r1_fwd - beta2 * bsr1) / bsh
-        
         
     def _get_base_model_fwd_in_bytes_for_estimator_helper(self, args, config, base_model, r, target_modules, device):
         def clear_mem(device):
