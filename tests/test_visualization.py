@@ -58,17 +58,17 @@ class TestRankEstimatorVisualization(unittest.TestCase):
     def test_rank_vs_memory_and_network_speed_combined(self):
         """Generate a combined diagram with both lines in the same figure, sharing the Y-axis"""
         # Fixed network speeds for memory diagram
-        fixed_upload_speed_Mbps = 100
-        fixed_download_speed_Mbps = 100
+        #fixed_upload_speed_Mbps = 100
+        #fixed_download_speed_Mbps = 100
         
         # Fixed memory size for network speed diagram
-        fixed_memory_GB = 8.0
+        #fixed_memory_GB = 8.0
         
         # Vary memory sizes (realistic range: 4GB to 16GB)
         memory_sizes_GB = [1.5, 1.8, 2, 2.2, 2.5, 4, 8]
         
         # Vary network speeds (realistic range: 0.5 Mbps to 10 Mbps)
-        network_speeds_Mbps = [1.0, 2.0, 4.0, 8.0, 12.0, 15.0, 20.0]
+        network_speeds_Mbps = [1.0, 4.0, 7.0, 10.0, 15.0, 50, 80]
         
         # Model and training configuration
         args = self._init_args()
@@ -81,15 +81,15 @@ class TestRankEstimatorVisualization(unittest.TestCase):
         rank_values_memory = []
         for memory_size_GB in memory_sizes_GB:
             args.gpu_memory_size_for_each_group_in_GB = [memory_size_GB]
-            args.avg_upload_network_speed_for_each_group_in_Mbps = [fixed_upload_speed_Mbps]
-            args.avg_download_network_speed_for_each_group_in_Mbps = [fixed_download_speed_Mbps]
+            #args.avg_upload_network_speed_for_each_group_in_Mbps = [fixed_upload_speed_Mbps]
+            #args.avg_download_network_speed_for_each_group_in_Mbps = [fixed_download_speed_Mbps]
             args.rank_estimator_method = MEM_ONLY
             rank_budgets = self.estimator.get_rank_for_one_client_group(args, config, copy.deepcopy(base_model), {})
             rank_values_memory.append(rank_budgets[0])
         
         # Collect rank values for network speed variation
         rank_values_network = []
-        args.gpu_memory_size_for_each_group_in_GB = [fixed_memory_GB]
+        #args.gpu_memory_size_for_each_group_in_GB = [fixed_memory_GB]
         for network_speed_Mbps in network_speeds_Mbps:
             args.avg_upload_network_speed_for_each_group_in_Mbps = [network_speed_Mbps]
             args.avg_download_network_speed_for_each_group_in_Mbps = [network_speed_Mbps]

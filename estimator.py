@@ -40,9 +40,9 @@ class RankEstimator:
 
     def _helper(self, args, config, base_model, memory_summary_dict, rank_for_all_client_groups, i):
             print(f"client group {i}")
-            total_gpu_memory_size_in_GB_for_one_client_group = args.gpu_memory_size_for_each_group_in_GB[i]
-            upload_network_speed_in_Mbps_for_one_client_group = args.avg_upload_network_speed_for_each_group_in_Mbps[i]
-            download_network_speed_in_Mbps_for_one_client_group = args.avg_download_network_speed_for_each_group_in_Mbps[i]
+            total_gpu_memory_size_in_GB_for_one_client_group = args.gpu_memory_size_for_each_group_in_GB[i] if hasattr(args, 'gpu_memory_size_for_each_group_in_GB') else None
+            upload_network_speed_in_Mbps_for_one_client_group = args.avg_upload_network_speed_for_each_group_in_Mbps[i] if hasattr(args, 'avg_upload_network_speed_for_each_group_in_Mbps') else None
+            download_network_speed_in_Mbps_for_one_client_group = args.avg_download_network_speed_for_each_group_in_Mbps[i] if hasattr(args, 'avg_download_network_speed_for_each_group_in_Mbps') else None
             desired_uploading_time_in_seconds_for_one_client_group = args.desired_uploading_time_for_each_group_in_seconds[i]
             desired_downloading_time_in_seconds_for_one_client_group = args.desired_downloading_time_for_each_group_in_seconds[i]
             
