@@ -15,12 +15,16 @@ class RankEstimator:
     def get_rank_for_all_client_groups(self, args, config, base_model, memory_summary_dict):
 
         #config = AutoConfig.from_pretrained(args.model)
-        rank_for_all_client_groups = []
+        rank_per_module_per_layer_for_all_client_groups = []
         for i in range(len(args.heterogeneous_group)):
-            self._helper(args, config, copy.deepcopy(base_model), memory_summary_dict, rank_for_all_client_groups, i)
+            self._helper(args, config, copy.deepcopy(base_model), memory_summary_dict, rank_per_module_per_layer_for_all_client_groups, i)
         
-        print(f'rank budget per module for all client groups respectively: {str(rank_for_all_client_groups)}')
-        return rank_for_all_client_groups
+        print(f'rank budget per module for all client groups respectively: {str(rank_per_module_per_layer_for_all_client_groups)}')
+        #return rank_for_all_client_groups
+        multiplication_factor = config.num_hidden_layers * len(args.lora_target_modules)
+        client_rank_budgets_for_all_heterogeneous_groups = [element * multiplication_factor for element in rank_per_module_per_layer_for_all_client_groups]
+        print('per client: ', client_rank_budgets_for_all_heterogeneous_groups)
+        return client_rank_budgets_for_all_heterogeneous_groups
     
     def get_rank_for_one_client_group(self, args, config, base_model, memory_summary_dict):
 
@@ -231,6 +235,7 @@ class RankEstimator:
         num_modules_per_layer = self._get_num_of_modules_per_layer(args)
         H = config.hidden_size
         C = self._get_num_of_adapted_matrices(args)
+        # TODO Liam: refactor
         num_layers = args.num_of_layers_to_allocate_LoRA
         bytes_per_parameter = self._get_byte_per_parameter(args.precision)
         total_dimension_size = C * num_modules_per_layer * H * num_layers * bytes_per_parameter
