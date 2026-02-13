@@ -9,6 +9,7 @@ Usage:
 """
 import argparse
 import sys
+import time
 from pathlib import Path
 
 import yaml
@@ -51,6 +52,7 @@ def config_to_args(cfg: dict) -> argparse.Namespace:
 
 
 def main():
+    start = time.perf_counter()
     parser = argparse.ArgumentParser(description="Run rank estimation from YAML config.")
     parser.add_argument(
         "config",
@@ -76,6 +78,9 @@ def main():
         args, config, base_model, memory_summary_dict
     )
     print("Per client (total rank budget):", client_rank_budgets)
+
+    elapsed = time.perf_counter() - start
+    print(f"Total time: {elapsed:.2f}s")
 
 
 if __name__ == "__main__":
