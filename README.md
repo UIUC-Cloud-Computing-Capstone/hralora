@@ -24,6 +24,7 @@ First, set up the HuggingFace Accelerate configuration:
 Copy the accelerate config to the huggingface directory: 
 
 ```bash
+mkdir -p ~/.cache/huggingface/accelerate/
 cp accelerate_default_config.yaml ~/.cache/huggingface/accelerate/default_config.yaml
 ```
 
