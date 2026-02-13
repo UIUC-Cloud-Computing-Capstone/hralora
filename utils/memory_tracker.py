@@ -141,6 +141,10 @@ class MemoryTracker:
         return outputs.loss if hasattr(outputs, 'loss') else torch.nn.functional.cross_entropy(outputs, labels)
     
     def profile_and_compare(self, args, config, base_model, output_file_path, rank, memory_summary_dict):
+        if rank > config.hidden_size:
+            mult = config.num_hidden_layers * len(args.lora_target_modules)
+            rank = rank // mult
+        rank = min(max(rank, 0), config.hidden_size)
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         model, optimizer, batch = self._init_profiling(args, config, rank, base_model, device)
         profiled_info = self.profile(args, config, model, rank, memory_summary_dict, optimizer, batch, device)
@@ -455,8 +459,11 @@ class MemoryTracker:
         device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
         info_q = self._get_base_model_fwd_in_bytes_for_estimator_helper(args, config, copy.deepcopy(base_model), r, ["0.attention.attention.query"], device)
+        self._clear_after_helper(device, torch)
         info_k = self._get_base_model_fwd_in_bytes_for_estimator_helper(args, config, copy.deepcopy(base_model), r, ["0.attention.attention.key"], device)
+        self._clear_after_helper(device, torch)
         info_qk = self._get_base_model_fwd_in_bytes_for_estimator_helper(args, config, copy.deepcopy(base_model), r, ["0.attention.attention.query", "0.attention.attention.key"], device)
+        self._clear_after_helper(device, torch)
 
         print('q', info_q[FWD_KEY], 'qk', info_qk[FWD_KEY], 'k', info_k[FWD_KEY])
         base_fwd_bytes = info_q[FWD_KEY] - (info_qk[FWD_KEY] - info_k[FWD_KEY])
@@ -464,6 +471,11 @@ class MemoryTracker:
         print('base_fw_bytes', base_fwd_bytes, 'overhead_bytes', overhead_bytes)
         return base_fwd_bytes, overhead_bytes
     
+    def _clear_after_helper(self, device, torch):
+            gc.collect()
+            if device.type == 'cuda':
+                torch.cuda.empty_cache()
+
     def get_lora_betas_v2(self, args, config, base_model, module_names, B, S, H, bytes_per_parameter, memory_summary_dict):
         '''
         betas for for one module (two matrices) on one layer 
@@ -484,6 +496,8 @@ class MemoryTracker:
         ys = []
         bsrs = [B * S * r for r in rs]
     
+        self._clear_after_helper(device, torch)
+
         overheads = [memory_summary_dict['overhead_bytes']]
         for i in range(beta_profiling_run):
             info = self._get_base_model_fwd_in_bytes_for_estimator_helper(args, config, copy.deepcopy(base_model), rs[i], module_names, device)
@@ -491,10 +505,10 @@ class MemoryTracker:
             overheads.append(info[OVERHEAD_KEY])
             y -= memory_summary_dict['base_model_fwd_bytes']
             ys.append(y / 4)
+            self._clear_after_helper(device, torch)
 
         overheads.sort()
         median_overhead = statistics.median(overheads)
-        #avg_overhead = sum(overheads) / len(overheads)
         memory_summary_dict['overhead_bytes'] = median_overhead
             
         
@@ -551,10 +565,21 @@ class MemoryTracker:
         clear_mem(device)
         result = self.profile(args, config, model, r, {}, optimizer, batch, device)
 
+        # Delete the model copy immediately after we have the result. Order: drop
+        # references to base_model first (model wraps it), then base_model, then
+        # sync and clear caches so the driver can reclaim before the caller creates
+        # the next deepcopy.
+        if device.type == 'cuda':
+            torch.cuda.synchronize()
         del lora_config
         del model
         del optimizer
         del batch
+        del base_model
+        clear_mem(device)
+        if device.type == 'cuda':
+            time.sleep(0.5)
+            torch.cuda.empty_cache()
         return result
         
 
