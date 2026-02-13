@@ -404,7 +404,7 @@ def log_metrics(args, writer, t, local_losses, delta_norms):
 def test_global_model(args, dataset_test, writer, net_glob, global_model, best_test_acc, best_test_f1, best_test_micro_f1, best_test_macro_f1, metric_keys, t, norm, train_loss):
     net_glob.load_state_dict(global_model)
     net_glob.eval()
-    if 'vit' in args.model:
+    if VISION_MODEL in args.model:
         test_acc, test_loss = test_vit(copy.deepcopy(net_glob), dataset_test, args, t)
             # metrics
         if args.accelerator.is_local_main_process:
@@ -1139,7 +1139,7 @@ def update_dataset_fim(args, dataset_fim):
     
     Args:
         args: Configuration object containing:
-            - model (str): Model identifier (e.g., 'vit', 'bert')
+            - model (str): Model identifier
             - dataset (str): Dataset name (e.g., 'cifar100', 'sst2', 'qqp', 'qnli', 'ledgar', 'belebele')
             - batch_size (int): Batch size for DataLoader
             - data_collator: Collate function for text datasets
@@ -1179,7 +1179,7 @@ def update_dataset_fim(args, dataset_fim):
         - Shuffling is used for text datasets to improve FIM estimation quality
         - Vision datasets typically don't use shuffling for deterministic results
     """
-    if 'vit' in args.model:
+    if VISION_MODEL in args.model:
         dataset_fim = DataLoader(dataset_fim, collate_fn=test_collate_fn, batch_size=args.batch_size)
     elif 'sst2' in args.dataset or 'qqp' in args.dataset or 'qnli' in args.dataset or 'ledgar' in args.dataset:
         dataset_fim = DataLoader(dataset_fim, shuffle=True, collate_fn=args.data_collator, batch_size=args.batch_size)
@@ -1199,7 +1199,7 @@ def get_data_loader_list(args, dataset_train, dict_users):
     Args:
         args: Configuration object containing:
             - num_users (int): Total number of clients
-            - model (str): Model identifier (e.g., 'vit', 'bert')
+            - model (str): Model identifier
             - dataset (str): Dataset name (e.g., 'cifar100', 'sst2', 'qqp', 'qnli', 'ledgar', 'belebele')
             - batch_size (int): Batch size for training
             - data_collator: Collate function for text datasets

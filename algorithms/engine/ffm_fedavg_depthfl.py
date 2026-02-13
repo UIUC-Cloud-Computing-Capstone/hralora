@@ -16,6 +16,8 @@ from typing import Optional, Union
 from dataclasses import dataclass
 import random
 
+VISION_MODEL = 'facebook/deit-small-patch16-224'
+
 def vit_collate_fn(examples):
     pixel_values = torch.stack([example[2] for example in examples])
     labels = torch.tensor([example[1] for example in examples])
@@ -86,7 +88,7 @@ def ffm_fedavg_depthfl(args):
     for i in range(args.num_users):
         dataset = DatasetSplit(dataset_train, dict_users[i], args)
         
-        if 'vit' in args.model:
+        if VISION_MODEL in args.model:
             ldr_train = DataLoader(dataset, shuffle=True, collate_fn=vit_collate_fn, batch_size=args.batch_size)
         elif 'sst2' in args.dataset or 'qqp' in args.dataset or 'qnli' in args.dataset or 'ledgar' in args.dataset:
             ldr_train = DataLoader(dataset, shuffle=True, collate_fn=args.data_collator, batch_size=args.batch_size)
@@ -242,7 +244,7 @@ def ffm_fedavg_depthfl(args):
         # test global model on server side   
         net_glob.load_state_dict(global_model)
         net_glob.eval()
-        if 'vit' in args.model:
+        if VISION_MODEL in args.model:
             test_acc, test_loss = test_vit(copy.deepcopy(net_glob), dataset_test, args, t)
             # metrics
             if args.accelerator.is_local_main_process:
