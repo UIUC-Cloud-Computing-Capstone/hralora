@@ -1,0 +1,44 @@
+# Rank estimator config for "Ours" method with heterogeneous client groups.
+# Use with: python run_rank_estimation.py config/rank_estimator_ours.yaml
+
+rank_estimator_method: Ours
+
+# Resource heterogeneity: 3 groups with different resource limits.
+# Each group has different GPU memory and network speeds.
+resource_heterogeneity:
+  # Fraction of clients in each group (1/3 each). 
+  # Example: 1/3 of clients belong to the first group, 
+  #   whose GPU memory size is 2GB, upload network speed is 7.08Mbps, 
+  #   and download network speed is 51.1Mbps, and desired uploading time is 1 second,
+  #   and desired downloading time is 1 second.
+  heterogeneous_group: [1/3, 1/3, 1/3]
+  
+  # GPU memory size for each group in GB.
+  gpu_memory_size_for_each_group_in_GB: [2, 4, 8] 
+
+  # Average upload network speed for each group in Mbps.
+  avg_upload_network_speed_for_each_group_in_Mbps: [7.08, 10.62, 14.16] 
+  
+  # Average download network speed for each group in Mbps.
+  avg_download_network_speed_for_each_group_in_Mbps: [51.1, 63.4, 86.3] 
+  
+  # Desired uploading time for each group in seconds.
+  desired_uploading_time_for_each_group_in_seconds: [1, 1, 1] 
+
+  # Desired downloading time for each group in seconds.
+  desired_downloading_time_for_each_group_in_seconds: [1, 1, 1] 
+  
+
+# Model
+model: facebook/deit-small-patch16-224
+CLS_TOKEN: 1
+
+# Training hyperparameters
+precision: fp32
+optimizer: adam
+num_of_layers_to_allocate_LoRA: 12
+lora_target_modules: ["query", "value"]
+train_classifier: false  # Only train LoRA matrices, not classifier.
+
+# Input data sizes
+batch_size: 32

@@ -79,44 +79,6 @@ class TestRankEstimator(unittest.TestCase):
 
 
 
-    def test_get_rank_for_all_client_groups_ours(self):
-        args = argparse.Namespace()
-        args.rank_estimator_method = 'Ours'
-
-        # resource heterogeneity
-        # all clients belong to 3 heterogeneous groups. Each group has different resource limitation.
-        args.gpu_memory_size_for_each_group_in_GB = [2, 4, 8]
-        args.avg_upload_network_speed_for_each_group_in_Mbps = [7.08, 10.62, 14.16]
-        args.avg_download_network_speed_for_each_group_in_Mbps = [51.1, 63.4, 86.3]
-        args.desired_uploading_time_for_each_group_in_seconds = [1, 1, 1]
-        args.desired_downloading_time_for_each_group_in_seconds = [1, 1, 1]
-        args.heterogeneous_group = [1/3, 1/3, 1/3] # 1/3 of clients belong to each group.
-
-        # model
-        args.model = 'facebook/deit-small-patch16-224'
-        args.CLS_TOKEN = 1
-
-        # training hyperparameters
-        args.precision = 'fp32'
-        args.optimizer = 'adam'
-        args.num_of_layers_to_allocate_LoRA = 12
-        args.lora_target_modules = ["query", "value"]
-        args.train_classifier = False # do not train classifier in the base model. Only train LoRA matrices.
-
-        # input data sizes
-        args.batch_size = 32
-        
-        # estimation parameters
-        args.overhead_and_safety_margin_factor = 0.1 # assume 10% of activations and gradients
-
-        base_model = AutoModelForImageClassification.from_pretrained(args.model)
-        
-        config = AutoConfig.from_pretrained(args.model)
-        rank_budgets_for_all_heterogeneous_groups = self.estimator.get_rank_for_all_client_groups(args, config, base_model, {})
-        multiplication_factor = config.num_hidden_layers * len(args.lora_target_modules)
-        client_rank_budgets_for_all_heterogeneous_groups = [element * multiplication_factor for element in rank_budgets_for_all_heterogeneous_groups]
-        print('per client: ', client_rank_budgets_for_all_heterogeneous_groups)
-
     def _init_args(self):
         args = argparse.Namespace()
         args.rank_estimator_method = 'Ours'
@@ -130,7 +92,6 @@ class TestRankEstimator(unittest.TestCase):
         args.image_width = 224
         args.patch_size = 16
         args.batch_size = 32
-        args.overhead_and_safety_margin_factor = 0.1
         args.desired_uploading_time_for_each_group_in_seconds = [15]
         args.desired_downloading_time_for_each_group_in_seconds = [15]
         args.heterogeneous_group = [1.0]
