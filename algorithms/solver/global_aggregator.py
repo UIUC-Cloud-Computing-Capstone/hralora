@@ -1,40 +1,6 @@
 import torch
-import random
 import numpy as np
-import copy
 from utils.model_utils import model_clip
-from collections import defaultdict
-
-def average(args, global_model, local_updates):
-    '''
-    simple average
-    '''
-    model_update = {k: local_updates[0][k] *0.0 for k in local_updates[0].keys()}
-    for i in range(len(local_updates)):
-        model_update = {k: model_update[k] +  local_updates[i][k] for k in global_model.keys()}
-
-    global_model = {k: global_model[k] +  model_update[k]/ len(local_updates) for k in global_model.keys()}
-
-    return global_model
-
-def average_lora(args, global_model, local_updates):
-    '''
-    simple average
-    '''
-    model_update = {k: local_updates[0][k] *0.0 for k in local_updates[0].keys()}
-    for i in range(len(local_updates)):
-        if args.peft == 'lora':
-            model_update = {k: model_update[k] +  local_updates[i][k] for k in global_model.keys() if 'lora' in k}
-        else:
-            model_update = {k: model_update[k] +  local_updates[i][k] for k in global_model.keys()}
-    if args.peft == 'lora':
-        for k in global_model.keys():
-            if 'lora' in k:
-                global_model[k] = global_model[k].detach().cpu() +  model_update[k]/ len(local_updates)
-    else:
-        global_model = {k: global_model[k].detach().cpu() +  model_update[k]/ len(local_updates) for k in global_model.keys()}
-
-    return global_model
 
 def average_lora_depthfl(args, global_model, loc_updates):
     '''
