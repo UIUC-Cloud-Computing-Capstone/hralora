@@ -1,21 +1,10 @@
-from model.cnn import CNNFmnist, CNNFEmnist, CNNSvhn, CNNCifar
-from model.mlp import MLP
-from model.recurrent import CharLSTM, RNN_FedShakespeare
-from model.vgg import vgg19_bn
-from model.resnet import ResNet9FashionMNIST, ResNet18, ReducedResNet18, \
-                         ResNet34, ResNet50, ResNet101, ResNet152, \
-                         CIFARResNet20, SVHNResNet20
-# from model.bert import Bert
-from transformers import AutoModelForCausalLM, BloomForSequenceClassification, AutoTokenizer, default_data_collator, get_linear_schedule_with_warmup
-# from peft import get_peft_model, PromptTuningInit, PromptTuningConfig, TaskType
-# from peft import PeftModel, PeftConfig
 from peft import LoraConfig, get_peft_model, LoKrConfig
 
 import torch
 import torch.nn as nn
 import copy
 
-from transformers import AutoModelForImageClassification, AutoModelForSequenceClassification, AutoModelForMultipleChoice
+from transformers import AutoModelForImageClassification, AutoModelForSequenceClassification
 from peft import LoraConfig, get_peft_model
 
 ################################### model setup ########################################
@@ -125,14 +114,6 @@ def model_setup(args):
         exit('Error: unrecognized model')
 
     global_model = copy.deepcopy(net_glob.state_dict())
-    ##print(global_model.keys())
-    # Set all the lora matrix to 0.
-    #for k in global_model.keys():
-    #    if 'lora_A' in k:
-    #        global_model[k][:,:] = 0
-    #    elif 'lora_B' in k:
-    #        global_model[k][:,:] = 0
-    #net_glob.load_state_dict(global_model)
 
     return args, net_glob, global_model, model_dim(global_model)
 
