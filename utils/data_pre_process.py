@@ -3,34 +3,21 @@ import os
 import dill
 import torch
 import random
-import json
-import torchvision
-from torchvision import transforms
-from torch.utils.data import Dataset, DataLoader
-# from datasets import load_dataset
-import datasets as hugging_face_dataset
+from torch.utils.data import Dataset
 from transformers import AutoTokenizer, default_data_collator
 from tqdm import tqdm
-import datasets
 from datasets import load_dataset
 from torchvision.transforms import (
-    CenterCrop,
     Compose,
     Normalize,
     RandomHorizontalFlip,
     RandomResizedCrop,
     Resize,
     ToTensor,
-    Grayscale
 )
 from transformers import AutoImageProcessor
-from transformers import AutoTokenizer, DataCollatorWithPadding
+from transformers import AutoTokenizer
 from .noniid_patitioner import ClassWisePartitioner
-import concurrent.futures
-from functools import partial
-from PIL import Image
-import pandas as pd
-from collections import defaultdict
 
 class custom_subset(Dataset):
     """
