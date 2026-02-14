@@ -53,11 +53,13 @@ python run_memory_breakdown_comparison.py qv
 python run_memory_breakdown_comparison.py qv --config config/memory_breakdown_comparison.yaml
 ```
 
-To utilize the rank budget to fine-tune the model, run the command:
+To utilize the rank budget to fine-tune the model, run one of the scripts in `scripts/`. For example, our method on CIFAR-100:
 
 ```bash
-bash run-cifar100.sh
+bash scripts/run-cifar100-Ours.sh
 ```
+
+Other experiment scripts (CIFAR-100, LEDGAR, IID/non-IID, ablations, baselines) are in `scripts/`; run any `run-*.sh` from the project root.
 
 ---
 
@@ -70,6 +72,7 @@ bash run-cifar100.sh
 │   └── solver/   # Local training procedures
 ├── config/         # YAML configuration files
 ├── data/           # Dataset cache directory
+├── scripts/        # Run scripts (run-*.sh for CIFAR-100, LEDGAR, baselines, ablations)
 ├── utils/          # Utility functions
 ├── main.py         # Entry point for training
 └── test.py         # Evaluation and testing routines
