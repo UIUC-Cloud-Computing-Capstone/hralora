@@ -116,8 +116,6 @@ class RankEstimator:
     def _get_final_rank(self, args, config, rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed):
         """Return the minimum of the three ranks (bottleneck)."""
         return min(rank_based_on_gpu_memory, rank_based_on_upload_network_speed, rank_based_on_download_network_speed) 
-        # TODO
-        #* config.num_hidden_layers * len(args.lora_target_modules)
 
     def _get_rank_based_on_gpu_memory(self, args, config, base_model, total_gpu_memory_size_in_GB, memory_summary_dict):
         """Compute max LoRA rank that fits in (total_gpu_memory - base_model_portion)."""

@@ -105,7 +105,6 @@ To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6)
    python scripts/figures/fig-train-diff-method.py
    ```
 
-   TODO another figure
    Output: `figures/ratio_grouped_histogram.pdf` and `cifar_train_plot-diff-method.pdf`.
 
 5. **Fig. 6**  
