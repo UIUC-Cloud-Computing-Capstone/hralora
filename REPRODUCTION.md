@@ -16,16 +16,18 @@ If you see the error `torch.cuda.OutOfMemoryError: CUDA out of memory`, wait a f
 
 ## Automatic Unit Test
 
-Unit tests for the rank estimator (`utils/estimator.py`) live in `tests/test_estimator.py`. Activate the project environment first (e.g. `conda activate env.fl`), then from the project root run:
+Unit tests for the rank estimator (`utils/estimator.py`) live in `tests/test_estimator.py`. Unit tests for the FIM-based federated learning engine (`algorithms/engine/ffm_fedavg_depthffm_fim.py`) live in `tests/test_ffm_fedavg_depthffm_fim.py`. Activate the project environment first (e.g. `conda activate env.fl`), then from the project root run:
 
 ```bash
 python -m unittest tests.test_estimator -v
+python -m unittest tests.test_ffm_fedavg_depthffm_fim -v
 ```
 
-Or run the test file directly:
+Or run a test file directly:
 
 ```bash
 python tests/test_estimator.py -v
+python tests/test_ffm_fedavg_depthffm_fim.py -v
 ```
 
 The `-v` flag enables verbose output. These tests do not require a GPU; they use mocks where needed.
