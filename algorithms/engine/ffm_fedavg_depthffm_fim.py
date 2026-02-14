@@ -12,9 +12,6 @@ from ..solver.global_aggregator import average_lora_depthfl, weighted_average_lo
 from fractions import Fraction
 import re
 import numpy as np
-from transformers.tokenization_utils_base import PreTrainedTokenizerBase, PaddingStrategy
-from typing import Optional, Union
-from dataclasses import dataclass
 from utils.fim_calculator import FIMCalculator
 import threading
 
@@ -109,89 +106,6 @@ def test_collate_fn(examples):
     else:
         labels = torch.tensor([example["fine_label"] for example in examples])
     return {"pixel_values": pixel_values, "labels": labels}
-
-@dataclass
-class DataCollatorForMultipleChoice:
-    """
-    Data collator for multiple choice question answering tasks.
-    
-    This class handles the collation of multiple choice examples by dynamically padding
-    input sequences and reshaping them into the proper format for multiple choice models.
-    It processes batches where each example contains multiple choice options and selects
-    the correct answer based on the provided label.
-    
-    Attributes:
-        tokenizer (PreTrainedTokenizerBase): Tokenizer used for padding and processing
-        padding (Union[bool, str, PaddingStrategy]): Padding strategy for sequences
-        max_length (Optional[int]): Maximum sequence length for padding
-        pad_to_multiple_of (Optional[int]): Pad sequences to multiples of this value
-    
-    Example:
-        >>> tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
-        >>> collator = DataCollatorForMultipleChoice(tokenizer=tokenizer)
-        >>> features = [
-        ...     {
-        ...         "input_ids": [["Hello", "world"], ["Hi", "there"], ["Good", "morning"]],
-        ...         "attention_mask": [[1, 1], [1, 1], [1, 1]],
-        ...         "correct_answer_num": 2
-        ...     }
-        ... ]
-        >>> batch = collator(features)
-        >>> print(batch["input_ids"].shape)  # torch.Size([1, 3, max_length])
-        >>> print(batch["labels"])  # tensor([1])  # 0-indexed
-    """
-
-    tokenizer: PreTrainedTokenizerBase
-    padding: Union[bool, str, PaddingStrategy] = True
-    max_length: Optional[int] = None
-    pad_to_multiple_of: Optional[int] = None
-
-    def __call__(self, features):
-        """
-        Collate a batch of multiple choice examples.
-        
-        Args:
-            features (list): List of examples, where each example is a dictionary containing:
-                            - "input_ids": List of tokenized sequences for each choice
-                            - "token_type_ids": (optional) List of token type IDs for each choice
-                            - "attention_mask": List of attention masks for each choice
-                            - "correct_answer_num": Integer indicating the correct choice (1-indexed)
-        
-        Returns:
-            dict: Collated batch containing:
-                - "input_ids": Tensor with shape [batch_size, num_choices, max_length]
-                - "token_type_ids": Tensor with shape [batch_size, num_choices, max_length]
-                - "attention_mask": Tensor with shape [batch_size, num_choices, max_length]
-                - "labels": Tensor with shape [batch_size] containing correct choice indices (0-indexed)
-        
-        Algorithm:
-            1. Extract labels and convert to 0-indexed format
-            2. Flatten all choice sequences for efficient padding
-            3. Apply tokenizer padding to flattened sequences
-            4. Reshape back to [batch_size, num_choices, max_length] format
-            5. Add labels tensor to the batch
-        """
-        label_name = "correct_answer_num"
-        labels = [torch.tensor(int(feature[label_name])-1) for feature in features]
-        batch_size = len(features)
-        num_choices = len(features[0]["input_ids"])
-
-        flattened_features = [
-            [{k: v[i] for k, v in feature.items() if k in ['input_ids', 'token_type_ids', 'attention_mask']} for i in range(num_choices)] for feature in features
-        ]
-        flattened_features = sum(flattened_features, [])
-
-        batch = self.tokenizer.pad(
-            flattened_features,
-            padding=self.padding,
-            max_length=self.max_length,
-            pad_to_multiple_of=self.pad_to_multiple_of,
-            return_tensors="pt",
-        )
-
-        batch = {k: v.view(batch_size, num_choices, -1) for k, v in batch.items()}
-        batch["labels"] = torch.tensor(labels, dtype=torch.int64)
-        return batch
 
 def ffm_fedavg_depthffm_fim(args):
     """
@@ -1103,14 +1017,10 @@ def update_dataset_fim(args, dataset_fim):
            - Uses test_collate_fn for image data
            - No shuffling (deterministic for FIM computation)
         
-        2. Text classification datasets (SST-2, QQP, QNLI, LEDGAR):
+        2. Text classification datasets (LEDGAR):
            - Uses args.data_collator for text tokenization
            - Shuffling enabled for better FIM estimation
         
-        3. Multiple choice datasets (Belebele):
-           - Uses DataCollatorForMultipleChoice
-           - Shuffling enabled
-           - Requires tokenizer for proper formatting
     
     Example:
         >>> args.model = 'facebook/deit-small-patch16-224'
@@ -1127,10 +1037,8 @@ def update_dataset_fim(args, dataset_fim):
     """
     if VISION_MODEL in args.model:
         dataset_fim = DataLoader(dataset_fim, collate_fn=test_collate_fn, batch_size=args.batch_size)
-    elif 'sst2' in args.dataset or 'qqp' in args.dataset or 'qnli' in args.dataset or 'ledgar' in args.dataset:
+    elif 'ledgar' in args.dataset:
         dataset_fim = DataLoader(dataset_fim, shuffle=True, collate_fn=args.data_collator, batch_size=args.batch_size)
-    elif 'belebele' in args.dataset:
-        dataset_fim = DataLoader(dataset_fim, shuffle=True, collate_fn=DataCollatorForMultipleChoice(tokenizer=args.tokenizer), batch_size=args.batch_size)
     return dataset_fim
 
 def get_data_loader_list(args, dataset_train, dict_users):
@@ -1163,15 +1071,10 @@ def get_data_loader_list(args, dataset_train, dict_users):
            - Shuffling enabled for training
            - Handles pixel values and labels
         
-        2. Text classification datasets (SST-2, QQP, QNLI, LEDGAR):
+        2. Text classification datasets (LEDGAR):
            - Uses args.data_collator for text tokenization
            - Shuffling enabled for training
            - Handles input_ids, attention_mask, labels
-        
-        3. Multiple choice datasets (Belebele):
-           - Uses DataCollatorForMultipleChoice
-           - Shuffling enabled for training
-           - Handles multiple choice question formatting
     
     Algorithm:
         1. For each client (0 to num_users-1):
@@ -1200,9 +1103,7 @@ def get_data_loader_list(args, dataset_train, dict_users):
         dataset = DatasetSplit(dataset_train, dict_users[i], args)
         if VISION_MODEL in args.model:
             ldr_train = DataLoader(dataset, shuffle=True, collate_fn=vit_collate_fn, batch_size=args.batch_size)
-        elif 'sst2' in args.dataset or 'qqp' in args.dataset or 'qnli' in args.dataset or 'ledgar' in args.dataset:
+        elif 'ledgar' in args.dataset:
             ldr_train = DataLoader(dataset, shuffle=True, collate_fn=args.data_collator, batch_size=args.batch_size)
-        elif 'belebele' in args.dataset:
-            ldr_train = DataLoader(dataset, shuffle=True, collate_fn=DataCollatorForMultipleChoice(tokenizer=args.tokenizer), batch_size=args.batch_size)
         data_loader_list.append(ldr_train)
     return data_loader_list
