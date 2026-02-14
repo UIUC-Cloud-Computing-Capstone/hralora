@@ -11,9 +11,6 @@ from ..solver.local_solver import LocalUpdate
 from ..solver.global_aggregator import average_lora_depthfl, weighted_average_lora_depthfl, svd_average, product_average
 from fractions import Fraction
 import re
-from transformers.tokenization_utils_base import PreTrainedTokenizerBase, PaddingStrategy
-from typing import Optional, Union
-from dataclasses import dataclass
 import random
 
 VISION_MODEL = 'facebook/deit-small-patch16-224'
@@ -22,40 +19,6 @@ def vit_collate_fn(examples):
     pixel_values = torch.stack([example[2] for example in examples])
     labels = torch.tensor([example[1] for example in examples])
     return {"pixel_values": pixel_values, "labels": labels}
-
-@dataclass
-class DataCollatorForMultipleChoice:
-    """
-    Data collator that will dynamically pad the inputs for multiple choice received.
-    """
-
-    tokenizer: PreTrainedTokenizerBase
-    padding: Union[bool, str, PaddingStrategy] = True
-    max_length: Optional[int] = None
-    pad_to_multiple_of: Optional[int] = None
-
-    def __call__(self, features):
-        label_name = "correct_answer_num"
-        labels = [torch.tensor(int(feature[label_name])-1) for feature in features]
-        batch_size = len(features)
-        num_choices = len(features[0]["input_ids"])
-
-        flattened_features = [
-            [{k: v[i] for k, v in feature.items() if k in ['input_ids', 'token_type_ids', 'attention_mask']} for i in range(num_choices)] for feature in features
-        ]
-        flattened_features = sum(flattened_features, [])
-
-        batch = self.tokenizer.pad(
-            flattened_features,
-            padding=self.padding,
-            max_length=self.max_length,
-            pad_to_multiple_of=self.pad_to_multiple_of,
-            return_tensors="pt",
-        )
-
-        batch = {k: v.view(batch_size, num_choices, -1) for k, v in batch.items()}
-        batch["labels"] = torch.tensor(labels, dtype=torch.int64)
-        return batch
 
 def ffm_fedavg_depthfl(args):
     ################################### hyperparameter setup ########################################
@@ -88,10 +51,8 @@ def ffm_fedavg_depthfl(args):
         
         if VISION_MODEL in args.model:
             ldr_train = DataLoader(dataset, shuffle=True, collate_fn=vit_collate_fn, batch_size=args.batch_size)
-        elif 'sst2' in args.dataset or 'qqp' in args.dataset or 'qnli' in args.dataset or 'ledgar' in args.dataset:
+        elif 'ledgar' in args.dataset:
             ldr_train = DataLoader(dataset, shuffle=True, collate_fn=args.data_collator, batch_size=args.batch_size)
-        elif 'belebele' in args.dataset:
-            ldr_train = DataLoader(dataset, shuffle=True, collate_fn=DataCollatorForMultipleChoice(tokenizer=args.tokenizer), batch_size=args.batch_size)
 
         data_loader_list.append(ldr_train)
 
@@ -253,42 +214,7 @@ def ffm_fedavg_depthfl(args):
             args.logger.info('t {:3d}: train_loss = {:.3f}, norm = {:.3f}, test_acc = {:.3f}'.
                 format(t, train_loss, norm, test_acc), main_process_only=True)
         elif 'bert' in args.model:
-            if 'sst2' in args.dataset:
-                test_acc, test_loss = test_sst2(copy.deepcopy(net_glob), dataset_test, args, t)
-                # metrics
-                if args.accelerator.is_local_main_process:
-                    writer.add_scalar('test_acc', test_acc, t)
-                    if test_acc > best_test_acc:
-                        best_test_acc = test_acc
-                        metric_keys['Accuracy'] = 1
-                args.logger.info('t {:3d}: train_loss = {:.3f}, norm = {:.3f}, test_acc = {:.3f}'.
-                    format(t, train_loss, norm, test_acc), main_process_only=True)
-            elif 'qqp' in args.dataset:
-                test_f1, test_acc, test_loss = test_qqp(copy.deepcopy(net_glob), dataset_test, args, t)
-                # metrics
-                if args.accelerator.is_local_main_process:
-                    writer.add_scalar('test_acc', test_acc, t)
-                    writer.add_scalar('test_f1', test_f1, t)
-
-                    if test_f1 > best_test_f1:
-                        best_test_f1 = test_f1
-                        # best performance based on f1
-                        best_test_acc = test_acc
-                        metric_keys['Accuracy'] = 1
-                        metric_keys['F1'] = 1
-                args.logger.info('t {:3d}: train_loss = {:.3f}, norm = {:.3f}, test_f1 = {:.3f}, test_acc = {:.3f}'.
-                    format(t, train_loss, norm, test_f1, test_acc), main_process_only=True)
-            elif 'qnli' in args.dataset:
-                test_acc, test_loss = test_qnli(copy.deepcopy(net_glob), dataset_test, args, t)
-                # metrics
-                if args.accelerator.is_local_main_process:
-                    writer.add_scalar('test_acc', test_acc, t)
-                    if test_acc > best_test_acc:
-                        best_test_acc = test_acc
-                        metric_keys['Accuracy'] = 1
-                args.logger.info('t {:3d}: train_loss = {:.3f}, norm = {:.3f}, test_acc = {:.3f}'.
-                    format(t, train_loss, norm, test_acc), main_process_only=True)
-            elif 'ledgar' in args.dataset:
+            if 'ledgar' in args.dataset:
                 test_macro_f1, test_micro_f1, test_loss = test_ledgar(copy.deepcopy(net_glob), dataset_test, args, t)
                 # metrics
                 if args.accelerator.is_local_main_process:
@@ -302,16 +228,6 @@ def ffm_fedavg_depthfl(args):
 
                 args.logger.info('t {:3d}: train_loss = {:.3f}, norm = {:.3f}, test_macro_f1 = {:.3f}, test_micro_f1 = {:.3f}'.
                     format(t, train_loss, norm, test_macro_f1, test_micro_f1), main_process_only=True)
-            elif 'belebele' in args.dataset:
-                test_acc, test_loss = test_belebele(copy.deepcopy(net_glob), dataset_test, args, t)
-                # metrics
-                if args.accelerator.is_local_main_process:
-                    writer.add_scalar('test_acc', test_acc, t)
-                    if test_acc > best_test_acc:
-                        best_test_acc = test_acc
-                        metric_keys['Accuracy'] = 1
-                args.logger.info('t {:3d}: train_loss = {:.3f}, norm = {:.3f}, test_acc = {:.3f}'.
-                    format(t, train_loss, norm, test_acc), main_process_only=True)
         else:
             test_acc, test_loss = test(copy.deepcopy(net_glob), dataset_test, args)
             # metrics

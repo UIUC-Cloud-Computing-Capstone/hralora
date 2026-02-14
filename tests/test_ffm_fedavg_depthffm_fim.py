@@ -19,7 +19,6 @@ import torch
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from algorithms.engine.ffm_fedavg_depthffm_fim import (
-    DataCollatorForMultipleChoice,
     append_delta_norm,
     decay_learning_rate,
     get_delta_norm,
@@ -99,50 +98,6 @@ class TestTestCollateFn(unittest.TestCase):
         self.assertEqual(batch["pixel_values"].shape, (2, 3, 224, 224))
 
 
-# -----------------------------------------------------------------------------
-# DataCollatorForMultipleChoice
-# -----------------------------------------------------------------------------
-class TestDataCollatorForMultipleChoice(unittest.TestCase):
-    def test_call_output_keys(self):
-        mock_tokenizer = MagicMock()
-        mock_tokenizer.pad.return_value = {
-            "input_ids": torch.randint(0, 100, (6, 8)),
-            "attention_mask": torch.ones(6, 8),
-        }
-        collator = DataCollatorForMultipleChoice(tokenizer=mock_tokenizer)
-        features = [
-            {
-                "input_ids": [[1, 2], [3, 4], [5, 6]],
-                "attention_mask": [[1, 1], [1, 1], [1, 1]],
-                "correct_answer_num": 2,
-            },
-            {
-                "input_ids": [[7, 8], [9, 10], [11, 12]],
-                "attention_mask": [[1, 1], [1, 1], [1, 1]],
-                "correct_answer_num": 1,
-            },
-        ]
-        batch = collator(features)
-        self.assertIn("input_ids", batch)
-        self.assertIn("labels", batch)
-        self.assertEqual(batch["labels"].tolist(), [1, 0])
-
-    def test_correct_answer_num_one_indexed(self):
-        mock_tokenizer = MagicMock()
-        mock_tokenizer.pad.return_value = {
-            "input_ids": torch.randint(0, 100, (3, 8)),
-            "attention_mask": torch.ones(3, 8),
-        }
-        collator = DataCollatorForMultipleChoice(tokenizer=mock_tokenizer)
-        features = [
-            {
-                "input_ids": [[1], [2], [3]],
-                "attention_mask": [[1], [1], [1]],
-                "correct_answer_num": 1,
-            },
-        ]
-        batch = collator(features)
-        self.assertEqual(batch["labels"].item(), 0)
 
 
 # -----------------------------------------------------------------------------
