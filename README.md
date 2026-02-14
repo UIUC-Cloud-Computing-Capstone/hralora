@@ -11,7 +11,7 @@ Then activate the environment using the provided file:
 Default:
 
 ```bash
-conda env create --name env.fl --file=environment-final.yml
+conda env create --name env.fl --file=setup/environment-final.yml
 conda activate env.fl
 ```
 
@@ -19,13 +19,13 @@ conda activate env.fl
 
 First, set up the HuggingFace Accelerate configuration:
 
-(Optional) If your system uses multiple GPUs, uncomment the "Multiple GPUs" config options in `accelerate_default_config.yaml`
+(Optional) If your system uses multiple GPUs, uncomment the "Multiple GPUs" config options in `setup/accelerate_default_config.yaml`
 
 Copy the accelerate config to the huggingface directory: 
 
 ```bash
 mkdir -p ~/.cache/huggingface/accelerate/
-cp accelerate_default_config.yaml ~/.cache/huggingface/accelerate/default_config.yaml
+cp setup/accelerate_default_config.yaml ~/.cache/huggingface/accelerate/default_config.yaml
 ```
 
 Next, launch the training script for the CIFAR-100 dataset:
@@ -75,6 +75,7 @@ Other experiment scripts (CIFAR-100, LEDGAR, IID/non-IID, ablations, baselines) 
 ├── figures/        # Generated PDF figures (from scripts/figures/*.py)
 ├── log/            # Training and experiment logs (created at runtime)
 ├── models/         # Model layer reference files (BERTlayerName, ViTLayerName)
+├── setup/         # Environment and tool config (environment-final.yml, accelerate_default_config.yaml)
 ├── scripts/        # Run and figure scripts
 │   ├── figures/    # Figure scripts (fig-*.py, visualize_rank.py); output to ../../figures/
 │   ├── run_rank_estimation.py
