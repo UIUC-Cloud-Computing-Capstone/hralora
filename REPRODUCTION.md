@@ -67,7 +67,6 @@ Activate the project environment (see [README](README.md#-getting-started) for s
 
 ### Rank Utilizer
 
-TODO review, test, and refine the content below
 
 To reproduce **tables and figures** in the paper about rank allocation (FIM-based) and aggregation (SVD, weighted average):
 
@@ -118,7 +117,6 @@ To reproduce **tables and figures** in the paper about rank allocation (FIM-base
    python scripts/figures/fig-train.py
    ```
 
-   TODO another figure
    Output: `figures/cifar_rank_plot.pdf` and `figures/cifar_train_plot.pdf`
 
 Run all commands from the **project root** with the project environment activated (see [README](README.md#-getting-started). Figure scripts that read logs require having run the corresponding experiments first; see the [Rank Utilizer](README.md#rank-utilizer) section in the README for how to run experiments.
