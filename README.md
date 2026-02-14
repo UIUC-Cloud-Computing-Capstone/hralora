@@ -74,6 +74,7 @@ Other experiment scripts (CIFAR-100, LEDGAR, IID/non-IID, ablations, baselines) 
 ├── data/           # Dataset cache directory
 ├── figures/        # Generated PDF figures (from scripts/figures/*.py)
 ├── log/            # Training and experiment logs (created at runtime)
+├── models/         # Model layer reference files (BERTlayerName, ViTLayerName)
 ├── scripts/        # Run and figure scripts
 │   ├── figures/    # Figure scripts (fig-*.py, visualize_rank.py); output to ../../figures/
 │   ├── run_rank_estimation.py
