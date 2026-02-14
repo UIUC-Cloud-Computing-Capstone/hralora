@@ -14,9 +14,9 @@ MEM_ONLY = 'mem_only'
 UPLOAD_ONLY = 'upload_only'
 
 # Ensure project root is on path for imports
-sys.path.insert(0, os.path.abspath(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from estimator import RankEstimator
+from utils.estimator import RankEstimator
 
 
 def init_args():
@@ -40,7 +40,7 @@ def init_args():
 
 
 def save_diagram(diagram_name):
-    output_dir = os.path.join(os.path.dirname(__file__), 'figures')
+    output_dir = os.path.join(os.path.dirname(__file__), "..", "..", "figures")
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, diagram_name)
     plt.savefig(output_path, bbox_inches='tight')

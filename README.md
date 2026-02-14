@@ -33,10 +33,10 @@ Next, launch the training script for the CIFAR-100 dataset:
 To experiment the Rank Estimator, run the command:
 ```bash
 # Default config: config/rank_estimator_ours.yaml
-python run_rank_estimation.py
+python scripts/run_rank_estimation.py
 
 # Or with an explicit config path
-python run_rank_estimation.py config/rank_estimator_ours.yaml
+python scripts/run_rank_estimation.py config/rank_estimator_ours.yaml
 ```
 Using an NVIDIA H100 80GB HBM3 (Driver version 580.65.06, CUDA version 13.0), the Rank Estimator takes approximately 50 seconds to complete. The results are logged in the terminal upon completion:
 ```
@@ -48,9 +48,9 @@ Total time to finish the rank estimation task: 50.61s
 To run memory breakdown comparison (estimated vs profiled) and generate LaTeX tables:
 
 ```bash
-python run_memory_breakdown_comparison.py qv
+python scripts/run_memory_breakdown_comparison.py qv
 # Or
-python run_memory_breakdown_comparison.py qv --config config/memory_breakdown_comparison.yaml
+python scripts/run_memory_breakdown_comparison.py qv --config config/memory_breakdown_comparison.yaml
 ```
 
 To utilize the rank budget to fine-tune the model, run one of the scripts in `scripts/`. For example, our method on CIFAR-100:
@@ -72,12 +72,14 @@ Other experiment scripts (CIFAR-100, LEDGAR, IID/non-IID, ablations, baselines) 
 │   └── solver/   # Local training procedures
 ├── config/         # YAML configuration files
 ├── data/           # Dataset cache directory
-├── figures/        # Generated PDF figures (from scripts/figures/*.py and visualize_rank.py)
+├── figures/        # Generated PDF figures (from scripts/figures/*.py)
 ├── log/            # Training and experiment logs (created at runtime)
 ├── scripts/        # Run and figure scripts
-│   ├── figures/    # Figure-generation scripts (fig-*.py); output to ../figures/
+│   ├── figures/    # Figure scripts (fig-*.py, visualize_rank.py); output to ../../figures/
+│   ├── run_rank_estimation.py
+│   ├── run_memory_breakdown_comparison.py
 │   └── run-*.sh    # Experiment scripts (CIFAR-100, LEDGAR, baselines, ablations)
-├── utils/          # Utility functions
+├── utils/          # Utility functions (including estimator.py for rank estimation)
 ├── main.py         # Entry point for training
 └── test.py         # Evaluation and testing routines
 ```

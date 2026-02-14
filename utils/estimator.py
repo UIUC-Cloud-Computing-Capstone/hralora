@@ -7,7 +7,7 @@ and/or network (upload/download) constraints. Supports methods: FedHello / mem_o
 (upload bandwidth only). Uses MemoryTracker for base-model and LoRA memory profiling.
 """
 from transformers import AutoModelForImageClassification, AutoConfig
-from utils.memory_tracker import MemoryTracker
+from .memory_tracker import MemoryTracker
 import copy
 
 FEDHELLO = 'FedHello'

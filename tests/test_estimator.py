@@ -1,5 +1,5 @@
 """
-Unit tests for RankEstimator class in estimator.py
+Unit tests for RankEstimator class in utils/estimator.py
 """
 import argparse
 import unittest
@@ -12,7 +12,7 @@ import torch
 # Add parent directory to path to import the module
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from estimator import RankEstimator, FEDHELLO, OURS, MEM_ONLY, UPLOAD_ONLY
+from utils.estimator import RankEstimator, FEDHELLO, OURS, MEM_ONLY, UPLOAD_ONLY
 from peft import LoraConfig, get_peft_model
 from utils.memory_tracker import MemoryTracker
 
@@ -44,7 +44,7 @@ class TestRankEstimator(unittest.TestCase):
         mock_config = MagicMock()
         mock_config.image_size = 224
         mock_config.patch_size = 16
-        with patch("estimator.AutoConfig.from_pretrained", return_value=mock_config):
+        with patch("utils.estimator.AutoConfig.from_pretrained", return_value=mock_config):
             result = self.estimator._get_sequence_length(args, None)
         self.assertEqual(result, 197)
         self.assertIsInstance(result, (int, float))
@@ -57,7 +57,7 @@ class TestRankEstimator(unittest.TestCase):
         mock_config = MagicMock()
         mock_config.image_size = 224
         mock_config.patch_size = 16
-        with patch("estimator.AutoConfig.from_pretrained", return_value=mock_config):
+        with patch("utils.estimator.AutoConfig.from_pretrained", return_value=mock_config):
             result = self.estimator._get_sequence_length(args, None)
         expected = (224 / 16) * (224 / 16) + 1
         self.assertEqual(result, expected)
@@ -71,7 +71,7 @@ class TestRankEstimator(unittest.TestCase):
         mock_config = MagicMock()
         mock_config.image_size = 224
         mock_config.patch_size = 16
-        with patch("estimator.AutoConfig.from_pretrained", return_value=mock_config):
+        with patch("utils.estimator.AutoConfig.from_pretrained", return_value=mock_config):
             result = self.estimator._get_sequence_length(args, None)
         self.assertEqual(result, 196)
 

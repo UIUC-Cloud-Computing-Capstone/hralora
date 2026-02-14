@@ -15,9 +15,9 @@ from pathlib import Path
 import yaml
 from transformers import AutoModelForImageClassification, AutoConfig
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from estimator import RankEstimator
+from utils.estimator import RankEstimator
 from utils.memory_tracker import MemoryTracker
 
 MEM_ONLY = "mem_only"
