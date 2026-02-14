@@ -28,7 +28,7 @@ python -m unittest discover -s tests -p "test_*.py" -v
 
 To reproduce the **tables and figures** in the paper related to the rank estimator:
 
-Activate the project environment (e.g. `conda activate env.fl`) and run these commands from the **project root**. If the rank estimator hits GPU OOM, see the “Rank Estimator” note under [Troubleshooting](#rank-estimator) above.
+Activate the project environment (see [README](README.md#-getting-started) for setup) and run these commands from the **project root**. If the rank estimator hits GPU OOM, see the “Rank Estimator” note under [Troubleshooting](#rank-estimator) above.
 
 1. **Table III**  
    Run rank estimation for heterogeneous groups (e.g. 2GB/4GB/8GB GPU, different network speeds); prints the per-client rank budget list used in the paper.
