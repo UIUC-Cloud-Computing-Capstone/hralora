@@ -2,9 +2,22 @@ import torch
 import numpy as np
 
 def average_lora_depthfl(args, global_model, loc_updates):
-    '''
-    hetero average
-    '''
+    """
+    Heterogeneous FedAvg: aggregate LoRA/classifier updates by simple average per parameter.
+
+    Only parameters present in a client's update are aggregated; clients may have different
+    subsets of parameters (e.g. different LoRA layers). For each parameter key, the mean of
+    the updates from all clients that have that key is added to the global model.
+    Uses 'lora' or 'lokr' key names depending on args.LOKR.
+
+    Args:
+        args: Config with LOKR (bool) to choose lora vs lokr parameter names.
+        global_model (dict): Global state_dict; updated in place.
+        loc_updates (list): List of state_dicts of updates (local - global) per client.
+
+    Returns:
+        dict: The updated global_model (same object, modified in place).
+    """
     model_update_avg_dict = {}
 
     print('############## global aggregation ####################')
@@ -28,9 +41,22 @@ def average_lora_depthfl(args, global_model, loc_updates):
     return global_model
 
 def weighted_average_lora_depthfl(args, global_model, loc_updates, num_samples):
-    '''
-    weighted hetero average
-    '''
+    """
+    Heterogeneous FedAvg with data-size weighting for LoRA/classifier parameters.
+
+    Same as average_lora_depthfl but each client's update is weighted by its number of
+    samples (num_samples[client_i]). Weights are normalized per parameter key over the
+    clients that have that key, so only participating clients contribute to the average.
+
+    Args:
+        args: Config with LOKR (bool) to choose lora vs lokr parameter names.
+        global_model (dict): Global state_dict; updated in place.
+        loc_updates (list): List of state_dicts of updates (local - global) per client.
+        num_samples (list): Number of training samples per client; length = len(loc_updates).
+
+    Returns:
+        dict: The updated global_model (same object, modified in place).
+    """
     model_update_avg_dict = {}
     model_weights_cnt = {}
     model_weights_list = {}
@@ -66,9 +92,24 @@ def weighted_average_lora_depthfl(args, global_model, loc_updates, num_samples):
 
 
 def svd_average(args, global_model, loc_updates, num_samples):
-    '''
-    hetero average
-    '''
+    """
+    Heterogeneous aggregation with client weights from LoRA product Frobenius norms.
+
+    Computes per-client weights from the Frobenius norm of the stacked LoRA products
+    (B @ A for each layer pair), normalizes weights to sum to 1, then scales each
+    client's update by its weight and adds the sum of weighted updates to the global
+    model. Expects update keys to come in consecutive A/B pairs (keys processed in
+    pairs). Modifies loc_updates in place by scaling with weights before summing.
+
+    Args:
+        args: Config with logger (for main_process_only logging).
+        global_model (dict): Global state_dict; updated in place.
+        loc_updates (list): List of state_dicts of updates per client; modified in place.
+        num_samples (list): Number of samples per client (unused in this implementation).
+
+    Returns:
+        dict: The updated global_model (same object, modified in place).
+    """
     update_weights = []
     for updates in loc_updates:
         svd_weights = []
@@ -107,9 +148,23 @@ def svd_average(args, global_model, loc_updates, num_samples):
 
 
 def product_average(args, global_model, loc_updates, num_samples):
-    '''
-    hetero average
-    '''
+    """
+    Heterogeneous parameter averaging: mean of (global + update) per parameter.
+
+    For each LoRA/classifier key, collects the full parameter value (global + client
+    update) from every client that has that key, then sets the global parameter to
+    the mean of those values. Thus aggregates in parameter space rather than update
+    space. Uses 'lora' or 'lokr' key names depending on args.LOKR.
+
+    Args:
+        args: Config with LOKR (bool) to choose lora vs lokr parameter names.
+        global_model (dict): Global state_dict; updated in place.
+        loc_updates (list): List of state_dicts of updates (local - global) per client.
+        num_samples (list): Number of samples per client (unused in this implementation).
+
+    Returns:
+        dict: The updated global_model (same object, modified in place).
+    """
     print('#### aggregate')
     model_update_avg_dict = {}
 
