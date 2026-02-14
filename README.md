@@ -39,7 +39,7 @@ mkdir -p ~/.cache/huggingface/accelerate/
 cp setup/accelerate_default_config.yaml ~/.cache/huggingface/accelerate/default_config.yaml
 ```
 
-**Verify:** `python scripts/run_rank_estimation.py` (see Rank Estimator below) should complete and print per-client rank budgets.
+**Verify:** Run `bash scripts/experiments/run-cifar100-smoke.sh` (smoke test: 1 round, 2 clients; see "Rank Utilizer" in "Running the Code" below for full training).
 
 ### 🚀 Running the Code
 
