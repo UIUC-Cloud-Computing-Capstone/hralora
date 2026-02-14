@@ -1,7 +1,7 @@
 import os
 import re
 
-FIGURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
+FIGURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "figures")
 
 log_path = "log/cifar100/facebook/deit-small-patch16-224/ffm_fedavg/experiments/cifar100_vit_lora/Ours/alternating-training-warm20-double-rank-int-no-rank-vary_2025-12-07_00-45-38/exp_log.txt"
 

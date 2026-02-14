@@ -72,8 +72,10 @@ Other experiment scripts (CIFAR-100, LEDGAR, IID/non-IID, ablations, baselines) 
 │   └── solver/   # Local training procedures
 ├── config/         # YAML configuration files
 ├── data/           # Dataset cache directory
-├── figures/        # Generated PDF figures (from fig-*.py and visualize_rank.py)
-├── scripts/        # Run scripts (run-*.sh for CIFAR-100, LEDGAR, baselines, ablations)
+├── figures/        # Generated PDF figures (from scripts/figures/*.py and visualize_rank.py)
+├── scripts/        # Run and figure scripts
+│   ├── figures/    # Figure-generation scripts (fig-*.py); output to ../figures/
+│   └── run-*.sh    # Experiment scripts (CIFAR-100, LEDGAR, baselines, ablations)
 ├── utils/          # Utility functions
 ├── main.py         # Entry point for training
 └── test.py         # Evaluation and testing routines

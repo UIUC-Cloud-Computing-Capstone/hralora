@@ -2,7 +2,7 @@ import os
 import matplotlib.pyplot as plt
 import numpy as np
 
-FIGURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
+FIGURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "figures")
 
 # Methods
 methods = [
