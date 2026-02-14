@@ -46,7 +46,7 @@ To reproduce the **tables and figures** in the paper related to the rank estimat
 
    Output file: `figures/rank_vs_memory_and_network_speed_combined.pdf`.
 
-3. **Table: Memory breakdown comparison (estimated vs. profiled)**  
+3. **Table IV: MEMORY BREAKDOWN COMPARISON TABLE**  
    Runs memory profiling and writes a LaTeX table comparing estimated and profiled memory for LoRA (query/value, 2GB GPU). Requires a GPU.
 
    ```bash
