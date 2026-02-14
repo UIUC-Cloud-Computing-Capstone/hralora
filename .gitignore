@@ -1,4 +1,5 @@
 *.DS_Store
+.venv
 .vs_code
 *.vs_code
 data/dataset/celeba/*
