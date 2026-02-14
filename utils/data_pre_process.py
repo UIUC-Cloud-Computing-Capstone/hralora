@@ -42,6 +42,37 @@ class DatasetSplit(Dataset):
 
 ################################### data setup ########################################
 def load_partition(args):
+    """
+    Load a federated dataset and partition it across clients (IID or non-IID).
+
+    Loads the dataset specified by args.dataset (e.g. 'cifar100', 'ledgar'), applies
+    dataset-specific preprocessing and transforms, and builds a client index mapping
+    (dict_users). Partitioning is IID or non-IID (pathological or Dirichlet) according
+    to args. When args.model_heterogeneity contains 'depthffm_fim', a separate subset
+    (dataset_fim) is created for FIM computation, with no overlap with training data.
+
+    Args:
+        args: Config object with at least:
+            - dataset (str): 'cifar100' or 'ledgar' (others raise).
+            - num_users (int): Number of clients.
+            - iid (bool): If True, partition IID; else use noniid_type.
+            - noniid_type (str): 'pathological' or 'dirichlet'.
+            - model_heterogeneity (str): If 'depthffm_fim' (or related), dataset_fim is built.
+            - logger: For logging (when FIM indices are used).
+            Dataset-specific: pat_num_cls, partition_mode, dir_cls_alpha, freeze_datasplit,
+            etc., as used by ClassWisePartitioner or Dirichlet partitioning.
+
+    Returns:
+        tuple: (args, dataset_train, dataset_test, dataset_val, dataset_public, dict_users, dataset_fim)
+            - args: Same object, possibly updated (e.g. labels, num_classes, data_collator).
+            - dataset_train: Training dataset (HuggingFace or with transform).
+            - dataset_test: Test dataset.
+            - dataset_val: Always None (reserved).
+            - dataset_public: Always None (reserved).
+            - dict_users: Dict mapping client_id -> set of training indices.
+            - dataset_fim: Subset for FIM computation when model_heterogeneity uses depthffm_fim;
+              None otherwise.
+    """
     dict_users = []
     # read dataset
     if args.dataset == 'cifar100':
