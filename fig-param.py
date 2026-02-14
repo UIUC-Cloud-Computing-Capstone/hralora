@@ -1,5 +1,8 @@
+import os
 import matplotlib.pyplot as plt
 import numpy as np
+
+FIGURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
 
 # ===== Data =====
 methods = [
@@ -131,5 +134,6 @@ offset.set_y(10)              # shift downward or upward
 
 
 plt.tight_layout()
-plt.savefig("accuracy_vs_params_custom_labels.pdf", format="pdf", bbox_inches="tight")
+os.makedirs(FIGURES_DIR, exist_ok=True)
+plt.savefig(os.path.join(FIGURES_DIR, "accuracy_vs_params_custom_labels.pdf"), format="pdf", bbox_inches="tight")
 plt.show()

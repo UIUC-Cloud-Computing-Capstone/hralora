@@ -1,4 +1,7 @@
+import os
 import re
+
+FIGURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
 
 log_path = "log/cifar100/facebook/deit-small-patch16-224/ffm_fedavg/experiments/cifar100_vit_lora/Ours/alternating-training-warm20-double-rank-int-no-rank-vary_2025-12-07_00-45-38/exp_log.txt"
 
@@ -123,7 +126,7 @@ import numpy as np
 
 # plt.tight_layout()
 
-# plt.savefig("layer-fim.pdf", format="pdf", bbox_inches="tight")
+# plt.savefig(os.path.join(FIGURES_DIR, "layer-fim.pdf"), format="pdf", bbox_inches="tight")
 # plt.show()
 
 #%% layer rank
@@ -154,7 +157,8 @@ plt.grid(True, linewidth=1.5)
 
 plt.tight_layout()
 
-plt.savefig("layer-rank.pdf", format="pdf", bbox_inches="tight")
+os.makedirs(FIGURES_DIR, exist_ok=True)
+plt.savefig(os.path.join(FIGURES_DIR, "layer-rank.pdf"), format="pdf", bbox_inches="tight")
 plt.show()
 
 # #%% fim and rank bar
@@ -208,7 +212,7 @@ plt.show()
 # plt.tight_layout()
 
 
-# plt.savefig("fim_mean_std.pdf", format="pdf", bbox_inches="tight")
+# plt.savefig(os.path.join(FIGURES_DIR, "fim_mean_std.pdf"), format="pdf", bbox_inches="tight")
 # plt.show()
 
 # # --------------------------------------------------------------------
@@ -248,5 +252,5 @@ plt.show()
 # plt.tight_layout()
 
 
-# plt.savefig("rank_mean_std.pdf", format="pdf", bbox_inches="tight")
+# plt.savefig(os.path.join(FIGURES_DIR, "rank_mean_std.pdf"), format="pdf", bbox_inches="tight")
 # plt.show()

@@ -1,6 +1,9 @@
+import os
 import re
 from pathlib import Path
 import matplotlib.pyplot as plt
+
+FIGURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
 
 iid = Path("log/cifar100/facebook/deit-small-patch16-224/ffm_fedavg/experiments/cifar100_vit_lora/Ours/alternating-training-warm20-double-rank-int-no-rank-vary_2025-12-07_00-45-38/exp_log.txt").read_text(encoding="utf-8", errors="ignore")
 noniid10 = Path("log/cifar100/facebook/deit-small-patch16-224/ffm_fedavg/experiments/cifar100_vit_lora/Ours/alternating-training-warm20-double-rank-int-no-rank-vary-noniid-10_2025-12-07_04-21-46/exp_log.txt").read_text(encoding="utf-8", errors="ignore")
@@ -43,5 +46,6 @@ plt.legend(fontsize=30)
 plt.grid(True, linewidth=1.5)
 
 plt.tight_layout()
-plt.savefig("cifar_train_plot.pdf", format="pdf", bbox_inches="tight")
+os.makedirs(FIGURES_DIR, exist_ok=True)
+plt.savefig(os.path.join(FIGURES_DIR, "cifar_train_plot.pdf"), format="pdf", bbox_inches="tight")
 plt.show()

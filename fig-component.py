@@ -1,5 +1,8 @@
+import os
 import matplotlib.pyplot as plt
 import numpy as np
+
+FIGURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
 
 # Data
 labels = ["no-rank selection", "no-alternating", "no-svd"]
@@ -65,6 +68,7 @@ ax1.grid(axis='y', linewidth=1.3)
 plt.tight_layout()
 
 # Save as scalable PDF
-plt.savefig("ablation_dual_axis.pdf", format="pdf", bbox_inches="tight")
+os.makedirs(FIGURES_DIR, exist_ok=True)
+plt.savefig(os.path.join(FIGURES_DIR, "ablation_dual_axis.pdf"), format="pdf", bbox_inches="tight")
 
 plt.show()

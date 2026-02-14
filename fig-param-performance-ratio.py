@@ -1,5 +1,8 @@
+import os
 import matplotlib.pyplot as plt
 import numpy as np
+
+FIGURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
 
 # Methods
 methods = [
@@ -73,5 +76,6 @@ ax = plt.gca()  # get current axis
 ax.yaxis.get_offset_text().set_fontsize(20)   # <-- change 16 to what you want
 
 plt.tight_layout()
-plt.savefig("ratio_grouped_histogram.pdf", format="pdf", bbox_inches="tight")
+os.makedirs(FIGURES_DIR, exist_ok=True)
+plt.savefig(os.path.join(FIGURES_DIR, "ratio_grouped_histogram.pdf"), format="pdf", bbox_inches="tight")
 plt.show()

@@ -1,6 +1,6 @@
 """
 Script to visualize rank size vs GPU memory and network speed using RankEstimator.
-Generates a combined diagram and saves it to results/diagrams/.
+Generates a combined diagram and saves it to figures/.
 """
 import argparse
 import sys
@@ -40,7 +40,7 @@ def init_args():
 
 
 def save_diagram(diagram_name):
-    output_dir = os.path.join(os.path.dirname(__file__), 'results', 'diagrams')
+    output_dir = os.path.join(os.path.dirname(__file__), 'figures')
     os.makedirs(output_dir, exist_ok=True)
     output_path = os.path.join(output_dir, diagram_name)
     plt.savefig(output_path, bbox_inches='tight')

@@ -1,4 +1,7 @@
+import os
 import matplotlib.pyplot as plt
+
+FIGURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "figures")
 
 # Data
 ranks = [8, 16, 24, 32]
@@ -24,5 +27,6 @@ plt.grid(True, linewidth=1.5)
 
 plt.tight_layout()
 
-plt.savefig("cifar_rank_plot.pdf", format="pdf", bbox_inches="tight")
+os.makedirs(FIGURES_DIR, exist_ok=True)
+plt.savefig(os.path.join(FIGURES_DIR, "cifar_rank_plot.pdf"), format="pdf", bbox_inches="tight")
 plt.show()
