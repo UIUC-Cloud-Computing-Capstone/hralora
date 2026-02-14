@@ -74,9 +74,9 @@ Other experiment scripts (CIFAR-100, LEDGAR, IID/non-IID, ablations, baselines) 
 
 ---
 
-## Documentation
+## Codebase overview
 
-### 📁 Project Structure
+### 📁 Project structure
 
 ```
 .
@@ -98,6 +98,8 @@ Other experiment scripts (CIFAR-100, LEDGAR, IID/non-IID, ablations, baselines) 
 ├── main.py         # Entry point for training
 └── test.py         # Evaluation and testing routines
 ```
+
+For function-level details, see the docstrings in the source code.
 
 ---
 
