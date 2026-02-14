@@ -68,7 +68,7 @@ Activate the project environment (see [README](README.md#-getting-started) for s
 
 ### Rank Utilizer
 
-To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6): run from **project root** with the environment activated; see [README](README.md#-getting-started) and [Rank Utilizer](README.md#rank-utilizer).
+To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6): run from **project root** with the environment activated; see [README](README.md#-getting-started) and [Rank Utilizer](README.md#rank-utilizer) for setup.
 
 1. **Experiments**  
    Run the experiments that correspond to the paper’s settings. Each run writes logs under `log/<dataset>/<model>/<method>/<config_stem>_<timestamp>/`; final and per-round accuracy are in `exp_log.txt`. From the project root:
