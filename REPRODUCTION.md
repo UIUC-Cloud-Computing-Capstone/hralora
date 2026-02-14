@@ -119,6 +119,15 @@ To reproduce **tables and figures** in the paper about rank allocation (FIM-base
 
    Output: `figures/accuracy_vs_params_custom_labels.pdf`.
 
+7. **Figure: Fig. 3 (Layer-wise FIM scores and allocated ranks)**  
+   The script reads one `exp_log.txt` from an Ours run with FIM (e.g. alternating-training with warm start). Set `log_path` at the top of `scripts/figures/fig-fim-score.py` to your run’s `exp_log.txt`, then run:
+
+   ```bash
+   python scripts/figures/fig-fim-score.py
+   ```
+
+   Output (by default): `figures/layer-rank.pdf` (allocated rank for selected layers over rounds). To also produce the subfigures (a) and (b), uncomment the blocks in the script that save `fim_mean_std.pdf` (FIM mean ± std per layer) and `rank_mean_std.pdf` (rank mean ± std per layer). The script also contains commented code for `layer-fim.pdf` (FIM per layer over rounds); uncomment that block if needed.
+
 Run all commands from the **project root** with the project environment activated (e.g. `conda activate env.fl`). Figure scripts that read logs require having run the corresponding experiments first; see the [Rank Utilizer](README.md#rank-utilizer) section in the README for how to run experiments.
 
 
