@@ -29,7 +29,21 @@ def move_dict_to_device(dict_of_tensors, device):
     return dict_of_tensors
 
 class FIMCalculator:
+    """
+    Computes diagonal Fisher Information Matrix (FIM) for LoRA layers and clusters layers by importance.
+
+    Used in federated learning to assign LoRA layers to clients: FIM is estimated on a data loader,
+    aggregated per layer, then layers are clustered (e.g. K-means with k=3) to derive selection
+    probabilities for heterogeneous depth/rank assignment.
+    """
+
     def __init__(self, args, model, test_data):
+        """
+        Args:
+            args: Config with accelerator (for device) and lora_layer (number of LoRA layers).
+            model: The model (e.g. with LoRA) to compute FIM for; will be moved to args.accelerator.device.
+            test_data: DataLoader or dataset-sized object; len(test_data) is used as num_samples for FIM.
+        """
         self.model_name = 'test_model_name'
         self.model = model
         self.test_data = test_data
@@ -39,7 +53,21 @@ class FIMCalculator:
         self.args = args
 
     def compute_fim(self, empirical=True, verbose=True, every_n=None):
-        # ipdb.set_trace()
+        """
+        Compute per-layer Fisher Information (diagonal) from the configured model and test data.
+
+        Runs fim_diag then aggregate_fisher_information to produce one scalar per LoRA layer.
+        Parameters with 'classifier' in the name are skipped.
+
+        Args:
+            empirical (bool): If True, use batch labels; else sample from model logits.
+            verbose (bool): If True, print progress (samples and fps) every 100 samples.
+            every_n (int, optional): Unused; reserved for incremental FIM snapshots.
+
+        Returns:
+            list: Length lora_layer; each element is the aggregated FIM (Frobenius norm squared)
+                  for that layer, used for layer importance / clustering.
+        """
         all_fims = self.fim_diag(self.model, 
                                  self.test_data, 
                                  samples_no=self.num_samples, 
@@ -59,6 +87,29 @@ class FIMCalculator:
                  device: torch.device = None,
                  verbose: bool = False,
                  every_n: int = None) -> Dict[int, Dict[str, Tensor]]:
+        """
+        Compute diagonal Fisher Information Matrix over trainable (non-classifier) parameters.
+
+        For each sample (or up to samples_no), takes logits, selects a label (empirical=true:
+        use batch label; else sample from Categorical(logits)), backpropagates the
+        corresponding log-prob, and accumulates squared gradients per parameter. Final
+        FIM entries are averaged over the number of samples processed. Batch contents
+        are moved to the given device; batch must contain 'labels' and either
+        'pixel_values' or 'input_ids' for batch size.
+
+        Args:
+            model: Module with .logits output; must have parameters matching batch inputs.
+            data_loader: Provides batches (e.g. pixel_values/input_ids + labels).
+            samples_no: Max samples to use; None means one full pass over the loader.
+            empirical: Use ground-truth labels (True) or sampled labels (False).
+            device: Device to run model and batches on.
+            verbose: Print progress every 100 samples.
+            every_n: Unused (conditional is False in current code).
+
+        Returns:
+            dict: Maps {seen_no: param_name -> tensor} where the single key seen_no is the
+                  total sample count and tensors are the averaged diagonal FIM per parameter.
+        """
         model.eval()
         fim = {}
         for name, param in model.named_parameters():
@@ -129,6 +180,22 @@ class FIMCalculator:
 
     @staticmethod
     def aggregate_fisher_information(all_fims, model_name, lora_layer):
+        """
+        Aggregate per-parameter diagonal FIM into one scalar per LoRA layer.
+
+        Takes the latest FIM snapshot (key = max(all_fims.keys())), extracts the layer index
+        from each parameter name via the pattern .layer.(\d+)., and adds the squared
+        Frobenius norm of that parameter's FIM to the corresponding layer bucket.
+
+        Args:
+            all_fims: Output of fim_diag; dict mapping sample count -> {param_name: tensor}.
+            model_name: Unused; reserved for model-specific logic.
+            lora_layer (int): Number of LoRA layers; output list length.
+
+        Returns:
+            list: Length lora_layer; fim_diag_by_layer[i] is the sum of squared Frobenius
+                  norms of diagonal FIM for all parameters in layer i.
+        """
         latest_fim_diag = all_fims[max(all_fims.keys())]
         fim_diag_by_layer = [0]*lora_layer
         
@@ -143,6 +210,24 @@ class FIMCalculator:
 
     @staticmethod
     def bottom_k_layers(input_list, k):
+        """
+        Cluster layer importance scores (e.g. FIM) into 3 groups via K-means; return labels.
+
+        Fits KMeans(n_clusters=3) on the values in input_list, then relabels cluster indices
+        so that cluster 0 = smallest centroid, 1 = middle, 2 = largest. Used to assign
+        selection probabilities (e.g. in get_observed_probability) so lower-importance
+        layers can be sampled more often for heterogeneous client assignment.
+
+        Args:
+            input_list: List (or sequence) of scalar importance values, one per layer (length >= 3).
+            k: Unused; kept for API compatibility with callers that pass lora_layer.
+
+        Returns:
+            tuple: (keys, cluster_labels)
+                - keys: List containing one element: the sorted copy of input_list.
+                - cluster_labels: 1D array of length len(input_list); each entry is 0, 1, or 2
+                  (cluster index by ascending centroid).
+        """
         sorted_items = sorted(input_list)
         keys = [sorted_items]
 
