@@ -21,6 +21,9 @@ def model_setup(args):
             - model (str): Model identifier ('bert-base-uncased' or 'facebook/deit-small-patch16-224')
             - num_classes (int): Number of output classes for classification
             - device (torch.device): Device to move the model to (CPU/GPU)
+            - lora_max_rank (int): LoRA rank (r) and alpha for PEFT config
+            - LOKR (bool): If True, use LoKrConfig instead of LoraConfig
+            - FlexLoRA (bool): If True (ViT only), apply Kaiming init to lora_B
             - label2id (dict): Mapping from labels to IDs (for ViT models)
             - id2label (dict): Mapping from IDs to labels (for ViT models)
     
@@ -32,16 +35,15 @@ def model_setup(args):
             - model_dim: Total number of parameters in the model
     
     Supported Models:
-        1. BERT ('bert-base-uncased'):
-           - Uses AutoModelForSequenceClassification for text classification
-           - LoRA config: r=6, alpha=6, targets query/value modules
-           - Dropout: 0.1, no bias adaptation
+        1. BERT (args.model == 'bert-base-uncased'):
+           - Loads 'google/bert_uncased_L-12_H-128_A-2' via AutoModelForSequenceClassification
+           - LoRA/LoKR config: r=args.lora_max_rank, alpha=args.lora_max_rank, targets query/value
+           - Dropout: 0.1, no bias; LoKR used if args.LOKR is True
         
-        2. Vision Transformer ('facebook/deit-small-patch16-224'):
-           - Uses facebook/deit-small-patch16-224 as base model
-           - LoRA config: r=48, alpha=48, targets query/value modules
-           - Dropout: 0.1, no bias adaptation
-           - Saves classifier module for fine-tuning
+        2. Vision Transformer (args.model == 'facebook/deit-small-patch16-224'):
+           - Loads facebook/deit-small-patch16-224 with label2id/id2label from args
+           - LoRA/LoKR config: r=args.lora_max_rank, alpha=args.lora_max_rank, targets query/value
+           - modules_to_save=["classifier"]; FlexLoRA: Kaiming init for lora_B if args.FlexLoRA
     
     Raises:
         SystemExit: If an unrecognized model is specified
@@ -118,9 +120,15 @@ def model_setup(args):
     return args, net_glob, global_model, model_dim(global_model)
 
 def model_dim(model):
-    '''
-    compute model dimension
-    '''
+    """
+    Compute total number of parameters (dimension) in a state dict.
+
+    Args:
+        model: State dict (e.g. from model.state_dict()) or dict of tensors.
+
+    Returns:
+        int: Sum of numel() over all tensors in model.
+    """
     flat = [torch.flatten(model[k]) for k in model.keys()]
     s = 0
     for p in flat: 
@@ -129,9 +137,20 @@ def model_dim(model):
 
 
 def model_clip(model, clip):
-    '''
-    clip model update
-    '''
+    """
+    Clip the model update (in place) by global norm; skip batch-norm stats.
+
+    Computes L2 norm over all tensors except those with 'num_batches_tracked',
+    'running_mean', or 'running_var' in the key. If total_norm > clip, scales
+    all (non-skipped) tensors by clip / total_norm.
+
+    Args:
+        model: State dict of updates (modified in place).
+        clip (float): Maximum allowed global norm.
+
+    Returns:
+        tuple: (model, total_norm) — the same dict and the norm before clipping.
+    """
     model_norm=[]
     for k in model.keys():
         if 'num_batches_tracked' in k or 'running_mean' in k or 'running_var' in k:
@@ -149,12 +168,29 @@ def model_clip(model, clip):
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
     """
-    Save the training model
+    Save training state to a file.
+
+    Args:
+        state: Object to save (e.g. dict with model state_dict, epoch, optimizer).
+        is_best: Unused; reserved for saving a separate best checkpoint.
+        filename: Path for the checkpoint file (default 'checkpoint.pth.tar').
     """
     torch.save(state, filename)
 
-def get_trainable_values(net,mydevice=None):
-    ' return trainable parameter values as a vector (only the first parameter set)'
+def get_trainable_values(net, mydevice=None):
+    """
+    Flatten all trainable parameter values into a single 1D tensor.
+
+    Parameters are traversed in the same order as net.parameters(); only
+    those with requires_grad=True are included.
+
+    Args:
+        net: PyTorch module.
+        mydevice (optional): Device to place the output tensor on; default is CPU.
+
+    Returns:
+        torch.Tensor: 1D float tensor of length equal to total trainable numel().
+    """
     trainable=filter(lambda p: p.requires_grad, net.parameters())
     paramlist=list(trainable) 
     N=0
@@ -174,8 +210,17 @@ def get_trainable_values(net,mydevice=None):
 
     return X
 
-def put_trainable_values(net,X):
-    ' replace trainable parameter values by the given vector (only the first parameter set)'
+def put_trainable_values(net, X):
+    """
+    Copy values from a 1D tensor back into the net's trainable parameters (in place).
+
+    Order of parameters must match the order used by get_trainable_values(net).
+    Only parameters with requires_grad=True are updated.
+
+    Args:
+        net: PyTorch module to update.
+        X: 1D tensor of length equal to total trainable numel().
+    """
     trainable=filter(lambda p: p.requires_grad, net.parameters())
     paramlist=list(trainable)
     offset=0
