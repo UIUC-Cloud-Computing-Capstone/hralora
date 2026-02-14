@@ -236,11 +236,20 @@ class TestRankEstimator(unittest.TestCase):
         for name, shape in lora_shapes:
             self.assertIn(r, shape, msg=f"LoRA rank {r} should appear in {name} shape {shape}")
 
-    def test_get_base_model_fwd_in_bytes_for_estimator(self):
-        """MemoryTracker returns (fwd_bytes, overhead_bytes) with non-negative values."""
+    @patch("utils.memory_tracker.MemoryTracker._get_base_model_fwd_in_bytes_for_estimator_helper")
+    def test_get_base_model_fwd_in_bytes_for_estimator(self, mock_helper):
+        """MemoryTracker returns (fwd_bytes, overhead_bytes) with non-negative values (no GPU)."""
+        from utils.memory_tracker import FWD_KEY, OVERHEAD_KEY
+        # Avoid loading a real model and running on GPU: mock helper returns for q, k, qk calls
+        mock_helper.side_effect = [
+            {FWD_KEY: 1000, OVERHEAD_KEY: 100},
+            {FWD_KEY: 800, OVERHEAD_KEY: 120},
+            {FWD_KEY: 1200, OVERHEAD_KEY: 110},
+        ]
         args = self._init_args()
-        base_model = AutoModelForImageClassification.from_pretrained(args.model)
-        config = AutoConfig.from_pretrained(args.model)
+        config = MagicMock()
+        config.hidden_size = 384
+        base_model = MagicMock()
         result = self.tracker.get_base_model_fwd_in_bytes_for_estimator(args, config, base_model)
         self.assertIsInstance(result, (list, tuple), msg="Expected (fwd_bytes, overhead_bytes)")
         self.assertEqual(len(result), 2)

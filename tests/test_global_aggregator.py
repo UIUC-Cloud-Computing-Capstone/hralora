@@ -158,7 +158,7 @@ class TestSvdAverage(unittest.TestCase):
         )
 
     @patch("builtins.print")
-    def test_modifies_loc_updates_in_place(self, mock_print):
+    def test_loc_updates_replaced_with_weighted_copies(self, mock_print):
         args = _args()
         global_model = {
             "lora_A.0": torch.zeros(1, 2),
@@ -168,9 +168,11 @@ class TestSvdAverage(unittest.TestCase):
         u2 = {"lora_A.0": torch.ones(1, 2) * 2, "lora_B.0": torch.ones(2, 1) * 2}
         loc_updates = [u1, u2]
         svd_average(args, global_model, loc_updates, [1, 1])
-        # Weights applied in place
-        self.assertIs(loc_updates[0], u1)
-        self.assertIs(loc_updates[1], u2)
+        # Weights from Frobenius norms (u1 smaller than u2) → entries replaced with scaled dicts
+        torch.testing.assert_close(loc_updates[0]["lora_A.0"], torch.tensor([[0.2, 0.2]]))
+        torch.testing.assert_close(loc_updates[0]["lora_B.0"], torch.tensor([[0.2], [0.2]]))
+        torch.testing.assert_close(loc_updates[1]["lora_A.0"], torch.tensor([[1.6, 1.6]]))
+        torch.testing.assert_close(loc_updates[1]["lora_B.0"], torch.tensor([[1.6], [1.6]]))
 
     @patch("builtins.print")
     def test_single_client_weight_one(self, mock_print):
