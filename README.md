@@ -48,9 +48,9 @@ Total time to finish the rank estimation task: 50.61s
 To run memory breakdown comparison (estimated vs profiled) and generate LaTeX tables:
 
 ```bash
-python scripts/run_memory_breakdown_comparison.py qv
+python scripts/figures/fig_memory_breakdown_comparison.py qv
 # Or
-python scripts/run_memory_breakdown_comparison.py qv --config config/memory_breakdown_comparison.yaml
+python scripts/figures/fig_memory_breakdown_comparison.py qv --config config/memory_breakdown_comparison.yaml
 ```
 
 To utilize the rank budget to fine-tune the model, run one of the scripts in `scripts/experiments/`. For example, our method on CIFAR-100:
@@ -80,8 +80,7 @@ Other experiment scripts (CIFAR-100, LEDGAR, IID/non-IID, ablations, baselines) 
 │   ├── experiments/   # Experiment run scripts (CIFAR-100, LEDGAR, baselines, ablations)
 │   │   └── run-*.sh
 │   ├── figures/    # Scripts to generate figures
-│   ├── run_rank_estimation.py
-│   └── run_memory_breakdown_comparison.py
+│   └── run_rank_estimation.py
 ├── utils/          # Utility functions (including estimator.py for rank estimation)
 ├── main.py         # Entry point for training
 └── test.py         # Evaluation and testing routines

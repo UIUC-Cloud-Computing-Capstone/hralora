@@ -1,4 +1,4 @@
-# Config for memory breakdown comparison (run_memory_breakdown_comparison.py).
+# Config for memory breakdown comparison (fig_memory_breakdown_comparison.py).
 # Single client group by default; qv/mlp modes override as needed.
 
 rank_estimator_method: Ours

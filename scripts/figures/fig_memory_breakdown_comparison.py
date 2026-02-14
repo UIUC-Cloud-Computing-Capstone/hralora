@@ -5,7 +5,7 @@ Not a test: generates memory_breakdown_comparison_*.tex files.
 Config is loaded from a YAML file (default: config/memory_breakdown_comparison.yaml).
 
 Usage:
-    python run_memory_breakdown_comparison.py qv [--config PATH]
+    python fig_memory_breakdown_comparison.py qv [--config PATH]
 """
 import argparse
 import copy
@@ -15,7 +15,7 @@ from pathlib import Path
 import yaml
 from transformers import AutoModelForImageClassification, AutoConfig
 
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 
 from utils.estimator import RankEstimator
 from utils.memory_tracker import MemoryTracker
