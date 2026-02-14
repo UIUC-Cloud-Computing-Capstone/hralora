@@ -1,4 +1,9 @@
-# Reference to https://github.com/taokz/FeDepth
+"""
+Non-IID data partitioners for federated learning.
+
+Splits datasets by class (and optionally by domain) across users with configurable
+distribution (Dirichlet or uniform). Reference: https://github.com/taokz/FeDepth
+"""
 import numpy as np
 from collections import defaultdict
 from tqdm import tqdm
@@ -8,13 +13,20 @@ import torch
 from collections import Counter
 
 class _Sampler(object):
+    """Base sampler: holds a deep copy of an array; next() is implemented by subclasses."""
+
     def __init__(self, arr):
         self.arr = copy.deepcopy(arr)
 
     def next(self):
         raise NotImplementedError()
 
+
 class shuffle_sampler(_Sampler):
+    """
+    Sampler that yields elements from a shuffled array one-by-one; reshuffles when exhausted.
+    """
+
     def __init__(self, arr, rng=None):
         super().__init__(arr)
         if rng is None:
@@ -32,15 +44,19 @@ class shuffle_sampler(_Sampler):
         return v
 
 class Partitioner(object):
-    """Class for partition a sequence into multiple shares (or users).
+    """Partition a total sample count into multiple shares (users) via Dirichlet or uniform split.
+
+    Each share gets at least min_n_sample_per_share; the remainder is split according to
+    partition_mode. Dirichlet uses dir_par_beta as the concentration parameter.
 
     Args:
-        rng (np.random.RandomState): random state.
-        partition_mode (str): 'dir' for Dirichlet distribution or 'uni' for uniform.
-        max_n_sample_per_share (int): max number of samples per share.
-        min_n_sample_per_share (int): min number of samples per share.
-        max_n_sample (int): max number of samples
-        verbose (bool): verbosity
+        rng (np.random.RandomState or None): Random state; default np.random.
+        partition_mode (str): 'dir' for Dirichlet, 'uni' for equal split.
+        max_n_sample_per_share (int): Cap samples per share (-1 = no cap).
+        min_n_sample_per_share (int): Minimum samples per share (default 2).
+        max_n_sample (int): Cap total samples (-1 = no cap).
+        verbose (bool): If True, log partition info via log().
+        dir_par_beta (float): Dirichlet concentration (default 1).
     """
     def __init__(self, rng=None, partition_mode="dir",
                  max_n_sample_per_share=-1,
@@ -60,9 +76,16 @@ class Partitioner(object):
         self.dir_par_beta = dir_par_beta
 
     def __call__(self, n_sample, n_share, log=print):
-        """Partition a sequence of `n_sample` into `n_share` shares.
+        """Split n_sample into n_share shares with min/max and distribution constraints.
+
+        Args:
+            n_sample (int): Total number of samples to partition.
+            n_share (int): Number of shares (users).
+            log (callable): Logging function (default print).
+
         Returns:
-            partition: A list of num of samples for each share.
+            list: Length n_share; partition[i] is the number of samples for share i.
+                  Sum equals n_sample; each element >= min_n_sample_per_share.
         """
         assert n_share > 0, f"cannot split into {n_share} share"
         if self.verbose:
@@ -99,17 +122,18 @@ class Partitioner(object):
         return partition
 
 class ClassWisePartitioner(Partitioner):
-    """Partition a list of labels by class. Classes will be shuffled and assigned to users
-    sequentially.
+    """Partition labeled data across users by class (and optionally by domain).
+
+    Each user is assigned n_class_per_share classes (shuffled); within each class,
+    samples are split across the users that have that class using the parent
+    Partitioner (Dirichlet or uniform). If domains is provided, splitting within
+    a class is done per domain first, then assigned to users.
 
     Args:
-        n_class_per_share (int): number of classes per share (user).
-        rng (np.random.RandomState): random state.
-        partition_mode (str): 'dir' for Dirichlet distribution or 'uni' for uniform.
-        max_n_sample_per_share (int): max number of samples per share.
-        min_n_sample_per_share (int): min number of samples per share.
-        max_n_sample (int): max number of samples
-        verbose (bool): verbosity
+        n_class_per_share (int): Number of classes per user (default 2).
+        dir_par_beta (float): Passed to Partitioner for within-class split (default 1).
+        n_domain_per_share (int): Used when domains is None; must be > 1 (default 6).
+        **kwargs: Passed to Partitioner (rng, partition_mode, min/max_n_sample*, verbose).
     """
     def __init__(self, n_class_per_share=2, dir_par_beta=1, n_domain_per_share=6, **kwargs):
         super(ClassWisePartitioner, self).__init__(**kwargs)
@@ -120,9 +144,25 @@ class ClassWisePartitioner(Partitioner):
 
     def __call__(self, labels, n_user, log=print, user_ids_by_class=None,
                  return_user_ids_by_class=False, consistent_class=False, domains=None):
-        """Partition a list of labels into `n_user` shares.
+        """Partition sample indices by class (and optionally domain) across n_user users.
+
+        Labels are grouped by class; each user gets n_class_per_share classes (via
+        shuffle_sampler). Within each class, samples are split among the users that
+        have that class (Dirichlet/uni via _aux_partitioner). If domains is provided,
+        within-class split is done by domain first, then assigned to users.
+
+        Args:
+            labels: Sequence or 1D tensor of label per sample (length = dataset size).
+            n_user (int): Number of users (shares).
+            log (callable): Logging function (default print).
+            user_ids_by_class (dict, optional): Precomputed class -> list of user ids; if None, built from shuffle.
+            return_user_ids_by_class (bool): If True, also return user_ids_by_class (default False).
+            consistent_class (bool): If True, use self.rng for class shuffle for reproducibility.
+            domains (sequence, optional): Domain id per sample; if provided, enables domain-aware split.
+
         Returns:
-            partition: A list of users, where each user include a list of sample indexes.
+            If return_user_ids_by_class is False: list of length n_user; idx_by_user[i] is list of sample indices for user i.
+            If True: (idx_by_user, user_ids_by_class) where user_ids_by_class maps class_id -> list of user ids.
         """
         if domains:
             # reorganize labels by class
