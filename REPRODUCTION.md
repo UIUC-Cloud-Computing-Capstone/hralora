@@ -14,6 +14,22 @@ If you see the error `torch.cuda.OutOfMemoryError: CUDA out of memory`, wait a f
 
 # Testing
 
+## Automatic Unit Test
+
+Unit tests for the rank estimator (`utils/estimator.py`) live in `tests/test_estimator.py`. Activate the project environment first (e.g. `conda activate env.fl`), then from the project root run:
+
+```bash
+python -m unittest tests.test_estimator -v
+```
+
+Or run the test file directly:
+
+```bash
+python tests/test_estimator.py -v
+```
+
+The `-v` flag enables verbose output. These tests do not require a GPU; they use mocks where needed.
+
 ## Manual Test
 
 ### Rank Estimator
@@ -53,19 +69,5 @@ Activate the project environment (e.g. `conda activate env.fl`) and run these co
 
 TODO
 
-## Unit Test
 
-Unit tests for the rank estimator (`utils/estimator.py`) live in `tests/test_estimator.py`. Activate the project environment first (e.g. `conda activate env.fl`), then from the project root run:
-
-```bash
-python -m unittest tests.test_estimator -v
-```
-
-Or run the test file directly:
-
-```bash
-python tests/test_estimator.py -v
-```
-
-The `-v` flag enables verbose output. These tests do not require a GPU; they use mocks where needed.
 
