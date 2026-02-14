@@ -80,7 +80,7 @@ To reproduce **tables and figures** in the paper about rank allocation (FIM-base
      ```
    - **Baselines / ablations:** run the matching scripts in `scripts/experiments/`, e.g. `run-cifar100-FedHello.sh`, `run-cifar100-FlexLoRA.sh`, `run-cifar100-HetLoRA.sh`, `run-cifar100-iid.sh`, `run-cifar100-non-iid-10.sh`, `run-cifar100-non-iid-20.sh`, etc.
 
-   To build the paper’s accuracy tables such as Table V, point to the desired run directories and parse `exp_log.txt` (e.g. final accuracy).
+   To build the paper’s accuracy tables such as Table V, TABLE VI,  TABLE VII, and TABLE VIII, point to the desired run directories and parse `exp_log.txt` (e.g. final accuracy).
 
 2. **Fig. 1 (Accuracy vs. trainable parameters)**  
    Produces the scatter plot of test accuracy (%) vs. number of trainable parameters for method comparison (FedIT, Straggler, Exclusive, LoKr, FFA-LoRA, LEGEND, Fed-HeLLo, HRALoRA). Uses data hardcoded in the script; no log paths. Run as-is:
@@ -115,10 +115,11 @@ To reproduce **tables and figures** in the paper about rank allocation (FIM-base
 
    ```bash
    python scripts/figures/fig-rank.py
+   python scripts/figures/fig-train.py
    ```
 
    TODO another figure
-   Output: `figures/cifar_rank_plot.pdf`.
+   Output: `figures/cifar_rank_plot.pdf` and `figures/cifar_train_plot.pdf`
 
 Run all commands from the **project root** with the project environment activated (see [README](README.md#-getting-started). Figure scripts that read logs require having run the corresponding experiments first; see the [Rank Utilizer](README.md#rank-utilizer) section in the README for how to run experiments.
 
