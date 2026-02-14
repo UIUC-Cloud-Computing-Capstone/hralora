@@ -17,14 +17,6 @@ If you see the error `torch.cuda.OutOfMemoryError: CUDA out of memory`, wait a f
 
 # Testing
 
-## Automatic Unit Test
-
-**Unit tests** (in `tests/`): estimator, FIM FL engine, DepthFL engine. No GPU needed; mocks used where needed. From project root with env active (e.g. `conda activate env.fl`):
-
-```bash
-python -m unittest discover -s tests -p "test_*.py" -v
-```
-
 ## Manual Test
 
 ### Rank Estimator
@@ -122,4 +114,10 @@ Run all commands from the **project root** with the project environment activate
 Troubleshooting: if you face errors, check if the relevant experiment has been run and update the path hardcoded in the scripts that generate figures. 
 
 
+## Automatic Unit Test
 
+**Unit tests** (in `tests/`): estimator, FIM FL engine, DepthFL engine. From project root with env active (e.g. `conda activate env.fl`):
+
+```bash
+python -m unittest discover -s tests -p "test_*.py" -v
+```
