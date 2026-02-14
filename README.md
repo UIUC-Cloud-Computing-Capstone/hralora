@@ -1,4 +1,17 @@
-# 👋 Federated Learning Resource-Aware Heterogeneous LoRA Allocation
+# 👋 Heterogeneous-Resource-Aware Federated Learning
+with Intelligent LoRA Allocation and Aggregation (HRALoRA)
+
+Federated learning (FL) enables privacy-preserving model training across distributed devices, while Low-Rank Adaptation (LoRA) reduces compute and communication. Heterogeneous client memory and network constraints, however, make it hard to choose LoRA ranks and aggregate updates from resource-diverse clients. **HRALoRA** tackles this end-to-end and matches or outperforms prior LoRA-based FL with about half the trainable parameters.
+
+## Core Functionality
+
+HRALoRA has two core components:
+
+- **Rank Estimator:** Estimates each client’s LoRA rank budget from its GPU memory and network limits so every client can participate within its constraints.
+- **Rank Utilizer:** Uses the rank budget to train and aggregate effectively:
+  - **FIM-based allocation** — assigns ranks across layers by Fisher Information Matrix (FIM) importance.
+  - **Alternating training** — improves robustness under non-IID data and reduces communication.
+  - **SVD-based aggregation** — aggregates heterogeneous LoRA updates from clients with different ranks. 
 
 ## 🧪 Getting Started
 
