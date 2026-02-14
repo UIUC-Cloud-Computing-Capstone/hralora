@@ -81,9 +81,10 @@ def test_collate_fn(examples):
             - "labels": Tensor of labels with shape [batch_size]
     
     Label Field Handling:
-        The function checks for two possible label field names:
+        The function uses the first example to choose the label key for the whole batch:
         - "label": Standard label field (used in most datasets)
         - "fine_label": Fine-grained label field (used in CIFAR-100 and similar datasets)
+        All examples in the batch must use the same key; mixed keys are not supported.
     
     Example:
         >>> examples = [
@@ -98,7 +99,7 @@ def test_collate_fn(examples):
     Note:
         - Pixel values are stacked along the batch dimension (dimension 0)
         - Labels are converted to tensors if they aren't already
-        - Handles mixed label field names within the same batch
+        - Label key is taken from the first example for the entire batch
         - This function is specifically designed for ViT model testing
         - Assumes all images have the same dimensions
     """
@@ -207,7 +208,7 @@ def ffm_fedavg_depthffm_fim(args):
        - Update layer assignments based on FIM analysis (after initial epochs)
        - Select random subset of clients for training
        - Perform local training with LoRA fine-tuning
-       - Aggregate model updates using weighted averaging
+       - Aggregate model updates (weighted average if args.aggregation == 'weighted_average', else simple average)
        - Test global model performance
     
     Args:
@@ -279,7 +280,7 @@ def ffm_fedavg_depthffm_fim(args):
         - Supports multiple datasets (CIFAR-100, SST-2, QQP, QNLI, LEDGAR, Belebele)
         - Implements adaptive layer selection based on layer importance
         - Supports both IID and non-IID data distributions
-        - Uses weighted aggregation based on client data sizes
+        - Uses weighted aggregation when args.aggregation == 'weighted_average', otherwise simple average
     """
     ################################### hyperparameter setup ########################################
     args, dataset_train, dataset_test, dict_users, dataset_fim = load_data(args)
@@ -487,20 +488,21 @@ def train_selected_clients(args, net_glob, global_model, data_loader_list, t, se
 
 def update_global_model(args, global_model, local_updates, num_samples):
     """
-    print('######################### initial #######################')
-    for k in global_model.keys():
-        if 'lora_B' in k and ('layer.2.' in k):
-            lora_name = k.replace('lora_B', 'lora_A')
-            print(k)
-            print(global_model[k])
-            print(global_model[k].shape)
-
-            print(lora_name)
-            print(global_model[lora_name])
-            print(global_model[lora_name].shape)
+    Aggregate local LoRA updates into the global model and optionally apply SVD.
+    
+    Combines client updates via weighted or simple averaging (depending on args.aggregation),
+    validates LoRA rank against model full rank, and optionally applies SVD to each LoRA
+    pair (B, A) to recompress and enforce args.lora_max_rank.
+    
+    Args:
+        args: Configuration with aggregation, lora_max_rank, and optionally apply_svd_aggregation.
+        global_model (dict): Current global state_dict (modified in place).
+        local_updates (list): List of state_dict diffs (local - global) from each client.
+        num_samples (list): Sample counts per client; used when aggregation is weighted.
+    
+    Returns:
+        dict: Updated global state_dict (same object as global_model, modified in place).
     """
-
-
     if hasattr(args, 'aggregation'):
         if args.aggregation ==  'weighted_average':
             print('use weighted average for aggregation')
@@ -516,20 +518,6 @@ def update_global_model(args, global_model, local_updates, num_samples):
             break
     if args.lora_max_rank > model_full_rank:
         raise ValueError(f"lora_max_rank: {args.lora_max_rank} needs to be smaller than the model full rank {model_full_rank}")
-    """
-    print('######################### weight updated #######################')
-    for k in global_model.keys():
-        if 'lora_B' in k and ('layer.2.' in k):
-            lora_name = k.replace('lora_B', 'lora_A')
-            print(k)
-            print(global_model[k])
-            print(global_model[k].shape)
-
-            print(lora_name)
-            print(global_model[lora_name])
-            print(global_model[lora_name].shape)
-    """
-
 
     ### run svd
     for k in global_model.keys():
@@ -616,8 +604,8 @@ def get_norm(delta_norms):
                            of one client's model update.
     
     Returns:
-        torch.Tensor: Median norm of all client updates, computed on CPU.
-                     Returns 100.0 if no norms are provided (fallback value).
+        torch.Tensor or int: Median norm of all client updates, computed on CPU when non-empty.
+                             Returns the integer 100 if no norms are provided (fallback value).
     
     Algorithm:
         1. Check if delta_norms list is non-empty
@@ -632,7 +620,7 @@ def get_norm(delta_norms):
         
         >>> delta_norms = []
         >>> median_norm = get_norm(delta_norms)
-        >>> print(median_norm)  # tensor(100.)
+        >>> print(median_norm)  # 100
     
     Note:
         - Uses median instead of mean to be robust against outlier clients
@@ -733,59 +721,48 @@ def decay_learning_rate(args, t):
 
 def update_block_ids_list(args, dataset_fim, net_glob, t):
     """
-    Update the list of LoRA layer blocks assigned to each user based on FIM analysis or predefined probabilities.
+    Update the list of LoRA layer blocks and ranks assigned to each user based on FIM analysis.
     
-    This function determines which LoRA layers each user will train based on either:
-    1. Fisher Information Matrix (FIM) analysis (after initial epochs and at specified intervals)
-    2. Predefined layer probabilities (during initial epochs or when FIM analysis is not performed)
+    This function is called when t >= fim_prior_epoch and t % fim_every_iter == 0. It computes
+    the Fisher Information Matrix, clusters layers by importance, and assigns layers (and
+    optionally per-layer ranks) to each user group. Layers with lower FIM values are more
+    likely to be selected for training (inverse relationship with importance).
     
-    The function implements adaptive layer selection where layers with lower FIM values
-    (indicating less importance for the current task) are more likely to be selected for training.
+    Predefined probability-based assignment is handled by update_block_ids_list_predefined,
+    not by this function.
     
     Args:
         args: Configuration object containing:
-            - fim_prior_epoch (int): Number of epochs to wait before starting FIM analysis
-            - fim_every_iter (int): Interval (in rounds) for performing FIM analysis
             - lora_layer (int): Total number of LoRA layers available
-            - layer_prob (list): Predefined probabilities for each layer (used when FIM is not active)
             - user_groupid_list (list): Mapping of users to their heterogeneous groups
             - heterogeneous_group{i}_lora (int): Number of LoRA layers for group i
-        dataset_fim: Dataset used for FIM computation
+            - enable_rank_var (bool): If True, assign ranks from FIM; else uniform rank
+        dataset_fim: Dataset (or DataLoader) used for FIM computation
         net_glob: Global model for FIM analysis
-        t (int): Current training round/epoch
+        t (int): Current training round (used for logging; selection is FIM-based only here)
     
     Returns:
-        None: The function modifies args.block_ids_list in place.
+        None: The function modifies args.block_ids_list and args.rank_list in place.
     
     Algorithm:
-        1. FIM-based selection (when t > fim_prior_epoch-1 and t % fim_every_iter == 0):
-           - Compute Fisher Information Matrix for all layers
-           - Rank layers by FIM values and cluster them
-           - Generate probability distribution based on layer importance
-           - Sample layers for each user group based on these probabilities
-        
-        2. Probability-based selection (otherwise):
-           - Use predefined layer_prob distribution
-           - Sample layers for each user group based on these probabilities
+        1. Compute Fisher Information Matrix for all layers (under GPU lock).
+        2. Rank layers and get cluster labels via calc.bottom_k_layers.
+        3. Convert cluster labels to selection probabilities via get_observed_probability.
+        4. For each user group, sample layer IDs without replacement and build rank list.
+        5. Store sorted layer lists in args.block_ids_list and per-group ranks in args.rank_list.
     
     Example:
-        >>> # FIM-based selection (after epoch 50, every 50 rounds)
-        >>> args.fim_prior_epoch = 50
-        >>> args.fim_every_iter = 50
         >>> args.lora_layer = 12
         >>> args.user_groupid_list = [0, 0, 1, 1, 2, 2]
         >>> args.heterogeneous_group0_lora = 6
         >>> args.heterogeneous_group1_lora = 9
         >>> args.heterogeneous_group2_lora = 12
         >>> update_block_ids_list(args, dataset_fim, net_glob, 100)
-        >>> # args.block_ids_list will contain 6 lists, each with the assigned layer IDs
+        >>> # args.block_ids_list and args.rank_list will have one entry per user
     
     Note:
         - Uses GPU lock to prevent concurrent FIM computation
-        - FIM analysis helps identify which layers are most important for the current task
-        - Layers with lower FIM values are more likely to be selected (inverse relationship)
-        - The function supports heterogeneous federated learning with different numbers
-          of LoRA layers per user group
+        - Layers with lower FIM values are more likely to be selected
         - All selected layer lists are sorted for consistency
     """
 
@@ -810,6 +787,14 @@ def update_block_ids_list(args, dataset_fim, net_glob, t):
             get_rank_list(args, layer_list, [1]*args.lora_layer, id)
 
 def update_block_ids_list_predefined(args, dataset_fim, net_glob, t):
+    """
+    Assign LoRA layer blocks to each user using predefined layer probabilities (warm-start).
+    
+    Used when t < fim_prior_epoch (or when FIM is not used). Samples layer IDs for each
+    user group from args.layer_prob without replacement and builds args.block_ids_list
+    and args.rank_list with uniform rank. Only runs if args.heterogeneous_group0_lora
+    exists and is an int.
+    """
     if hasattr(args, 'heterogeneous_group0_lora'):
         if isinstance(getattr(args, 'heterogeneous_group0_lora'), int):
             args.block_ids_list = []
@@ -824,7 +809,13 @@ def update_block_ids_list_predefined(args, dataset_fim, net_glob, t):
 
 
 def get_rank_list(args, layer_list, fim, id):
-    # Get the rank list based on the fim value
+    """
+    Compute per-layer LoRA ranks for a user group from FIM scores and append to args.rank_list.
+    
+    Distributes the group's rank budget (var_rank_group{id}_lora) across the selected layers
+    in proportion to their FIM values, with a minimum rank per layer (layer_min_rank if set),
+    capped at lora_max_rank. Any leftover budget is assigned to the highest-FIM layers first.
+    """
     sorted_layer_list = sorted(layer_list)
     selected_layer_fim = [fim[x] for x in sorted_layer_list]
     # reserve 1-rank for each selected block
