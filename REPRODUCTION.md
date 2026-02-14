@@ -80,7 +80,35 @@ To reproduce **tables and figures** in the paper about rank allocation (FIM-base
 
    To build the paper’s accuracy tables, point to the desired run directories and parse `exp_log.txt` (e.g. final accuracy or round-wise accuracy).
 
-2. **Fig. 6**  
+2. **Fig. 1 (Accuracy vs. trainable parameters)**  
+   Produces the scatter plot of test accuracy (%) vs. number of trainable parameters for method comparison (FedIT, Straggler, Exclusive, LoKr, FFA-LoRA, LEGEND, Fed-HeLLo, HRALoRA). Uses data hardcoded in the script; no log paths. Run as-is:
+
+   ```bash
+   python scripts/figures/fig-param.py
+   ```
+
+   Output: `figures/accuracy_vs_params_custom_labels.pdf`.
+
+3. **Fig. 3 (Layer-wise FIM scores and allocated ranks)**  
+   The script reads one `exp_log.txt` from an Ours run with FIM (e.g. alternating-training with warm start). Set `log_path` at the top of `scripts/figures/fig-fim-score.py` to your run’s `exp_log.txt`, then run:
+
+   ```bash
+   python scripts/figures/fig-fim-score.py
+   ```
+
+   Output (by default): `figures/layer-rank.pdf` (allocated rank for selected layers over rounds). To also produce the subfigures (a) and (b), uncomment the blocks in the script that save `fim_mean_std.pdf` (FIM mean ± std per layer) and `rank_mean_std.pdf` (rank mean ± std per layer). The script also contains commented code for `layer-fim.pdf` (FIM per layer over rounds); uncomment that block if needed.
+
+4. **Fig. 5.**  
+   Produces the bar chart of accuracy/parameter ratio for different methods. Uses data hardcoded in the script. Run as-is:
+
+   ```bash
+   python scripts/figures/fig-param-performance-ratio.py
+   ```
+
+   TODO another figure
+   Output: `figures/ratio_grouped_histogram.pdf`.
+
+5. **Fig. 6**  
    Produces the plot of accuracy vs LoRA rank. Uses data hardcoded in the script (no log paths). Run as-is:
 
    ```bash
@@ -90,43 +118,7 @@ To reproduce **tables and figures** in the paper about rank allocation (FIM-base
    TODO another figure
    Output: `figures/cifar_rank_plot.pdf`.
 
-3. **Figure: FIM-based rank allocation (allocated rank per layer over rounds)**  
-   Produces the plot of allocated rank for selected layers over training rounds. The script reads one `exp_log.txt` that contains `fim score` and `rank list` lines (from an Ours run with FIM, e.g. alternating-training with warm start). Set `log_path` at the top of the script to your run’s `exp_log.txt`, then run:
-
-   ```bash
-   python scripts/figures/fig-fim-score.py
-   ```
-
-   Output: `figures/layer-rank.pdf`.
-
-4. **Fig. 5.**  
-   Produces the bar chart of accuracy/parameter ratio for different methods. Uses data hardcoded in the script. Run as-is:
-
-   ```bash
-   python scripts/figures/fig-param-performance-ratio.py
-   ```
-
-   Output: `figures/ratio_grouped_histogram.pdf`.
-
-5. **Fig. 1 (Accuracy vs. trainable parameters)**  
-   Produces the scatter plot of test accuracy (%) vs. number of trainable parameters for method comparison (FedIT, Straggler, Exclusive, LoKr, FFA-LoRA, LEGEND, Fed-HeLLo, HRALoRA). Uses data hardcoded in the script; no log paths. Run as-is:
-
-   ```bash
-   python scripts/figures/fig-param.py
-   ```
-
-   Output: `figures/accuracy_vs_params_custom_labels.pdf`.
-
-7. **Fig. 3 (Layer-wise FIM scores and allocated ranks)**  
-   The script reads one `exp_log.txt` from an Ours run with FIM (e.g. alternating-training with warm start). Set `log_path` at the top of `scripts/figures/fig-fim-score.py` to your run’s `exp_log.txt`, then run:
-
-   ```bash
-   python scripts/figures/fig-fim-score.py
-   ```
-
-   Output (by default): `figures/layer-rank.pdf` (allocated rank for selected layers over rounds). To also produce the subfigures (a) and (b), uncomment the blocks in the script that save `fim_mean_std.pdf` (FIM mean ± std per layer) and `rank_mean_std.pdf` (rank mean ± std per layer). The script also contains commented code for `layer-fim.pdf` (FIM per layer over rounds); uncomment that block if needed.
-
-Run all commands from the **project root** with the project environment activated (e.g. `conda activate env.fl`). Figure scripts that read logs require having run the corresponding experiments first; see the [Rank Utilizer](README.md#rank-utilizer) section in the README for how to run experiments.
+Run all commands from the **project root** with the project environment activated (see [README](README.md#-getting-started). Figure scripts that read logs require having run the corresponding experiments first; see the [Rank Utilizer](README.md#rank-utilizer) section in the README for how to run experiments.
 
 
 
