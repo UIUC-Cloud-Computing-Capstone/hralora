@@ -4,15 +4,11 @@ from torch.utils.data import DataLoader
 import copy
 from tqdm import tqdm
 import evaluate
-from datasets import load_metric
 from sklearn.metrics import f1_score
 import numpy as np
 
 from accelerate import Accelerator
 from accelerate import DistributedDataParallelKwargs
-from transformers.tokenization_utils_base import PreTrainedTokenizerBase, PaddingStrategy
-from typing import Optional, Union
-from dataclasses import dataclass
 
 def collate_fn(examples):
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
@@ -21,40 +17,6 @@ def collate_fn(examples):
     else:
         labels = torch.tensor([example["fine_label"] for example in examples])
     return {"pixel_values": pixel_values, "labels": labels}
-
-@dataclass
-class DataCollatorForMultipleChoice:
-    """
-    Data collator that will dynamically pad the inputs for multiple choice received.
-    """
-
-    tokenizer: PreTrainedTokenizerBase
-    padding: Union[bool, str, PaddingStrategy] = True
-    max_length: Optional[int] = None
-    pad_to_multiple_of: Optional[int] = None
-
-    def __call__(self, features):
-        label_name = "correct_answer_num"
-        labels = [torch.tensor(int(feature[label_name])-1) for feature in features]
-        batch_size = len(features)
-        num_choices = len(features[0]["input_ids"])
-
-        flattened_features = [
-            [{k: v[i] for k, v in feature.items() if k in ['input_ids', 'token_type_ids', 'attention_mask']} for i in range(num_choices)] for feature in features
-        ]
-        flattened_features = sum(flattened_features, [])
-
-        batch = self.tokenizer.pad(
-            flattened_features,
-            padding=self.padding,
-            max_length=self.max_length,
-            pad_to_multiple_of=self.pad_to_multiple_of,
-            return_tensors="pt",
-        )
-
-        batch = {k: v.view(batch_size, num_choices, -1) for k, v in batch.items()}
-        batch["labels"] = torch.tensor(labels, dtype=torch.int64)
-        return batch
 
 def test_vit(model, dataset, args, t):
     # Eval for each round
@@ -169,12 +131,3 @@ def test(net_g, dataset, args):
     accuracy = 100.00 * correct.item() / len(dataset)
     return accuracy, test_loss
 
-def extract_results(tokenized_data, args):
-    target = tokenized_data['labels'].clone()
-    target[target==-100] = 0
-    untokenized_target = args.tokenizer.batch_decode(target)
-    target_list = []
-    for item in untokenized_target:
-        item = item.replace('<unk>', '').replace('<pad>', '')
-        target_list.append(item)
-    return target_list
