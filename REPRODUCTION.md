@@ -69,7 +69,7 @@ TODO review, test, and refine the content below
 
 To reproduce **tables and figures** in the paper about rank allocation (FIM-based) and aggregation (SVD, weighted average):
 
-1. **TABLE V**  
+1. **Experiments**  
    Run the experiments that correspond to the paper’s settings. Each run writes logs under `log/<dataset>/<model>/<method>/<config_stem>_<timestamp>/`; final and per-round accuracy are in `exp_log.txt`. From the project root:
 
    - **Ours (CIFAR-100 IID, non-IID 10, non-IID 20):**
@@ -78,7 +78,7 @@ To reproduce **tables and figures** in the paper about rank allocation (FIM-base
      ```
    - **Baselines / ablations:** run the matching scripts in `scripts/experiments/`, e.g. `run-cifar100-FedHello.sh`, `run-cifar100-FlexLoRA.sh`, `run-cifar100-HetLoRA.sh`, `run-cifar100-iid.sh`, `run-cifar100-non-iid-10.sh`, `run-cifar100-non-iid-20.sh`, etc.
 
-   To build the paper’s accuracy tables, point to the desired run directories and parse `exp_log.txt` (e.g. final accuracy or round-wise accuracy).
+   To build the paper’s accuracy tables such as Table V, point to the desired run directories and parse `exp_log.txt` (e.g. final accuracy).
 
 2. **Fig. 1 (Accuracy vs. trainable parameters)**  
    Produces the scatter plot of test accuracy (%) vs. number of trainable parameters for method comparison (FedIT, Straggler, Exclusive, LoKr, FFA-LoRA, LEGEND, Fed-HeLLo, HRALoRA). Uses data hardcoded in the script; no log paths. Run as-is:
