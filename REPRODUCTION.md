@@ -120,6 +120,7 @@ To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6)
 
 Run all commands from the **project root** with the project environment activated (see [README](README.md#-getting-started). Figure scripts that read logs require having run the corresponding experiments first; see the [Rank Utilizer](README.md#rank-utilizer) section in the README for how to run experiments.
 
+Troubleshooting: if you face errors, check if the relevant experiment has been run and update the path hardcoded in the scripts that generate figures. 
 
 
 
