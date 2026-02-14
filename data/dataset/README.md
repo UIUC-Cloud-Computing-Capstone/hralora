@@ -8,10 +8,12 @@ Datasets used in HRALoRA. Paths and splits are set in the experiment configs (e.
 - **Source:** [CIFAR-100](https://www.cs.toronto.edu/~kriz/cifar.html) (auto-downloaded by the framework).
 - **Usage:** Vision experiments; ViT + LoRA fine-tuning.
 - **Citation:** Alex Krizhevsky and Geoffrey Hinton, “Learning multiple layers of features from tiny images,” 2009.
+- **Metadata:** Format: 32×32 RGB images. License: see [source](https://www.cs.toronto.edu/~kriz/cifar.html). Dataset card: [HuggingFace cifar100](https://huggingface.co/datasets/cifar100).
 
 ## LEDGAR
 
 - **Description:** Large-scale multi-label corpus for classifying legal provisions in contracts.
-- **Source:** [LEDGAR on HuggingFace](https://huggingface.co/datasets/ledgar) or LREC 2020.
+- **Source:** [LEDGAR on HuggingFace](https://huggingface.co/datasets/ledgar)(auto-downloaded by the framework).
 - **Usage:** NLP experiments; BERT + LoRA fine-tuning.
 - **Citation:** Don Tuggener, Pius Von Däniken, Thomas Peetz, and Mark Cieliebak, “Ledgar: a large-scale multi-label corpus for text classification of legal provisions in contracts,” in *International Conference on Language Resources and Evaluation (LREC)*, 2020.
+- **Metadata:** Format: text (contract provisions), multi-label. License and full metadata: [HuggingFace LEDGAR](https://huggingface.co/datasets/ledgar) dataset card.
