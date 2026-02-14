@@ -19,26 +19,6 @@ from transformers import AutoImageProcessor
 from transformers import AutoTokenizer
 from .noniid_patitioner import ClassWisePartitioner
 
-class custom_subset(Dataset):
-    """
-    Subset of a dataset at specified indices.
-
-    Arguments:
-        dataset (Dataset): The subset Dataset
-        indices (sequence): Indices in the whole set selected for subset
-        labels(sequence) : targets as required for the indices. will be the same length as indices
-    """
-    def __init__(self, dataset, labels):
-        self.dataset = dataset
-        self.targets = labels
-    def __getitem__(self, idx):
-        image = self.dataset[idx][0]
-        target = self.targets[idx]
-        return (image, target)
-
-    def __len__(self):
-        return len(self.targets)
-
 # split for federated settings
 class DatasetSplit(Dataset):
     def __init__(self, dataset, idxs, args):
@@ -59,13 +39,6 @@ class DatasetSplit(Dataset):
         else:
             return self.dataset[int(self.idxs[item])]
 
-def merge_columns(example):
-    example["prediction"] = example["quote"] + " ->: " + str(example["labels"])
-    return example
-
-def merge_columns_test(example):
-    example["prediction"] = example["quote"] + " ->: "
-    return 
 
 ################################### data setup ########################################
 def load_partition(args):
@@ -458,135 +431,37 @@ def iid(dataset, num_users):
         all_idxs = list(set(all_idxs) - dict_users[i])
     return dict_users
 
-## IID assign data samples for num_users (mnist, emnist, cifar); each user only has n(default:two) classes of data
-def noniid(dataset, num_users, class_num=2):
-    """
-    Sample non-I.I.D client data from MNIST dataset
-    :param dataset:
-    :param num_users:
-    :param num_shards: num_users * class_num
-    :param num_imgs: len(dataset)/num_shards
-    Notice: num_shards * num_imgs -> length of dataset, guarantee each label has same amount of imgs
-    :return: each user only has two classes of data
-    """
-    num_shards = num_users * class_num
-    num_imgs = int(len(dataset) / num_shards)
-    print("Assigning training data samples (non-iid)")
-    idx_shard = [i for i in range(num_shards)]
-    dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
-    idxs = np.arange(num_shards*num_imgs)
+#     """
+#         Input: Number of participants and alpha (param for distribution)
+#         Output: A list of indices denoting data in CIFAR training set.
+#         Requires: cifar_classes, a preprocessed class-indice dictionary.
+#         Sample Method: take a uniformly sampled 10-dimension vector as parameters for
+#         dirichlet distribution to sample number of images in each class.
+#     """
+#     cifar_classes = {}
+#     for ind, x in enumerate(dataset):
+#         _, label = x
+#         if ind in args.poison_images or ind in args.poison_images_test:
+#             continue
+#         if label in cifar_classes:
+#             cifar_classes[label].append(ind)
+#         else:
+#             cifar_classes[label] = [ind]
+#     class_size = len(cifar_classes[0])
+#     per_participant_list = {}
+#     no_classes = len(cifar_classes.keys())
 
-    labels = np.array(dataset.to_pandas().label)
-    labels = dataset.train_labels.numpy()
+#     for n in range(no_classes):
+#         random.shuffle(cifar_classes[n])
+#         sampled_probabilities = class_size * np.random.dirichlet(
+#             np.array(no_participants * [alpha]))
+#         for user in range(no_participants):
+#             no_imgs = int(round(sampled_probabilities[user]))
+#             sampled_list = cifar_classes[n][:min(len(cifar_classes[n]), no_imgs)]
+#             if user in per_participant_list:
+#                 per_participant_list[user].extend(sampled_list)
+#             else:
+#                 per_participant_list[user] = sampled_list
+#             cifar_classes[n] = cifar_classes[n][min(len(cifar_classes[n]), no_imgs):]
 
-    # sort labels
-    idxs_labels = np.vstack((idxs, labels))
-    idxs_labels = idxs_labels[:,idxs_labels[1,:].argsort()]
-    idxs = idxs_labels[0,:]
-
-    # divide and assign
-    for i in range(num_users):
-        rand_set = set(np.random.choice(idx_shard, class_num, replace=False))
-        idx_shard = list(set(idx_shard) - rand_set)
-        for rand in rand_set:
-            dict_users[i] = np.concatenate((dict_users[i], idxs[rand*num_imgs:(rand+1)*num_imgs]), axis=0)
-    return dict_users
-
-## IID assign data samples for num_users (mnist, emnist, cifar); each user only has n(default:two) classes of data
-def noniid_arrow(dataset, num_users, class_num=2, iid_data_amplify=1):
-    """
-    Sample non-I.I.D client data from MNIST dataset
-    :param dataset:
-    :param num_users:
-    :param num_shards: num_users * class_num
-    :param num_imgs: len(dataset)/num_shards
-    :param iid_data_amplify: decrease the num of shards, increase num of data for each client
-    Notice: num_shards * num_imgs -> length of dataset, guarantee each label has same amount of imgs
-    :return: each user only has two classes of data
-    """
-    num_shards = int(num_users * class_num / iid_data_amplify)
-    num_imgs = int(len(dataset) / num_shards)
-    print("Assigning training data samples (non-iid)")
-    idx_shard = [i for i in range(num_shards)]
-    dict_users = {i: np.array([], dtype='int64') for i in range(num_users)}
-    idxs = np.arange(num_shards*num_imgs)
-
-    labels = np.array(dataset.to_pandas().label)[:num_shards*num_imgs]
-
-    # sort labels
-    idxs_labels = np.vstack((idxs, labels))
-    idxs_labels = idxs_labels[:,idxs_labels[1,:].argsort()]
-    idxs = idxs_labels[0,:]
-
-    # divide and assign
-    for i in range(num_users):
-        rand_set = set(np.random.choice(idx_shard, class_num, replace=False))
-        if num_users < (num_shards/class_num):
-            idx_shard = list(set(idx_shard) - rand_set)
-        for rand in rand_set:
-            dict_users[i] = np.concatenate((dict_users[i], idxs[rand*num_imgs:(rand+1)*num_imgs]), axis=0)
-    return dict_users
-
-## generate a iid public dataset from dataset. 
-def public_iid(dataset, args):
-    """
-    Sample I.I.D. public data from fashion MNIST dataset
-    :param dataset:
-    :param num_users:
-    :return: dict of image index
-    """
-    if args.dataset == 'fmnist':
-        labels = dataset.train_labels.numpy()
-    elif args.dataset == 'cifar':
-        labels = np.array(dataset.targets)
-    else:
-        labels = dataset.labels
-    pub_set_idx = set()
-    if args.pub_set > 0:
-        for i in list(set(labels)):
-            pub_set_idx.update(
-                set(
-                np.random.choice(np.where(labels==i)[0],
-                                          int(args.pub_set/len(list(set(labels)))), 
-                                 replace=False)
-                )
-                )
-    # test_set_idx = set(np.arange(len(labels)))
-    # test_set_idx= test_set_idx.difference(val_set_idx)
-    return DatasetSplit(dataset, pub_set_idx)
-
-def sample_dirichlet_train_data(dataset, args, no_participants, alpha=0.9):
-    """
-        Input: Number of participants and alpha (param for distribution)
-        Output: A list of indices denoting data in CIFAR training set.
-        Requires: cifar_classes, a preprocessed class-indice dictionary.
-        Sample Method: take a uniformly sampled 10-dimension vector as parameters for
-        dirichlet distribution to sample number of images in each class.
-    """
-    cifar_classes = {}
-    for ind, x in enumerate(dataset):
-        _, label = x
-        if ind in args.poison_images or ind in args.poison_images_test:
-            continue
-        if label in cifar_classes:
-            cifar_classes[label].append(ind)
-        else:
-            cifar_classes[label] = [ind]
-    class_size = len(cifar_classes[0])
-    per_participant_list = {}
-    no_classes = len(cifar_classes.keys())
-
-    for n in range(no_classes):
-        random.shuffle(cifar_classes[n])
-        sampled_probabilities = class_size * np.random.dirichlet(
-            np.array(no_participants * [alpha]))
-        for user in range(no_participants):
-            no_imgs = int(round(sampled_probabilities[user]))
-            sampled_list = cifar_classes[n][:min(len(cifar_classes[n]), no_imgs)]
-            if user in per_participant_list:
-                per_participant_list[user].extend(sampled_list)
-            else:
-                per_participant_list[user] = sampled_list
-            cifar_classes[n] = cifar_classes[n][min(len(cifar_classes[n]), no_imgs):]
-
-    return per_participant_list
+#     return per_participant_list
