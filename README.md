@@ -45,7 +45,7 @@ cp setup/accelerate_default_config.yaml ~/.cache/huggingface/accelerate/default_
 
 #### Rank Estimator
 
-To experiment the Rank Estimator, run the command:
+To experiment the Rank Estimator, run the command (estimated to finish in approximately 50 seconds if using the hardware mentioned in [REPRODUCTION.md](REPRODUCTION.md)):
 ```bash
 # Default config: config/rank_estimator_ours.yaml
 python scripts/run_rank_estimation.py
