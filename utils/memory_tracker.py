@@ -1,9 +1,15 @@
 """
-Memory tracking utilities for PyTorch models.
-Supports both GPU and CPU memory profiling including:
+Memory tracking utilities for PyTorch models (including LoRA / PEFT).
+
+Supports GPU memory profiling and estimation for:
 - Parameter memory
-- Activation memory
+- Activation (forward pass) memory
+- Gradient memory
 - Optimizer state memory
+- Overhead
+
+Provides comparison of estimated vs profiled memory and LaTeX table output for
+LoRA rank and beta calibration (e.g. for memory estimators).
 """
 
 import os
@@ -35,8 +41,12 @@ FWD_KEY, OVERHEAD_KEY = 'avg_profiled_fwd', 'avg_profiled_overhead'
 
 class MemoryTracker:
     """
-    Track memory usage for PyTorch models including parameters, activations, and optimizer states.
-    Supports both GPU and CPU.
+    Track and profile memory usage for PyTorch models (e.g. with LoRA).
+
+    Computes parameter, activation, gradient, and optimizer-state memory; supports
+    GPU profiling with warmup runs and comparison of estimated vs profiled breakdown.
+    Used for memory estimation calibration (e.g. beta regression for LoRA) and
+    generating comparison tables (including LaTeX). CPU profiling is not implemented.
     """
     
     def __init__(self):
@@ -106,6 +116,15 @@ class MemoryTracker:
         }
     
     def _get_optimizer_states_memory_bytes(self, optimizer):
+        """
+        Sum memory (bytes) of all tensors in the optimizer's state dict.
+
+        Args:
+            optimizer: PyTorch optimizer (e.g. AdamW) with state already populated.
+
+        Returns:
+            int: Total bytes of optimizer state tensors (e.g. momentum, variance).
+        """
         total_mem = 0
         # Iterate through the actual state dictionary stored in the optimizer
         for param_id, state in optimizer.state.items():
@@ -123,24 +142,42 @@ class MemoryTracker:
             precision: 'fp32' or 'fp16' (optimizer states are typically fp32)
         
         Returns:
-            Dictionary with parameter count and optimizer state memory in MB
+            int: Total bytes of gradient tensors attached to optimizer's parameters.
         """
-        
         total_grads_mem_bytes = 0
         grad_element_count = 0
-        
+
         for group in optimizer.param_groups:
             for p in group['params']:
                 if p.grad is not None and torch.is_tensor(p.grad):
                     total_grads_mem_bytes += p.grad.element_size() * p.grad.numel()
                     grad_element_count += p.grad.numel()
-        
+
         return total_grads_mem_bytes
     
     def _loss_fn(self, outputs, labels):
+        """Return scalar loss from model outputs (HF .loss or cross_entropy(logits, labels))."""
         return outputs.loss if hasattr(outputs, 'loss') else torch.nn.functional.cross_entropy(outputs, labels)
-    
+
     def profile_and_compare(self, args, config, base_model, output_file_path, rank, memory_summary_dict):
+        """
+        Build a LoRA model at the given rank, profile GPU memory, and compare to estimates.
+
+        Clamps rank into [0, config.hidden_size], creates a PEFT model, runs profile(),
+        then writes a comparison table (console + LaTeX file). memory_summary_dict
+        should contain estimated totals (e.g. total_para_bytes, total_fwd_bytes, etc.).
+
+        Args:
+            args: Config (batch_size, precision, lora_target_modules, num_profiling_*, etc.).
+            config: Model config (hidden_size, num_hidden_layers, image_size).
+            base_model: Base model to wrap with LoRA.
+            output_file_path: Filename for the LaTeX table under results/diagrams.
+            rank: LoRA rank (may be adjusted if > hidden_size).
+            memory_summary_dict: Dict of estimated memory components (bytes).
+
+        Returns:
+            None (prints table and writes LaTeX file).
+        """
         if rank > config.hidden_size:
             mult = config.num_hidden_layers * len(args.lora_target_modules)
             rank = rank // mult
@@ -151,7 +188,15 @@ class MemoryTracker:
         self._create_comparison(args, memory_summary_dict, profiled_info, output_file_path, rank)
 
     def _create_statistics_of_all_runs(self, args, is_cuda, model, optimizer, batch):
-        
+        """
+        Run profiling multiple times and return mean and std per component.
+
+        Calls _get_profiled_data_for_all_runs then computes averages and standard
+        deviations for params, optimizer, forward, grads, overhead, and total peak.
+
+        Returns:
+            dict: Keys like avg_profiled_params, avg_profiled_fwd, profiled_params_std, etc. (bytes).
+        """
         all_profiled_params, all_profiled_optimizer, all_profiled_fwds, all_profiled_grads, all_profiled_overhead, all_profiled_total = \
             self._get_profiled_data_for_all_runs(args, is_cuda, model, optimizer, batch)
         profiled_info = {}
@@ -170,6 +215,23 @@ class MemoryTracker:
         return profiled_info
 
     def _create_comparison(self, args, memory_summary_dict, profiled_info, output_file_path, estimated_rank):
+        """
+        Build estimated vs profiled memory table, print it, and write LaTeX.
+
+        Computes relative errors and percentages, converts to MB, builds a DataFrame,
+        prints summary (MAPE, rank, available memory, utilization), and calls
+        _create_latex to write the table to results/diagrams/.
+
+        Args:
+            args: Config (e.g. gpu_memory_size_for_each_group_in_GB).
+            memory_summary_dict: Estimated bytes (total_para_bytes, total_fwd_bytes, etc.).
+            profiled_info: Profiled means/stds from _create_statistics_of_all_runs.
+            output_file_path: LaTeX output filename.
+            estimated_rank: LoRA rank used (for display).
+
+        Returns:
+            pd.DataFrame: Comparison table (Component, Estimated (MB), Profiled (MB), Error (%)).
+        """
         estimated_total_params = memory_summary_dict.get('total_para_bytes', 0)
         estimated_total_fwd = memory_summary_dict.get('total_fwd_bytes', 0)
         estimated_total_optimizer = memory_summary_dict.get('total_optimizer_states_bytes', 0)
@@ -284,6 +346,15 @@ class MemoryTracker:
         return df
 
     def _create_latex(self, args, comparison_data, output_file_path, mape, rank, available_memory_gb, available_memory_mb, memory_utilization):
+        """
+        Write a LaTeX table and comments (MAPE, rank, memory) to results/diagrams/.
+
+        Args:
+            args: Config (e.g. beta_profiling_run, batch_size).
+            comparison_data: Dict with 'Component', 'Estimated (MB)', 'Profiled (MB)', 'Error (%)'.
+            output_file_path: Output filename (no path).
+            mape, rank, available_memory_gb, available_memory_mb, memory_utilization: For header comments.
+        """
         output_dir = os.path.join(os.path.dirname(__file__), '..', 'results', 'diagrams')
         
         # Generate LaTeX table with custom formatting
@@ -330,6 +401,11 @@ class MemoryTracker:
         print(f"LaTeX table saved to: {latex_path}")
 
     def _init_profiling(self, args, config, r, base_model, device):
+        """
+        Create a LoRA-wrapped model with rank r and return model, optimizer, and a dummy batch.
+
+        Uses args.lora_target_modules; batch has pixel_values and labels for config.image_size.
+        """
         print(f"\nCreating model with rank {r} and profiling actual memory...")
         lora_config = LoraConfig(
             r=r,
@@ -342,13 +418,33 @@ class MemoryTracker:
         return self._get_opt_batch_and_update_args(args, config, model, device)
     
     def profile(self, args, config, model, rank, memory_summary_dict, optimizer, batch, device):
+        """
+        Profile GPU memory over warmup + actual runs and return mean/std stats.
+
+        Requires CUDA; memory_summary_dict is not used here (for API compatibility).
+        Runs forward, backward, optimizer step, zero_grad and records peak memory per component.
+
+        Returns:
+            dict: avg_profiled_params, avg_profiled_fwd, avg_profiled_grads, etc., and *_std (bytes).
+        """
         is_cuda = device.type == 'cuda'
         if not is_cuda:
             raise ValueError('CPU memory profiling is not supported yet.')
-        
+
         return self._create_statistics_of_all_runs(args, is_cuda, model, optimizer, batch)
 
     def _get_profiled_data_for_all_runs(self, args, is_cuda, model, optimizer, batch):
+        """
+        Run warmup + num_profiling_actual_runs training steps and collect per-run memory (bytes).
+
+        Each run: forward, loss backward, optimizer.step(), grads; records params, optimizer
+        state, forward activation, grads, overhead, and peak total. Only post-warmup runs
+        are appended. Requires CUDA.
+
+        Returns:
+            tuple: (all_profiled_params, all_profiled_optimizer, all_profiled_fwds,
+                    all_profiled_grads, all_profiled_overhead, all_profiled_total), each a list of ints.
+        """
         print(f"\nProfiling actual memory {args.num_profiling_actual_runs} times...")
         all_profiled_params, all_profiled_optimizer, all_profiled_fwds, all_profiled_grads, all_profiled_overhead, all_profiled_total = [], [], [], [], [], []
     
@@ -437,6 +533,14 @@ class MemoryTracker:
         return all_profiled_params, all_profiled_optimizer, all_profiled_fwds, all_profiled_grads, all_profiled_overhead, all_profiled_total
 
     def _get_opt_batch_and_update_args(self, args, config, model, device):
+        """
+        Create AdamW optimizer and a dummy batch (pixel_values, labels); set profiling run counts to 1.
+
+        Modifies args in place. Batch shape uses args.batch_size and config.image_size.
+
+        Returns:
+            tuple: (model, optimizer, batch) with model and batch on the given device.
+        """
         args.num_profiling_warmup_runs = 1
         args.num_profiling_actual_runs = 1
 
@@ -452,7 +556,15 @@ class MemoryTracker:
         return model, optimizer, batch
 
     def get_base_model_fwd_in_bytes_for_estimator(self, args, config, base_model):
+        """
+        Estimate base forward and overhead bytes using query/key LoRA profiling.
 
+        Profiles models with LoRA on query only, key only, and query+key; derives
+        base forward bytes and median overhead for use in memory estimators.
+
+        Returns:
+            tuple: (base_fwd_bytes, overhead_bytes).
+        """
         H = config.hidden_size
         r = int(H / 2)
 
@@ -472,14 +584,31 @@ class MemoryTracker:
         return base_fwd_bytes, overhead_bytes
     
     def _clear_after_helper(self, device, torch):
-            gc.collect()
-            if device.type == 'cuda':
-                torch.cuda.empty_cache()
+        """Run gc and, on CUDA, empty cache to free memory after profiling a model copy."""
+        gc.collect()
+        if device.type == 'cuda':
+            torch.cuda.empty_cache()
 
     def get_lora_betas_v2(self, args, config, base_model, module_names, B, S, H, bytes_per_parameter, memory_summary_dict):
-        '''
-        betas for for one module (two matrices) on one layer 
-        '''
+        """
+        Fit linear coefficients beta1, beta2 for activation memory vs (B*S*H) and (B*S*r).
+
+        Profiles multiple random LoRA ranks, computes extra forward bytes over base,
+        and solves y = beta1*bsh + beta2*bsr via least squares. Updates
+        memory_summary_dict['overhead_bytes'] to median of observed overheads.
+
+        Args:
+            args: Config (beta_profiling_run, etc.).
+            config: Model config (hidden_size).
+            base_model: Base model to wrap with LoRA.
+            module_names: Target module names for LoRA (e.g. query/key).
+            B, S, H: Batch, sequence, hidden dims for the regression.
+            bytes_per_parameter: Unused; kept for API compatibility.
+            memory_summary_dict: Must contain base_model_fwd_bytes, overhead_bytes; updated in place.
+
+        Returns:
+            tuple: (beta1, beta2) from least-squares fit.
+        """
         H = config.hidden_size
         r1 = int(H / 2)
         r2 = int(H / 3)
@@ -543,6 +672,16 @@ class MemoryTracker:
         return beta1, beta2
         
     def _get_base_model_fwd_in_bytes_for_estimator_helper(self, args, config, base_model, r, target_modules, device):
+        """
+        Profile one LoRA config (rank r, target_modules), return avg profiled fwd and overhead.
+
+        Creates a PEFT model, runs profile() to get statistics, then deletes model/optimizer/batch
+        and clears CUDA cache so the caller can profile another deepcopy. base_model is consumed
+        (deleted) and should be a copy.
+
+        Returns:
+            dict: With keys FWD_KEY ('avg_profiled_fwd') and OVERHEAD_KEY ('avg_profiled_overhead') in bytes.
+        """
         def clear_mem(device):
             is_cuda = device.type == 'cuda'
             if is_cuda:
