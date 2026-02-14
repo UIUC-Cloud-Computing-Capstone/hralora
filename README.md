@@ -4,21 +4,11 @@
 
 ### ⚙️ Environment Setup
 
+Ensure you have [Conda](https://docs.conda.io/) installed. 
 
-**Option A: uv**
+Then activate the environment using the provided file:
 
-Install [uv](https://docs.astral.sh/uv/) then:
-
-```bash
-uv venv
-uv sync
-source .venv/bin/activate   # Linux/macOS
-# or  .venv\Scripts\activate  # Windows
-```
-
-**Option B: Conda**
-
-Ensure you have [Conda](https://docs.conda.io/) installed. Then:
+Default:
 
 ```bash
 conda env create --name env.fl --file=environment-final.yml
