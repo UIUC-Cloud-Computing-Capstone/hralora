@@ -1,5 +1,4 @@
-# 👋 Heterogeneous-Resource-Aware Federated Learning
-with Intelligent LoRA Allocation and Aggregation (HRALoRA)
+# 👋 Heterogeneous-Resource-Aware Federated Learning with Intelligent LoRA Allocation and Aggregation (HRALoRA)
 
 Federated learning (FL) enables privacy-preserving model training across distributed devices, while Low-Rank Adaptation (LoRA) reduces compute and communication. Heterogeneous client memory and network constraints, however, make it hard to choose LoRA ranks and aggregate updates from resource-diverse clients. **HRALoRA** tackles this end-to-end and matches or outperforms prior LoRA-based FL with about half the trainable parameters.
 
@@ -41,7 +40,7 @@ mkdir -p ~/.cache/huggingface/accelerate/
 cp setup/accelerate_default_config.yaml ~/.cache/huggingface/accelerate/default_config.yaml
 ```
 
-**Verify:** Run `bash scripts/experiments/run-cifar100-smoke.sh` (smoke test: 1 round, 2 clients; see [Rank Utilizer](#rank-utilizer) below for full training).
+**Verify:** Run `bash scripts/experiments/run-cifar100-smoke.sh` (this is smoke test: 1 round of training with 2 clients).
 
 ### 🚀 Running the Code
 
