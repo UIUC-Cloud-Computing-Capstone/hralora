@@ -20,7 +20,7 @@ HRALoRA has two core components:
 
 **Install:**
 
-Estimated times for install: half an hour to one hour as conda is slow. (TODO replace with uv)
+Estimated times for install: may take one to a few minutes as conda is slow. (TODO replace with uv)
 
 ```bash
 conda env create --name env.fl --file=setup/environment-final.yml
