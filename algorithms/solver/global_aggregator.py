@@ -123,7 +123,6 @@ def svd_average(args, global_model, loc_updates, num_samples):
             svd_weights.append(tensorSVD)
 
         svd_weights = torch.cat(svd_weights, dim=0)
-        print(f'$$$$$$$$$$$$$$ after stack size of svd_weights = {svd_weights.shape}')
         frobenius_norm = np.linalg.norm(svd_weights, 'fro')
         update_weights.append(frobenius_norm)
     update_weights = np.array(update_weights) / np.sum(update_weights)

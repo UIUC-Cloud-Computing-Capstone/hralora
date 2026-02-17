@@ -368,14 +368,6 @@ def train_selected_clients(args, net_glob, global_model, data_loader_list, t, se
     for num_index, i in enumerate(selected_idxs):
         if args.peft == 'lora':
 
-            #net_model = net_glob.state_dict()
-            #print('################### before $$$$$$$$$$$$$$$$$$$$$')
-            #for k in global_model.keys():
-            #    if 'lora_A' in k:
-            #        print(f'{k}, {net_model[k].detach() - global_model[k].detach()}')
-
-
-
             local_model, local_loss, no_weight_lora =  local_solver.lora_tuning(model=copy.deepcopy(net_glob),
                                                                                     ldr_train=data_loader_list[i],
                                                                                     args=args,
@@ -383,11 +375,7 @@ def train_selected_clients(args, net_glob, global_model, data_loader_list, t, se
                                                                                     client_real_id=i,
                                                                                     round=t,
                                                                                     hete_group_id=args.user_groupid_list[i])
-            #print('################### after $$$$$$$$$$$$$$$$$$$$$')
-            #for k in global_model.keys():
-            #    if 'lora_A' in k:
-            #        print(f'{k}, {local_model[k].detach() - global_model[k].detach()}')
-                    
+
         if local_loss:
             local_losses.append(local_loss)
             # compute model update
@@ -442,33 +430,11 @@ def update_global_model(args, global_model, local_updates, num_samples):
             U, S, VT = torch.linalg.svd(B@A, full_matrices=False)
 
             # suppress the deficient singular value
-            #print(f'smallest singulvar value = {min(S)}')
             tol = 1e-6
             S[S<tol]=0
 
             global_model[k] = (U@torch.diag(torch.sqrt(S)))[:,0:args.lora_max_rank]
             global_model[lora_name] = (torch.diag(torch.sqrt(S))@VT)[0:args.lora_max_rank,:]
-            #print(f'Apply SVD update for {k}, the full rank of the model is {B.shape[0]}')
-            #print(f'B.shape {B.shape}, A.shape {A.shape}, U shape {U.shape}, S {S.shape}, VT {VT.shape}, global_model[k] {global_model[k].shape}, global_model[new_name] {global_model[new_name].shape}')
-            # Print the update content to check the rank variation and update param
-            '''
-            if 'layer.2.' in k:
-                print('######################### SVD applied #######################')
-                print(k)
-                print(global_model[k])
-                print(global_model[k].shape)
-
-                print(f' U {U}, S {S}, VT {VT}')
-
-                print(lora_name)
-                print(global_model[lora_name])
-                print(global_model[lora_name].shape)
-            '''
-            # null to rank 24
-            #if 'lora_A' in k:
-            #    global_model[k][24:,:] = 0
-            #elif 'lora_B' in k:
-            #    global_model[k][:,24:] = 0
     return global_model
 
 def append_delta_norm(delta_norms, norm_updates):
@@ -758,10 +724,10 @@ def get_rank_list(args, layer_list, fim, id):
     args.rank_list.append(final_rank_list)
 
     if len(layer_list)==12:
+        # For fim score and rank plotting. Only the 12-layer clients are recorded to show the score of all layers. 
         args.logger.info(f'layer list: {sorted_layer_list}, fim score: {selected_layer_fim}, rank list: {final_rank_list}')
 
     print(f'group {id}: rank_budget = {rank_budget}, fim = {selected_layer_fim}, rank_list = {final_rank_list}, selected layer = {sorted_layer_list} ')
-    #print(f'args.rank_list = {args.rank_list}')
 
 def get_observed_probability(cluster_labels):
     """

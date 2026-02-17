@@ -113,7 +113,6 @@ class LocalUpdate(object):
                     # pull weights
                     B = params[name].detach().cpu()
                     A = params[lora_A_name].detach().cpu()
-                    # print(f'{name} = {B}')
                     U, S, VT = torch.linalg.svd(B @ A, full_matrices=False)
 
                     # keep top-'rank' singular values (optionally also threshold)
@@ -123,15 +122,10 @@ class LocalUpdate(object):
                     S_trunc[rank:] = 0
 
                     sqrtS = torch.sqrt(S_trunc)
-                    # print(sqrtS)
-                    # k = args.lora_max_rank  # fixed LoRA rank in module
-                    # If you want *effective* rank=rank, use k = rank instead.
 
                     new_B = (U @ torch.diag(S))[:, :args.lora_max_rank]
                     new_A = VT[:args.lora_max_rank, :]
-                    # if 'layer.11.' in name:
-                    #     print(f'{lora_A_name} = {new_A}')
-                    #     print(f'{name} = {new_B}')
+
                     # copy back to original device/dtype
                     new_B = new_B.to(device=params[name].device, dtype=params[name].dtype)
                     new_A = new_A.to(device=params[lora_A_name].device, dtype=params[lora_A_name].dtype)
@@ -181,11 +175,6 @@ class LocalUpdate(object):
                         if args.HetLoRA:
                             # truncate the param for HetLoRA
                             param.data[:,rank:].zero_()
-        #print('############## trainable param ############')
-        #print(f'args.block_ids_list[client_real_id] = {args.block_ids_list[client_real_id]}')
-        #for name, param in model.named_parameters():
-        #    if param.requires_grad:
-        #        print(name) 
 
         # Note: Have to set the weight_decay to zero otherwise 0 gradient part will still be updated.
         # weight declay is set to zero only for rank variation
@@ -204,16 +193,6 @@ class LocalUpdate(object):
                     outputs = model(**batch)
                     loss = outputs.loss
                     accelerator.backward(loss)
-
-                    # ---- check gradients here ----
-
-                    #for name, param in unwrapped_model.named_parameters():
-                    #    if param.requires_grad and 'lora_A' in name:
-                    #        grad_norm = param.grad.detach().data
-                    #        accelerator.print(f"[step {step}] {name} grad = {grad_norm}")
-                    #        #accelerator.print(f"param -")
-                            #break  # uncomment if you only want the first layer’s grad
-                    # --------------------------------
 
                     optimizer.step()
                     # lr_scheduler.step()
