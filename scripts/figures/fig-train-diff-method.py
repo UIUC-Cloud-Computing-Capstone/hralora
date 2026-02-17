@@ -5,7 +5,7 @@ import numpy as np
 
 # Paths relative to project root (script at scripts/figures/)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-_LOG = _PROJECT_ROOT / "log"
+_LOG = _PROJECT_ROOT
 
 def _read_log(rel_path: str) -> str:
     return (_LOG / rel_path).read_text(encoding="utf-8", errors="ignore")

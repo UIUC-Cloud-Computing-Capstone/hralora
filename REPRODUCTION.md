@@ -104,7 +104,7 @@ To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6)
 
    Output: `figures/accuracy_vs_params_custom_labels.pdf`.
 
-   - **To Generate Related Data**
+   - **To Generate Related Log**
      ```bash
      bash scripts/experiments/run-cifar100-iid.sh
      ```
@@ -116,9 +116,9 @@ To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6)
    python scripts/figures/fig-fim-score.py
    ```
 
-   Output (by default): `figures/layer-rank.pdf` (allocated rank for selected layers over rounds). To also produce the subfigures (a) and (b), uncomment the blocks in the script that save `fim_mean_std.pdf` (FIM mean ± std per layer) and `rank_mean_std.pdf` (rank mean ± std per layer). The script also contains commented code for `layer-fim.pdf` (FIM per layer over rounds); uncomment that block if needed.
+   Output: `figures/fim_mean_std.pdf`, `figures/layer-fim.pdf`, `figures/layer-rank.pdf`, and `figures/rank_mean_std.pdf`
 
-   - **To Generate Related Data**
+   - **To Generate Related Log**
      ```bash
      bash scripts/experiments/run-cifar100-Ours.sh
      ```
@@ -133,7 +133,7 @@ To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6)
 
    Output: `figures/ratio_grouped_histogram.pdf` and `cifar_train_plot-diff-method.pdf`.
 
-   - **To Generate Related Data**
+   - **To Generate Related Log**
      ```bash
      bash scripts/experiments/run-cifar100-iid.sh
      bash scripts/experiments/run-cifar100-non-iid-10.sh
@@ -150,7 +150,7 @@ To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6)
 
    Output: `figures/cifar_rank_plot.pdf` and `figures/cifar_train_plot.pdf`
 
-   - **To Generate Related Data**
+   - **To Generate Related Log**
      ```bash
      bash scripts/experiments/run-cifar100-iid-ablation.sh
      bash scripts/experiments/run-cifar100-non-iid-10-ablation.sh
