@@ -34,8 +34,8 @@ for line in log_text.splitlines():
     if (
         m_layer 
         and current_round is not None
-        and current_round >= 20              # <-- SKIP ROUND 0 and 1
-        and not seen_in_round               # <-- only once per round
+        and current_round >= 20              
+        and not seen_in_round               
     ):
         fim_str, rank_str = m_layer.groups()
 
@@ -69,67 +69,43 @@ print(f'std rank {np.std(rank_2d,axis=0)}')
 import matplotlib.pyplot as plt
 import numpy as np
 
-# fim_2d should be a list of lists:
-# shape = [num_rounds][num_layers]
-# convert to numpy for convenience
-# fim = np.array(fim_2d)
+# # --------------------------------------------------------------------
+# # Layer FIM Plot
+# # --------------------------------------------------------------------
 
-# num_rounds, num_layers = fim.shape
+#%% show fim score for layer1, 5 and 7
+rounds
+layer_1 = [row[1] for row in fim_2d]
+layer_7 = [row[7] for row in fim_2d]
+layer_5 = [row[5] for row in fim_2d]
+# Plot
 
-# plt.figure(figsize=(12, 7))
+layer_1.pop(-1)
+layer_7.pop(-1)
+layer_5.pop(-1)
+rounds.pop(-1)
+plt.figure(figsize=(12,6))   # square plot
 
-# #Plot each layer (each column)
-# for layer in range(num_layers):
-#     plt.plot(
-#         range(num_rounds),
-#         fim[:, layer],
-#         marker='o',
-#         linewidth=2,
-#         markersize=6,
-#         label=f"Layer {layer}"
-#     )
+plt.plot(rounds, layer_1, marker='o', linewidth=3, markersize=13, label="Layer-1")
+plt.plot(rounds, layer_5, marker='s', linewidth=3, markersize=13, label="Layer-5")
+plt.plot(rounds, layer_7, marker='s', linewidth=3, markersize=13, label="Layer-7")
 
-# plt.xlabel("Round", fontsize=16, fontweight="bold")
-# plt.ylabel("FIM Score", fontsize=16, fontweight="bold")
-# plt.title("FIM Evolution per Layer", fontsize=18, fontweight="bold")
+plt.xlabel("Round of Training", fontsize=30, fontweight='bold')
+plt.ylabel("FIM Score", fontsize=30, fontweight='bold')
+plt.xticks(fontsize=30, fontweight='bold')
+plt.yticks(fontsize=30, fontweight='bold')
+#plt.title("Accuracy vs Rank for CIFAR Settings", fontsize=18, fontweight='bold')
+plt.legend(fontsize=30)
+plt.grid(True, linewidth=1.5)
 
-# plt.grid(True, linestyle='--', alpha=0.4)
-# plt.legend(bbox_to_anchor=(1.05, 1), loc="upper left", fontsize=12)
+plt.tight_layout()
 
-# plt.tight_layout()
-# plt.show()
+plt.savefig(os.path.join(FIGURES_DIR, "layer-fim.pdf"), format="pdf", bbox_inches="tight")
+plt.show()
 
-#%% show fim score for layer1 and 7
-# rounds
-# layer_1 = [row[1] for row in fim_2d]
-# layer_7 = [row[7] for row in fim_2d]
-# layer_5 = [row[5] for row in fim_2d]
-# # Plot
-
-# layer_1.pop(-1)
-# layer_7.pop(-1)
-# layer_5.pop(-1)
-# rounds.pop(-1)
-# plt.figure(figsize=(12,6))   # square plot
-
-# plt.plot(rounds, layer_1, marker='o', linewidth=3, markersize=13, label="Layer-1")
-# plt.plot(rounds, layer_5, marker='s', linewidth=3, markersize=13, label="Layer-5")
-# plt.plot(rounds, layer_7, marker='s', linewidth=3, markersize=13, label="Layer-7")
-
-# plt.xlabel("Round of Training", fontsize=30, fontweight='bold')
-# plt.ylabel("FIM Score", fontsize=30, fontweight='bold')
-# plt.xticks(fontsize=30, fontweight='bold')
-# plt.yticks(fontsize=30, fontweight='bold')
-# #plt.title("Accuracy vs Rank for CIFAR Settings", fontsize=18, fontweight='bold')
-# plt.legend(fontsize=30)
-# plt.grid(True, linewidth=1.5)
-
-# plt.tight_layout()
-
-# plt.savefig(os.path.join(FIGURES_DIR, "layer-fim.pdf"), format="pdf", bbox_inches="tight")
-# plt.show()
-
-#%% layer rank
+# # --------------------------------------------------------------------
+# # Layer Rank Plot
+# # --------------------------------------------------------------------
 
 rounds
 layer_1 = [row[1] for row in rank_2d]
@@ -161,96 +137,97 @@ os.makedirs(FIGURES_DIR, exist_ok=True)
 plt.savefig(os.path.join(FIGURES_DIR, "layer-rank.pdf"), format="pdf", bbox_inches="tight")
 plt.show()
 
-# #%% fim and rank bar
-# import matplotlib.pyplot as plt
-# import numpy as np
+# --------------------------------------------------------------------
+# 🔵 1) FIM Mean ± Std Plot
+# --------------------------------------------------------------------
 
-# # --- Compute mean/std ---
-# fim_mean = np.mean(fim_2d, axis=0)
-# fim_std  = np.std(fim_2d, axis=0)
+#%% fim and rank bar
+import matplotlib.pyplot as plt
+import numpy as np
 
-# rank_mean = np.mean(rank_2d, axis=0)
-# rank_std  = np.std(rank_2d, axis=0)
+# --- Compute mean/std ---
+fim_mean = np.mean(fim_2d, axis=0)
+fim_std  = np.std(fim_2d, axis=0)
 
-# num_layers = len(fim_mean)
-# layers = np.arange(num_layers)
+rank_mean = np.mean(rank_2d, axis=0)
+rank_std  = np.std(rank_2d, axis=0)
 
-# # --------------------------------------------------------------------
-# # 🔵 1) FIM Mean ± Std Plot
-# # --------------------------------------------------------------------
-# plt.figure(figsize=(12, 6))
+num_layers = len(fim_mean)
+layers = np.arange(num_layers)
 
-# plt.errorbar(
-#     layers,
-#     fim_mean,
-#     yerr=fim_std,
-#     fmt='o',
-#     capsize=6,
-#     elinewidth=2,
-#     markeredgewidth=2,
-#     markersize=10,
-#     color='blue',
-#     ecolor='black',
-#     label='Mean ± Std'
-# )
+plt.figure(figsize=(12, 6))
 
-# plt.plot(
-#     layers,
-#     fim_mean,
-#     color='blue',
-#     linewidth=3
-# )
+plt.errorbar(
+    layers,
+    fim_mean,
+    yerr=fim_std,
+    fmt='o',
+    capsize=6,
+    elinewidth=2,
+    markeredgewidth=2,
+    markersize=10,
+    color='blue',
+    ecolor='black',
+    label='Mean ± Std'
+)
 
-# plt.xticks(layers, [f"{l}" for l in layers], fontsize=30)
-# plt.yticks(fontsize=30)
-# plt.xlabel("Layer", fontsize=30, fontweight="bold")
-# plt.ylabel("FIM Score", fontsize=30, fontweight="bold")
-# #plt.title("FIM Mean and Std per Layer", fontsize=18, fontweight="bold")
+plt.plot(
+    layers,
+    fim_mean,
+    color='blue',
+    linewidth=3
+)
 
-
-# plt.grid(True, linestyle="--", alpha=0.3)
-# plt.tight_layout()
+plt.xticks(layers, [f"{l}" for l in layers], fontsize=30)
+plt.yticks(fontsize=30)
+plt.xlabel("Layer", fontsize=30, fontweight="bold")
+plt.ylabel("FIM Score", fontsize=30, fontweight="bold")
+#plt.title("FIM Mean and Std per Layer", fontsize=18, fontweight="bold")
 
 
-# plt.savefig(os.path.join(FIGURES_DIR, "fim_mean_std.pdf"), format="pdf", bbox_inches="tight")
-# plt.show()
-
-# # --------------------------------------------------------------------
-# # 🔵 2) Rank Mean ± Std Plot
-# # --------------------------------------------------------------------
-# plt.figure(figsize=(12, 6))
-
-# plt.errorbar(
-#     layers,
-#     rank_mean,
-#     yerr=rank_std,
-#     fmt='o',
-#     capsize=6,
-#     elinewidth=2,
-#     markeredgewidth=2,
-#     markersize=10,
-#     color='red',
-#     ecolor='black',
-#     label='Mean ± Std'
-# )
-
-# plt.plot(
-#     layers,
-#     rank_mean,
-#     color='red',
-#     linewidth=3
-# )
+plt.grid(True, linestyle="--", alpha=0.3)
+plt.tight_layout()
 
 
-# plt.xticks(layers, [f"{l}" for l in layers], fontsize=30)
-# plt.yticks(fontsize=30)
-# plt.xlabel("Layer", fontsize=30, fontweight="bold")
-# plt.ylabel("Allocated Rank", fontsize=30, fontweight="bold")
-# #plt.title("Rank Mean and Std per Layer", fontsize=18, fontweight="bold")
+plt.savefig(os.path.join(FIGURES_DIR, "fim_mean_std.pdf"), format="pdf", bbox_inches="tight")
+plt.show()
 
-# plt.grid(True, linestyle="--", alpha=0.3)
-# plt.tight_layout()
+# --------------------------------------------------------------------
+# 🔵 2) Rank Mean ± Std Plot
+# --------------------------------------------------------------------
+plt.figure(figsize=(12, 6))
+
+plt.errorbar(
+    layers,
+    rank_mean,
+    yerr=rank_std,
+    fmt='o',
+    capsize=6,
+    elinewidth=2,
+    markeredgewidth=2,
+    markersize=10,
+    color='red',
+    ecolor='black',
+    label='Mean ± Std'
+)
+
+plt.plot(
+    layers,
+    rank_mean,
+    color='red',
+    linewidth=3
+)
 
 
-# plt.savefig(os.path.join(FIGURES_DIR, "rank_mean_std.pdf"), format="pdf", bbox_inches="tight")
-# plt.show()
+plt.xticks(layers, [f"{l}" for l in layers], fontsize=30)
+plt.yticks(fontsize=30)
+plt.xlabel("Layer", fontsize=30, fontweight="bold")
+plt.ylabel("Allocated Rank", fontsize=30, fontweight="bold")
+#plt.title("Rank Mean and Std per Layer", fontsize=18, fontweight="bold")
+
+plt.grid(True, linestyle="--", alpha=0.3)
+plt.tight_layout()
+
+
+plt.savefig(os.path.join(FIGURES_DIR, "rank_mean_std.pdf"), format="pdf", bbox_inches="tight")
+plt.show()
