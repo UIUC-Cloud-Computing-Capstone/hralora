@@ -70,32 +70,8 @@ To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6)
      bash scripts/experiments/run-cifar100-Ours.sh
      ```
    - **comparison / ablations:** run the matching scripts in `scripts/experiments/`, e.g. `run-cifar100-iid.sh`, `run-cifar100-iid-ablation.sh`, `run-cifar100-non-iid-20.sh`, etc.
-   
-2. **Table V (PEFT performance on CIFAR100 with 20 Clients)**  
-   Run the scripts below to obtain the logs of PEFT performance for different methods on CIFAR100 dataset with 20 clients.
-     ```bash
-     bash scripts/experiments/run-cifar100-iid.sh
-     bash scripts/experiments/run-cifar100-non-iid-10.sh
-     bash scripts/experiments/run-cifar100-non-iid-20.sh
-     ```
 
-3. **Table VI (PEFT performance on CIFAR100 with 100 Clients)**  
-   Run the scripts below to obtain the logs of PEFT performance for different methods on CIFAR100 dataset with 100 clients.
-     ```bash
-     bash scripts/experiments/run-cifar100-100client-10select-iid.sh
-     bash scripts/experiments/run-cifar100-100client-10select-non-iid-10.sh
-     bash scripts/experiments/run-cifar100-100client-10select-non-iid-20.sh
-     ```
-
-4. **Table VII (PEFT performance on LEDGAR with 20 Clients)**  
-   Run the scripts below to obtain the logs of PEFT performance for different methods on LEDGAR dataset with 20 clients.
-     ```bash
-     bash scripts/experiments/run-ledgar-iid.sh
-     bash scripts/experiments/run-ledgar-non-iid-10.sh
-     bash scripts/experiments/run-ledgar-non-iid-20.sh
-     ```
-
-5. **Fig. 1 (Accuracy vs. trainable parameters)**  
+2. **Fig. 1 (Accuracy vs. trainable parameters)**  
    Produces the scatter plot of test accuracy (%) vs. number of trainable parameters for method comparison (FedIT, Straggler, Exclusive, LoKr, FFA-LoRA, LEGEND, Fed-HeLLo, HRALoRA). Data obtained from the experiments are hardcoded in the script; no log paths. Run as-is:
 
    ```bash
@@ -109,7 +85,7 @@ To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6)
      bash scripts/experiments/run-cifar100-iid.sh
      ```
 
-6. **Fig. 3 (Layer-wise FIM scores and allocated ranks)**  
+3. **Fig. 3 (Layer-wise FIM scores and allocated ranks)**  
    The script reads one `exp_log.txt` from an Ours run with FIM (e.g. alternating-training with warm start). Set `log_path` at the top of `scripts/figures/fig-fim-score.py` to your run’s `exp_log.txt`, then run:
 
    ```bash
@@ -123,7 +99,7 @@ To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6)
      bash scripts/experiments/run-cifar100-Ours.sh
      ```
 
-7. **Fig. 5.**  
+4. **Fig. 5.**  
    Produces the bar chart of accuracy/parameter ratio for different methods. Use log or data obtained from the experiments in the script. Run as-is:
 
    ```bash
@@ -140,7 +116,7 @@ To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6)
      bash scripts/experiments/run-cifar100-non-iid-20.sh
      ```
 
-8. **Fig. 6**  
+5. **Fig. 6**  
    Produces the plot of accuracy vs LoRA rank. Use log or data obtained from the experiments in the script. Run as-is:
 
    ```bash
@@ -155,6 +131,30 @@ To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6)
      bash scripts/experiments/run-cifar100-iid-ablation.sh
      bash scripts/experiments/run-cifar100-non-iid-10-ablation.sh
      bash scripts/experiments/run-cifar100-non-iid-20-ablation.sh
+     ```
+
+6. **Table V (PEFT performance on CIFAR100 with 20 Clients)**  
+   Run the scripts below to obtain the logs of PEFT performance for different methods on CIFAR100 dataset with 20 clients.
+     ```bash
+     bash scripts/experiments/run-cifar100-iid.sh
+     bash scripts/experiments/run-cifar100-non-iid-10.sh
+     bash scripts/experiments/run-cifar100-non-iid-20.sh
+     ```
+
+7. **Table VI (PEFT performance on CIFAR100 with 100 Clients)**  
+   Run the scripts below to obtain the logs of PEFT performance for different methods on CIFAR100 dataset with 100 clients.
+     ```bash
+     bash scripts/experiments/run-cifar100-100client-10select-iid.sh
+     bash scripts/experiments/run-cifar100-100client-10select-non-iid-10.sh
+     bash scripts/experiments/run-cifar100-100client-10select-non-iid-20.sh
+     ```
+
+8. **Table VII (PEFT performance on LEDGAR with 20 Clients)**  
+   Run the scripts below to obtain the logs of PEFT performance for different methods on LEDGAR dataset with 20 clients.
+     ```bash
+     bash scripts/experiments/run-ledgar-iid.sh
+     bash scripts/experiments/run-ledgar-non-iid-10.sh
+     bash scripts/experiments/run-ledgar-non-iid-20.sh
      ```
 
 Run all commands from the **project root** with the project environment activated (see [README](README.md#-getting-started). Figure scripts that read logs require having run the corresponding experiments first; see the [Rank Utilizer](README.md#rank-utilizer) section in the README for how to run experiments.
