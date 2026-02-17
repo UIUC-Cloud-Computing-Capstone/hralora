@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
+FIGURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "figures")
+
 norankselection = Path("results/example_log/ablation-non-iid-10/alternating-training-warm20-double-rank-int-rank24-norankselection_2025-11-24_13-16-54/exp_log.txt").read_text(encoding="utf-8", errors="ignore")
 noniid10 = Path("results/example_log/cifar100_vit_lora/Ours/alternating-training-warm20-double-rank-int-noniid-10_2025-12-07_04-21-46/exp_log.txt").read_text(encoding="utf-8", errors="ignore")
 nosvd = Path("results/example_log/ablation-non-iid-10/alternating-training-warm20-double-rank-int-rank24-nosvd_2025-11-24_06-13-19/exp_log.txt").read_text(encoding="utf-8", errors="ignore")
@@ -65,5 +67,6 @@ plt.xlim(-2,70)
 plt.grid(True, linewidth=1.5)
 
 plt.tight_layout()
+os.makedirs(FIGURES_DIR, exist_ok=True)
 plt.savefig(os.path.join("cifar_train_plot.pdf"), format="pdf", bbox_inches="tight")
 plt.show()

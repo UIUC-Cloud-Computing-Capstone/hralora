@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
+FIGURES_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "figures")
+
 # Paths relative to project root (script at scripts/figures/)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 _LOG = _PROJECT_ROOT
@@ -123,5 +125,6 @@ plt.xlim(-2,70)
 plt.grid(True, linewidth=1.5)
 
 plt.tight_layout()
+os.makedirs(FIGURES_DIR, exist_ok=True)
 plt.savefig(os.path.join("cifar_train_plot-diff-method.pdf"), format="pdf", bbox_inches="tight")
 plt.show()
