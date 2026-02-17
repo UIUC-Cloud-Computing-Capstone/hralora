@@ -145,13 +145,14 @@ If you find this work useful for your research, please cite papers
 @article{xie2026hralora,
   title={Heterogeneous-Resource-Aware Federated Learning with Intelligent LoRA Allocation and Aggregation},
   author={Xie, Youye and Lian, Yao and Chen, Kevin and Latif, Abdul and Zhao, Lingzhi and Farivar, Reza},
-  journal={},
+  journal={IEEE International Symposium on Cluster, Cloud, and Internet Computing (CCGrid)},
   year={2026}
 }
+
 @article{zhang2025fed,
-  title={Fed-HeLLo: Efficient Federated Foundation Model Fine-Tuning with Heterogeneous LoRA Allocation},
+  title={Fed-HeLLo: Efficient Federated Foundation Model Fine-Tuning With Heterogeneous LoRA Allocation}, 
   author={Zhang, Zikai and Liu, Ping and Xu, Jiahao and Hu, Rui},
-  journal={arXiv preprint arXiv:2506.12213},
+  journal={IEEE Transactions on Neural Networks and Learning Systems (IEEE TNNLS)}, 
   year={2025}
 }
 ```
