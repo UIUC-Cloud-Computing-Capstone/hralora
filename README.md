@@ -166,9 +166,9 @@ This is a fork from the official code for the paper accepted to IEEE Transaction
 
 ```bibtext
 @article{zhang2025fed,
-  title={Fed-HeLLo: Efficient Federated Foundation Model Fine-Tuning with Heterogeneous LoRA Allocation},
+  title={Fed-HeLLo: Efficient Federated Foundation Model Fine-Tuning With Heterogeneous LoRA Allocation}, 
   author={Zhang, Zikai and Liu, Ping and Xu, Jiahao and Hu, Rui},
-  journal={arXiv preprint arXiv:2506.12213},
+  journal={IEEE Transactions on Neural Networks and Learning Systems (IEEE TNNLS)}, 
   year={2025}
 }
 ```
