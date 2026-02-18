@@ -21,8 +21,8 @@ RUN conda init bash
 WORKDIR /workspace
 
 # Clone repo
-RUN git clone https://github.com/UIUC-Cloud-Computing-Capstone/team1-fl-rhla.git
-WORKDIR /workspace/team1-fl-rhla
+RUN git clone https://github.com/UIUC-Cloud-Computing-Capstone/hralora.git
+WORKDIR /workspace/hralora
 
 # Create conda environment
 RUN conda env create --name env.fl --file=setup/environment-final.yml
