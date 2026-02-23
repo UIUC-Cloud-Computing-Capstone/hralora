@@ -157,6 +157,13 @@ To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6)
      bash scripts/experiments/run-ledgar-non-iid-20.sh
      ```
 
+9. **Table VIII (Ablation study with non-IID 10 data distribution)**  
+   Run the scripts below to obtain the logs of PEFT performance with different components disabled on CIFAR100 and LEDGAR datasets with 20 clients.
+     ```bash
+     bash scripts/experiments/run-cifar100-non-iid-10-ablation.sh
+     bash scripts/experiments/run-ledgar-non-iid-10-ablation.sh
+     ```
+
 Run all commands from the **project root** with the project environment activated (see [README](README.md#-getting-started). Figure scripts that read logs require having run the corresponding experiments first; see the [Rank Utilizer](README.md#rank-utilizer) section in the README for how to run experiments.
 
 Troubleshooting: if you face errors, check if the relevant experiment has been run and update the path hardcoded in the scripts that generate figures. 
