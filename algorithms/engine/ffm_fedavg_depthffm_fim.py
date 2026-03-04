@@ -244,7 +244,7 @@ def ffm_fedavg_depthffm_fim(args):
                 args.rank_list[i] = [x*2 for x in args.rank_list[i]]
             saved_block_ids_list = args.block_ids_list
             saved_rank_list = args.rank_list
-        elif t >= fim_prior_epoch and (t % args.fim_every_iter) == 0:
+        elif t >= fim_prior_epoch and ((t - fim_prior_epoch) % args.fim_every_iter) == 0:
             update_block_ids_list(args, dataset_fim, net_glob, t)
             saved_block_ids_list = args.block_ids_list
             saved_rank_list = args.rank_list
