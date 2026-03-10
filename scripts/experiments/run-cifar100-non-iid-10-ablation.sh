@@ -22,3 +22,12 @@ NCCL_DEBUG=INFO TORCH_DISTRIBUTED_DETAIL=DEBUG accelerate launch --main_process_
 
 # rank32
 NCCL_DEBUG=INFO TORCH_DISTRIBUTED_DETAIL=DEBUG accelerate launch --main_process_port 29505 main.py --config_name 'experiments/ablation/noniid-10-cifar/alternating-training-warm20-double-rank-int-rank32.yaml'
+
+# rank allocation freq 1
+NCCL_DEBUG=INFO TORCH_DISTRIBUTED_DETAIL=DEBUG accelerate launch --main_process_port 29505 main.py --config_name 'experiments/ablation/noniid-10-cifar/alternating-training-warm20-double-rank-int-rank24-freq1.yaml'
+
+# rank allocation freq 10
+NCCL_DEBUG=INFO TORCH_DISTRIBUTED_DETAIL=DEBUG accelerate launch --main_process_port 29505 main.py --config_name 'experiments/ablation/noniid-10-cifar/alternating-training-warm20-double-rank-int-rank24-freq10.yaml'
+
+# rank allocation freq 30
+NCCL_DEBUG=INFO TORCH_DISTRIBUTED_DETAIL=DEBUG accelerate launch --main_process_port 29505 main.py --config_name 'experiments/ablation/noniid-10-cifar/alternating-training-warm20-double-rank-int-rank24-freq30.yaml'
