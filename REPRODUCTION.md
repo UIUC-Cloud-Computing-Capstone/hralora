@@ -157,7 +157,14 @@ To reproduce results in **tables and figures** (Table V - VIII, Fig. 1, 3, 5, 6)
      bash scripts/experiments/run-ledgar-non-iid-20.sh
      ```
 
-9. **Table VIII (Ablation study with non-IID 10 data distribution)**  
+9. **Table VIII (Effect of rank allocation frequency with non-IID 10 setting)**  
+   Run the scripts below to obtain the logs of PEFT performance with different rank allocation frequency on CIFAR100 and LEDGAR datasets with 20 clients.
+     ```bash
+     bash scripts/experiments/run-cifar100-non-iid-10-ablation.sh
+     bash scripts/experiments/run-ledgar-non-iid-10-ablation.sh
+     ```
+
+10. **Table IX (Ablation study with non-IID 10 data distribution)**  
    Run the scripts below to obtain the logs of PEFT performance with different components disabled on CIFAR100 and LEDGAR datasets with 20 clients.
      ```bash
      bash scripts/experiments/run-cifar100-non-iid-10-ablation.sh
