@@ -1,4 +1,4 @@
-# 👋 Heterogeneous-Resource-Aware Federated Learning with Intelligent LoRA Allocation and Aggregation (HRALoRA)
+# 🔥 [IEEE CCGRID 2026 Accepted] Heterogeneous-Resource-Aware Federated Learning with Intelligent LoRA Allocation and Aggregation (HRALoRA)
 
 Federated learning (FL) enables privacy-preserving model training across distributed devices, while Low-Rank Adaptation (LoRA) reduces compute and communication. Heterogeneous client memory and network constraints, however, make it hard to choose LoRA ranks and aggregate updates from resource-diverse clients. **HRALoRA** tackles this end-to-end and matches or outperforms prior LoRA-based FL with about half the trainable parameters.
 
